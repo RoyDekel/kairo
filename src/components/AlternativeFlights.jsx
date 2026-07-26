@@ -247,6 +247,18 @@ export default function AlternativeFlights({
     setSelectedReturn(null);
   };
 
+  // Handle Swapping Departure and Arrival Airports
+  const handleSwapAirports = () => {
+    if (!localDestination) {
+      setLocalDestination(localOrigin);
+      setLocalOrigin('');
+      return;
+    }
+    const temp = localOrigin;
+    setLocalOrigin(localDestination);
+    setLocalDestination(temp);
+  };
+
   // Get active list depending on current step
   const activeFlightList = bookingStep === 1 ? outboundFlights : returnFlights;
 
@@ -337,14 +349,16 @@ export default function AlternativeFlights({
 
         <form onSubmit={handleSearch} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-          {/* Main inputs row */}
+          {/* Unified flex inputs row (prevents track collisions across all screens) */}
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '16px'
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'flex-end',
+            gap: '16px 12px',
+            width: '100%'
           }}>
             {/* Origin Select */}
-            <div className="input-group">
+            <div className="input-group" style={{ flex: '1 1 200px', minWidth: '170px' }}>
               <label className="input-label" htmlFor="departure-airport-select">Departure Airport</label>
               <select
                 id="departure-airport-select"
@@ -366,8 +380,46 @@ export default function AlternativeFlights({
               </select>
             </div>
 
+            {/* Circular Swap Button */}
+            <button
+              type="button"
+              onClick={handleSwapAirports}
+              title="Swap Departure and Arrival Airports"
+              aria-label="Swap Departure and Arrival Airports"
+              style={{
+                marginBottom: '2px',
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                background: 'var(--bg-tertiary, rgba(255, 255, 255, 0.06))',
+                border: '1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.2))',
+                color: 'var(--text-primary, #ffffff)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                flexShrink: 0
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--primary)';
+                e.currentTarget.style.color = 'var(--primary)';
+                e.currentTarget.style.boxShadow = '0 0 12px var(--primary-glow-weak)';
+                e.currentTarget.style.transform = 'rotate(180deg)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-glass-bright, rgba(255, 255, 255, 0.2))';
+                e.currentTarget.style.color = 'var(--text-primary, #ffffff)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                e.currentTarget.style.transform = 'rotate(0deg)';
+              }}
+            >
+              <ArrowLeftRight size={18} />
+            </button>
+
             {/* Destination Select */}
-            <div className="input-group">
+            <div className="input-group" style={{ flex: '1 1 200px', minWidth: '170px' }}>
               <label className="input-label" htmlFor="arrival-airport-select">Arrival Airport</label>
               <select
                 id="arrival-airport-select"
@@ -391,7 +443,7 @@ export default function AlternativeFlights({
             </div>
 
             {/* Departure Date */}
-            <div className="input-group">
+            <div className="input-group" style={{ flex: '1 1 140px', minWidth: '130px' }}>
               <label className="input-label">Departure Date</label>
               <input
                 type={localDepDate ? "date" : "text"}
@@ -415,7 +467,7 @@ export default function AlternativeFlights({
             </div>
 
             {/* Return Date */}
-            <div className="input-group">
+            <div className="input-group" style={{ flex: '1 1 140px', minWidth: '130px' }}>
               <label className="input-label">Return Date</label>
               <input
                 type={localRetDate ? "date" : "text"}
@@ -439,7 +491,7 @@ export default function AlternativeFlights({
             </div>
 
             {/* Passengers Selector with Dropdown Overlay */}
-            <div className="input-group" ref={passengerRef} style={{ position: 'relative' }}>
+            <div className="input-group" ref={passengerRef} style={{ flex: '1 1 150px', minWidth: '140px', position: 'relative' }}>
               <label className="input-label">Passengers</label>
               <button
                 type="button"
