@@ -62,11 +62,39 @@ export default function AlternativeFlights({
   };
 
   // Search inputs local states
+  const [tripType, setTripType] = useState(searchParams.tripType || 'round-trip');
   const [localOrigin, setLocalOrigin] = useState(searchParams.origin);
   const [localDestination, setLocalDestination] = useState(searchParams.destination);
   const [localDepDate, setLocalDepDate] = useState(searchParams.departureDate);
   const [localRetDate, setLocalRetDate] = useState(searchParams.returnDate);
   const [localStops, setLocalStops] = useState(searchParams.stops || '0');
+
+  // Multi-city legs state
+  const [localLegs, setLocalLegs] = useState([
+    { id: 1, origin: searchParams.origin || 'TLV', destination: searchParams.destination || 'KRK', depDate: searchParams.departureDate || '' },
+    { id: 2, origin: searchParams.destination || 'KRK', destination: 'LHR', depDate: searchParams.returnDate || '' }
+  ]);
+
+  const updateLeg = (id, field, value) => {
+    setLocalLegs(prev => prev.map(leg => leg.id === id ? { ...leg, [field]: value } : leg));
+  };
+
+  const addLeg = () => {
+    if (localLegs.length >= 5) return;
+    const lastLeg = localLegs[localLegs.length - 1];
+    const newLeg = {
+      id: Date.now(),
+      origin: lastLeg.destination || 'KRK',
+      destination: '',
+      depDate: ''
+    };
+    setLocalLegs(prev => [...prev, newLeg]);
+  };
+
+  const removeLeg = (id) => {
+    if (localLegs.length <= 2) return;
+    setLocalLegs(prev => prev.filter(leg => leg.id !== id));
+  };
 
   // Passenger dropdown states
   const [showPassengerDropdown, setShowPassengerDropdown] = useState(false);
@@ -202,35 +230,69 @@ export default function AlternativeFlights({
   // Handle Search Submission
   const handleSearch = (e) => {
     e.preventDefault();
-    if (!localDestination) {
-      setErrorMsg('Please select a destination.');
-      return;
-    }
-    if (localOrigin === localDestination) {
-      setErrorMsg('Departure and Arrival airports cannot be the same.');
-      return;
-    }
-    if (!localDepDate) {
-      setErrorMsg('Please select a departure date.');
-      return;
-    }
-    if (!localRetDate) {
-      setErrorMsg('Please select a return date.');
-      return;
-    }
-    if (new Date(localRetDate) <= new Date(localDepDate)) {
-      setErrorMsg('Return date must be after the departure date.');
-      return;
+
+    if (tripType === 'round-trip') {
+      if (!localDestination) {
+        setErrorMsg('Please select a destination.');
+        return;
+      }
+      if (localOrigin === localDestination) {
+        setErrorMsg('Departure and Arrival airports cannot be the same.');
+        return;
+      }
+      if (!localDepDate) {
+        setErrorMsg('Please select a departure date.');
+        return;
+      }
+      if (!localRetDate) {
+        setErrorMsg('Please select a return date.');
+        return;
+      }
+      if (new Date(localRetDate) <= new Date(localDepDate)) {
+        setErrorMsg('Return date must be after the departure date.');
+        return;
+      }
+    } else if (tripType === 'one-way') {
+      if (!localDestination) {
+        setErrorMsg('Please select a destination.');
+        return;
+      }
+      if (localOrigin === localDestination) {
+        setErrorMsg('Departure and Arrival airports cannot be the same.');
+        return;
+      }
+      if (!localDepDate) {
+        setErrorMsg('Please select a departure date.');
+        return;
+      }
+    } else if (tripType === 'multi-city') {
+      for (let i = 0; i < localLegs.length; i++) {
+        const leg = localLegs[i];
+        if (!leg.destination) {
+          setErrorMsg(`Please select a destination for Flight ${i + 1}.`);
+          return;
+        }
+        if (leg.origin === leg.destination) {
+          setErrorMsg(`Flight ${i + 1}: Departure and Arrival airports cannot be the same.`);
+          return;
+        }
+        if (!leg.depDate) {
+          setErrorMsg(`Please select a departure date for Flight ${i + 1}.`);
+          return;
+        }
+      }
     }
 
     setErrorMsg('');
 
     // Update global search parameters
     const newParams = {
-      origin: localOrigin,
-      destination: localDestination,
-      departureDate: localDepDate,
-      returnDate: localRetDate,
+      tripType,
+      origin: tripType === 'multi-city' ? localLegs[0].origin : localOrigin,
+      destination: tripType === 'multi-city' ? localLegs[0].destination : localDestination,
+      departureDate: tripType === 'multi-city' ? localLegs[0].depDate : localDepDate,
+      returnDate: tripType === 'round-trip' ? localRetDate : '',
+      multiCityLegs: tripType === 'multi-city' ? localLegs : [],
       passengers: {
         adults: localAdults,
         children: localChildren,
@@ -337,162 +399,69 @@ export default function AlternativeFlights({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
-      {/* 1. DYNAMIC ROUNDTRIP SEARCH PANEL FRAME */}
-      <div className="glass-panel" style={{ padding: '28px', overflow: 'visible' }}>
-        <h3 style={{ fontSize: '1.25rem', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Globe size={20} style={{ color: 'var(--primary)' }} />
-          Roundtrip Flight Search
-        </h3>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
-          Find and build premium roundtrip connections between key global terminals
-        </p>
+      {/* 1. DYNAMIC SEARCH PANEL FRAME */}
+      <div className="glass-panel" style={{ padding: '24px', overflow: 'visible', boxSizing: 'border-box' }}>
+        {/* Header Title */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.25rem', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Globe size={20} style={{ color: 'var(--primary)' }} />
+              Flight Search & Telemetry
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Find and build premium flight connections between key global terminals
+            </p>
+          </div>
+        </div>
 
-        <form onSubmit={handleSearch} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <form onSubmit={handleSearch} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
 
-          {/* Unified flex inputs row (prevents track collisions across all screens) */}
+          {/* Top Control Bar: Trip Type, Passengers, Direct Flights */}
           <div style={{
             display: 'flex',
             flexWrap: 'wrap',
-            alignItems: 'flex-end',
-            gap: '16px 12px',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px 16px',
+            background: 'var(--bg-tertiary, rgba(255, 255, 255, 0.04))',
+            padding: '10px 16px',
+            borderRadius: '8px',
+            border: '1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.12))',
+            boxSizing: 'border-box',
             width: '100%'
           }}>
-            {/* Origin Select */}
-            <div className="input-group" style={{ flex: '1 1 200px', minWidth: '170px' }}>
-              <label className="input-label" htmlFor="departure-airport-select">Departure Airport</label>
+            {/* Trip Type Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label htmlFor="trip-type-select" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Trip Type:
+              </label>
               <select
-                id="departure-airport-select"
-                value={localOrigin}
-                onChange={(e) => setLocalOrigin(e.target.value)}
+                id="trip-type-select"
+                aria-label="Trip Type"
+                value={tripType}
+                onChange={(e) => setTripType(e.target.value)}
                 className="input-field"
                 style={{
+                  padding: '6px 12px',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  borderRadius: '6px',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-glass-bright)',
                   cursor: 'pointer',
                   appearance: 'none',
-                  WebkitAppearance: 'none',
-                  MozAppearance: 'none'
+                  WebkitAppearance: 'none'
                 }}
               >
-                {Object.keys(AIRPORTS).map(code => (
-                  <option key={code} value={code}>
-                    {AIRPORTS[code].city} ({AIRPORTS[code].code}) - {AIRPORTS[code].country}
-                  </option>
-                ))}
+                <option value="round-trip">Round trip</option>
+                <option value="one-way">One-way</option>
+                <option value="multi-city">Multi-City</option>
               </select>
             </div>
 
-            {/* Circular Swap Button */}
-            <button
-              type="button"
-              onClick={handleSwapAirports}
-              title="Swap Departure and Arrival Airports"
-              aria-label="Swap Departure and Arrival Airports"
-              style={{
-                marginBottom: '2px',
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                background: 'var(--bg-tertiary, rgba(255, 255, 255, 0.06))',
-                border: '1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.2))',
-                color: 'var(--text-primary, #ffffff)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-                flexShrink: 0
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--primary)';
-                e.currentTarget.style.color = 'var(--primary)';
-                e.currentTarget.style.boxShadow = '0 0 12px var(--primary-glow-weak)';
-                e.currentTarget.style.transform = 'rotate(180deg)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-glass-bright, rgba(255, 255, 255, 0.2))';
-                e.currentTarget.style.color = 'var(--text-primary, #ffffff)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
-                e.currentTarget.style.transform = 'rotate(0deg)';
-              }}
-            >
-              <ArrowLeftRight size={18} />
-            </button>
-
-            {/* Destination Select */}
-            <div className="input-group" style={{ flex: '1 1 200px', minWidth: '170px' }}>
-              <label className="input-label" htmlFor="arrival-airport-select">Arrival Airport</label>
-              <select
-                id="arrival-airport-select"
-                value={localDestination}
-                onChange={(e) => setLocalDestination(e.target.value)}
-                className="input-field"
-                style={{
-                  cursor: 'pointer',
-                  appearance: 'none',
-                  WebkitAppearance: 'none',
-                  MozAppearance: 'none'
-                }}
-              >
-                <option value="" disabled hidden>Select a destination</option>
-                {Object.keys(AIRPORTS).map(code => (
-                  <option key={code} value={code}>
-                    {AIRPORTS[code].city} ({AIRPORTS[code].code}) - {AIRPORTS[code].country}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Departure Date */}
-            <div className="input-group" style={{ flex: '1 1 140px', minWidth: '130px' }}>
-              <label className="input-label">Departure Date</label>
-              <input
-                type={localDepDate ? "date" : "text"}
-                placeholder="Departure"
-                value={localDepDate}
-                onFocus={(e) => {
-                  e.target.type = "date";
-                  try {
-                    e.target.showPicker();
-                  } catch (err) {}
-                }}
-                onBlur={(e) => {
-                  if (!localDepDate) {
-                    e.target.type = "text";
-                  }
-                }}
-                onChange={(e) => setLocalDepDate(e.target.value)}
-                className="input-field"
-                min={getLocalDateString()}
-              />
-            </div>
-
-            {/* Return Date */}
-            <div className="input-group" style={{ flex: '1 1 140px', minWidth: '130px' }}>
-              <label className="input-label">Return Date</label>
-              <input
-                type={localRetDate ? "date" : "text"}
-                placeholder="Return"
-                value={localRetDate}
-                onFocus={(e) => {
-                  e.target.type = "date";
-                  try {
-                    e.target.showPicker();
-                  } catch (err) {}
-                }}
-                onBlur={(e) => {
-                  if (!localRetDate) {
-                    e.target.type = "text";
-                  }
-                }}
-                onChange={(e) => setLocalRetDate(e.target.value)}
-                className="input-field"
-                min={localDepDate || getLocalDateString()}
-              />
-            </div>
-
-            {/* Passengers Selector with Dropdown Overlay */}
-            <div className="input-group" ref={passengerRef} style={{ flex: '1 1 150px', minWidth: '140px', position: 'relative' }}>
-              <label className="input-label">Passengers</label>
+            {/* Passengers Selector */}
+            <div className="input-group" ref={passengerRef} style={{ position: 'relative', margin: 0 }}>
               <button
                 type="button"
                 onClick={() => setShowPassengerDropdown(!showPassengerDropdown)}
@@ -501,25 +470,29 @@ export default function AlternativeFlights({
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  background: 'var(--bg-tertiary)',
-                  textAlign: 'left',
-                  cursor: 'pointer'
+                  background: 'var(--bg-secondary)',
+                  gap: '8px',
+                  padding: '6px 12px',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  border: '1px solid var(--border-glass-bright)',
+                  borderRadius: '6px'
                 }}
               >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Users size={16} style={{ color: 'var(--primary)' }} />
                   {totalPassengers} Passenger{totalPassengers > 1 ? 's' : ''}
                 </span>
                 <ChevronDown size={14} style={{ color: 'var(--text-secondary)' }} />
               </button>
 
-              {/* Passenger Dropdown Submenu Frame */}
+              {/* Passenger Submenu Frame */}
               {showPassengerDropdown && (
                 <div style={{
                   position: 'absolute',
                   top: '100%',
-                  left: 0,
                   right: 0,
+                  minWidth: '220px',
                   background: 'var(--bg-secondary)',
                   border: '1px solid var(--border-glass-bright)',
                   borderRadius: 'var(--radius-sm)',
@@ -531,7 +504,6 @@ export default function AlternativeFlights({
                   flexDirection: 'column',
                   gap: '12px'
                 }}>
-                  {/* Adults */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Adults</div>
@@ -547,7 +519,6 @@ export default function AlternativeFlights({
                     />
                   </div>
 
-                  {/* Children */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Children</div>
@@ -563,7 +534,6 @@ export default function AlternativeFlights({
                     />
                   </div>
 
-                  {/* Infants */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Infants</div>
@@ -590,18 +560,8 @@ export default function AlternativeFlights({
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Validation errors */}
-          {errorMsg && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--danger)', fontSize: '0.8rem' }}>
-              <ShieldAlert size={14} />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {/* Direct flights checkbox and Search Button Container */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap', gap: '12px' }}>
+            {/* Direct flights checkbox */}
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
               <input
                 type="checkbox"
@@ -616,6 +576,269 @@ export default function AlternativeFlights({
               />
               <span>Direct flights only</span>
             </label>
+          </div>
+
+          {/* Input Fields Row for Round trip and One-way */}
+          {tripType !== 'multi-city' ? (
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'flex-end',
+              gap: '16px 12px',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}>
+              {/* Departure Airport Select */}
+              <div className="input-group" style={{ flex: '1 1 200px', minWidth: '170px' }}>
+                <label className="input-label" htmlFor="departure-airport-select">Departure Airport</label>
+                <select
+                  id="departure-airport-select"
+                  value={localOrigin}
+                  onChange={(e) => setLocalOrigin(e.target.value)}
+                  className="input-field"
+                  style={{
+                    cursor: 'pointer',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none'
+                  }}
+                >
+                  {Object.keys(AIRPORTS).map(code => (
+                    <option key={code} value={code}>
+                      {AIRPORTS[code].city} ({AIRPORTS[code].code}) - {AIRPORTS[code].country}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Circular Swap Button */}
+              <button
+                type="button"
+                onClick={handleSwapAirports}
+                title="Swap Departure and Arrival Airports"
+                aria-label="Swap Departure and Arrival Airports"
+                style={{
+                  marginBottom: '2px',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: 'var(--bg-tertiary, rgba(255, 255, 255, 0.06))',
+                  border: '1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.2))',
+                  color: 'var(--text-primary, #ffffff)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                  flexShrink: 0
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--primary)';
+                  e.currentTarget.style.color = 'var(--primary)';
+                  e.currentTarget.style.boxShadow = '0 0 12px var(--primary-glow-weak)';
+                  e.currentTarget.style.transform = 'rotate(180deg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-glass-bright, rgba(255, 255, 255, 0.2))';
+                  e.currentTarget.style.color = 'var(--text-primary, #ffffff)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                  e.currentTarget.style.transform = 'rotate(0deg)';
+                }}
+              >
+                <ArrowLeftRight size={18} />
+              </button>
+
+              {/* Arrival Airport Select */}
+              <div className="input-group" style={{ flex: '1 1 200px', minWidth: '170px' }}>
+                <label className="input-label" htmlFor="arrival-airport-select">Arrival Airport</label>
+                <select
+                  id="arrival-airport-select"
+                  value={localDestination}
+                  onChange={(e) => setLocalDestination(e.target.value)}
+                  className="input-field"
+                  style={{
+                    cursor: 'pointer',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none'
+                  }}
+                >
+                  <option value="" disabled hidden>Select a destination</option>
+                  {Object.keys(AIRPORTS).map(code => (
+                    <option key={code} value={code}>
+                      {AIRPORTS[code].city} ({AIRPORTS[code].code}) - {AIRPORTS[code].country}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Departure Date */}
+              <div className="input-group" style={{ flex: '1 1 140px', minWidth: '130px' }}>
+                <label className="input-label">Departure Date</label>
+                <input
+                  type={localDepDate ? "date" : "text"}
+                  placeholder="Departure"
+                  value={localDepDate}
+                  onFocus={(e) => {
+                    e.target.type = "date";
+                    try {
+                      e.target.showPicker();
+                    } catch (err) {}
+                  }}
+                  onBlur={(e) => {
+                    if (!localDepDate) {
+                      e.target.type = "text";
+                    }
+                  }}
+                  onChange={(e) => setLocalDepDate(e.target.value)}
+                  className="input-field"
+                  min={getLocalDateString()}
+                />
+              </div>
+
+              {/* Return Date - Only rendered for Round Trip */}
+              {tripType === 'round-trip' && (
+                <div className="input-group" style={{ flex: '1 1 140px', minWidth: '130px' }}>
+                  <label className="input-label">Return Date</label>
+                  <input
+                    type={localRetDate ? "date" : "text"}
+                    placeholder="Return"
+                    value={localRetDate}
+                    onFocus={(e) => {
+                      e.target.type = "date";
+                      try {
+                        e.target.showPicker();
+                      } catch (err) {}
+                    }}
+                    onBlur={(e) => {
+                      if (!localRetDate) {
+                        e.target.type = "text";
+                      }
+                    }}
+                    onChange={(e) => setLocalRetDate(e.target.value)}
+                    className="input-field"
+                    min={localDepDate || getLocalDateString()}
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Multi-City Leg Rows */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+              {localLegs.map((leg, index) => (
+                <div key={leg.id} style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'flex-end',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  background: 'var(--bg-secondary, rgba(255, 255, 255, 0.02))',
+                  border: '1px solid var(--border-glass, rgba(255, 255, 255, 0.08))',
+                  borderRadius: '8px',
+                  boxSizing: 'border-box'
+                }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '8px', minWidth: '65px' }}>
+                    Flight {index + 1}
+                  </span>
+
+                  <div className="input-group" style={{ flex: '1 1 170px', minWidth: '140px' }}>
+                    <label className="input-label">From</label>
+                    <select
+                      value={leg.origin}
+                      onChange={(e) => updateLeg(leg.id, 'origin', e.target.value)}
+                      className="input-field"
+                    >
+                      {Object.keys(AIRPORTS).map(code => (
+                        <option key={code} value={code}>
+                          {AIRPORTS[code].city} ({AIRPORTS[code].code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="input-group" style={{ flex: '1 1 170px', minWidth: '140px' }}>
+                    <label className="input-label">To</label>
+                    <select
+                      value={leg.destination}
+                      onChange={(e) => updateLeg(leg.id, 'destination', e.target.value)}
+                      className="input-field"
+                    >
+                      <option value="" disabled hidden>Select destination</option>
+                      {Object.keys(AIRPORTS).map(code => (
+                        <option key={code} value={code}>
+                          {AIRPORTS[code].city} ({AIRPORTS[code].code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="input-group" style={{ flex: '1 1 140px', minWidth: '130px' }}>
+                    <label className="input-label">Date</label>
+                    <input
+                      type="date"
+                      value={leg.depDate}
+                      onChange={(e) => updateLeg(leg.id, 'depDate', e.target.value)}
+                      className="input-field"
+                      min={getLocalDateString()}
+                    />
+                  </div>
+
+                  {localLegs.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => removeLeg(leg.id)}
+                      title="Remove flight leg"
+                      style={{
+                        marginBottom: '2px',
+                        padding: '8px 12px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: '#ef4444',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 600
+                      }}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {localLegs.length < 5 && (
+                <button
+                  type="button"
+                  onClick={addLeg}
+                  style={{
+                    alignSelf: 'flex-start',
+                    padding: '8px 16px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-glass-bright)',
+                    borderRadius: '6px',
+                    color: 'var(--primary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  + Add Flight Leg
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Validation errors */}
+          {errorMsg && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--danger)', fontSize: '0.8rem' }}>
+              <ShieldAlert size={14} />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Search Button Container */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '4px' }}>
             <button type="submit" className="btn btn-primary" style={{ minWidth: '180px', padding: '12px' }}>
               Search Flights
             </button>
@@ -623,16 +846,27 @@ export default function AlternativeFlights({
         </form>
       </div>
 
-      {/* 2. DWO-STEP BOOKING SELECTION FLOW */}
+      {/* 2. STEP BOOKING SELECTION FLOW */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
         {/* Step Indicator Header */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', padding: '12px 16px' }}>
-          {[
-            { step: 1, label: 'Select Outbound' },
-            { step: 2, label: 'Select Return' },
-            { step: 3, label: 'Confirm Bundle' }
-          ].map((item) => {
+          {(tripType === 'one-way'
+            ? [
+                { step: 1, label: 'Select Flight' },
+                { step: 2, label: 'Confirm Flight' }
+              ]
+            : tripType === 'multi-city'
+            ? [
+                ...localLegs.map((leg, idx) => ({ step: idx + 1, label: `Flight ${idx + 1}` })),
+                { step: localLegs.length + 1, label: 'Confirm Package' }
+              ]
+            : [
+                { step: 1, label: 'Select Outbound' },
+                { step: 2, label: 'Select Return' },
+                { step: 3, label: 'Confirm Bundle' }
+              ]
+          ).map((item, idx, arr) => {
             const isCompleted = bookingStep > item.step;
             const isCurrent = bookingStep === item.step;
             return (
@@ -656,7 +890,7 @@ export default function AlternativeFlights({
                     {item.label}
                   </span>
                 </div>
-                {item.step < 3 && <div style={{ flexGrow: 0.1, height: '1.5px', background: 'var(--border-glass)' }}></div>}
+                {idx < arr.length - 1 && <div style={{ flexGrow: 0.1, height: '1.5px', background: 'var(--border-glass)' }}></div>}
               </React.Fragment>
             );
           })}
@@ -944,14 +1178,19 @@ export default function AlternativeFlights({
           </div>
         )}
 
-        {/* STEP 3: BUNDLE CONFIRMATION FRAME */}
-        {bookingStep === 3 && selectedOutbound && selectedReturn && (
+        {/* STEP CONFIRMATION FRAME (Roundtrip / One-Way) */}
+        {((tripType === 'round-trip' && bookingStep === 3 && selectedOutbound && selectedReturn) ||
+          (tripType === 'one-way' && bookingStep === 2 && selectedOutbound)) && (
           <div className="glass-panel animate-fade-in" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
             {/* Header info */}
             <div style={{ textAlign: 'center' }}>
-              <span className="badge badge-success" style={{ padding: '4px 12px', fontSize: '0.75rem', marginBottom: '8px' }}>Roundtrip Configured</span>
-              <h4 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Confirm Your Roundtrip Bundle</h4>
+              <span className="badge badge-success" style={{ padding: '4px 12px', fontSize: '0.75rem', marginBottom: '8px' }}>
+                {tripType === 'one-way' ? 'One-Way Configured' : 'Roundtrip Configured'}
+              </span>
+              <h4 style={{ fontSize: '1.4rem', fontWeight: 800 }}>
+                {tripType === 'one-way' ? 'Confirm Your One-Way Flight' : 'Confirm Your Roundtrip Bundle'}
+              </h4>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 Review details and activate telemetry HUD maps
               </p>
@@ -960,7 +1199,7 @@ export default function AlternativeFlights({
             {/* Grid display outbound / return side-by-side */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gridTemplateColumns: tripType === 'one-way' ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
               gap: '20px'
             }}>
               {/* Outbound Ticket Card */}
@@ -970,7 +1209,7 @@ export default function AlternativeFlights({
                   <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedOutbound.airlineName}</span>
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedOutbound.flightNumber}</span>
                 </div>
-                <div style={{ display: 'flex', justify: 'space-between', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '4px' }}>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedOutbound.departureTime}</div>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedOutbound.origin}</div>
@@ -987,29 +1226,31 @@ export default function AlternativeFlights({
                 </div>
               </div>
 
-              {/* Return Ticket Card */}
-              <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase' }}>Return Leg</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedReturn.airlineName}</span>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedReturn.flightNumber}</span>
-                </div>
-                <div style={{ display: 'flex', justify: 'space-between', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '4px' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedReturn.departureTime}</div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedReturn.origin}</div>
+              {/* Return Ticket Card (Roundtrip only) */}
+              {tripType === 'round-trip' && selectedReturn && (
+                <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase' }}>Return Leg</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedReturn.airlineName}</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedReturn.flightNumber}</span>
                   </div>
-                  <ArrowRight size={14} style={{ color: 'var(--text-muted)' }} />
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedReturn.arrivalTime}</div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedReturn.destination}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '4px' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedReturn.departureTime}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedReturn.origin}</div>
+                    </div>
+                    <ArrowRight size={14} style={{ color: 'var(--text-muted)' }} />
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedReturn.arrivalTime}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedReturn.destination}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    <span>Date: {searchParams.returnDate}</span>
+                    <span>Duration: {selectedReturn.duration}</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  <span>Date: {searchParams.returnDate}</span>
-                  <span>Duration: {selectedReturn.duration}</span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Detailed passenger cost breakdown card */}
@@ -1027,18 +1268,20 @@ export default function AlternativeFlights({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                 {/* Adults */}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Adults ({searchParams.passengers.adults} × Outbound: ${selectedOutbound.price} + Return: ${selectedReturn.price})</span>
+                  <span>
+                    Adults ({searchParams.passengers.adults} × ${selectedOutbound.price}{selectedReturn ? ` + $${selectedReturn.price}` : ''})
+                  </span>
                   <span style={{ color: '#fff', fontWeight: 600 }}>
-                    ${searchParams.passengers.adults * (selectedOutbound.price + selectedReturn.price)}
+                    ${searchParams.passengers.adults * (selectedOutbound.price + (selectedReturn ? selectedReturn.price : 0))}
                   </span>
                 </div>
 
                 {/* Children */}
                 {searchParams.passengers.children > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Children ({searchParams.passengers.children} × Outbound: ${selectedOutbound.passengerCosts.children / searchParams.passengers.children} + Return: ${selectedReturn.passengerCosts.children / searchParams.passengers.children})</span>
+                    <span>Children ({searchParams.passengers.children})</span>
                     <span style={{ color: '#fff', fontWeight: 600 }}>
-                      ${selectedOutbound.passengerCosts.children + selectedReturn.passengerCosts.children}
+                      ${selectedOutbound.passengerCosts.children + (selectedReturn ? selectedReturn.passengerCosts.children : 0)}
                     </span>
                   </div>
                 )}
@@ -1046,18 +1289,18 @@ export default function AlternativeFlights({
                 {/* Infants */}
                 {searchParams.passengers.infants > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Infants ({searchParams.passengers.infants} × Outbound: ${selectedOutbound.passengerCosts.infants / searchParams.passengers.infants} + Return: ${selectedReturn.passengerCosts.infants / searchParams.passengers.infants})</span>
+                    <span>Infants ({searchParams.passengers.infants})</span>
                     <span style={{ color: '#fff', fontWeight: 600 }}>
-                      ${selectedOutbound.passengerCosts.infants + selectedReturn.passengerCosts.infants}
+                      ${selectedOutbound.passengerCosts.infants + (selectedReturn ? selectedReturn.passengerCosts.infants : 0)}
                     </span>
                   </div>
                 )}
               </div>
 
               <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '10px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Total Combined Cost:</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Total Fare:</span>
                 <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', filter: 'drop-shadow(0 0 6px var(--primary-glow-weak))' }}>
-                  ${selectedOutbound.passengerCosts.total + selectedReturn.passengerCosts.total}
+                  ${selectedOutbound.passengerCosts.total + (selectedReturn ? selectedReturn.passengerCosts.total : 0)}
                 </span>
               </div>
             </div>
@@ -1066,8 +1309,13 @@ export default function AlternativeFlights({
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '8px' }}>
               <button
                 onClick={() => {
-                  setSelectedReturn(null);
-                  setBookingStep(2);
+                  if (tripType === 'one-way') {
+                    setSelectedOutbound(null);
+                    setBookingStep(1);
+                  } else {
+                    setSelectedReturn(null);
+                    setBookingStep(2);
+                  }
                 }}
                 className="btn btn-secondary"
                 style={{ minWidth: '150px' }}
@@ -1080,7 +1328,7 @@ export default function AlternativeFlights({
                 className="btn btn-primary"
                 style={{ minWidth: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
-                <Check size={16} /> Track Roundtrip Bundle
+                <Check size={16} /> {tripType === 'one-way' ? 'Track One-Way Flight' : 'Track Roundtrip Bundle'}
               </button>
             </div>
 

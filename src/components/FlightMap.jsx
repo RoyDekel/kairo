@@ -76,7 +76,9 @@ export default function FlightMap({ telemetry, activeFlight, theme }) {
     });
 
     // Move zoom control to bottom right to prevent overlapping HUD overlays
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    if (L.control && L.control.zoom) {
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+    }
 
     mapRef.current = map;
 

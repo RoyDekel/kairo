@@ -45,6 +45,9 @@ vi.mock('leaflet', () => ({
     polyline: vi.fn(() => mockPolyline),
     divIcon: vi.fn((options) => options),
     latLngBounds: vi.fn((bounds) => bounds),
+    control: {
+      zoom: vi.fn(() => mockLayer)
+    }
   }
 }));
 

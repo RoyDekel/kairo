@@ -15,7 +15,7 @@ describe('Booking Flow Integration Tests', () => {
     fireEvent.click(findFlightsTab);
     
     // Verify search panel is loaded
-    expect(screen.getByText('Roundtrip Flight Search')).toBeInTheDocument();
+    expect(screen.getByText('Flight Search & Telemetry')).toBeInTheDocument();
 
     // Select Arrival Airport as 'KRK'
     const arrivalSelect = screen.getByLabelText('Arrival Airport');
@@ -63,6 +63,43 @@ describe('Booking Flow Integration Tests', () => {
     expect(screen.getByText('Active Route')).toBeInTheDocument();
   });
 
+  test('supports One-way trip selection and flow', async () => {
+    render(<App />);
+
+    // Navigate to "Find Flights"
+    fireEvent.click(screen.getByText('Find Flights'));
+
+    // Select One-way trip type
+    const tripTypeSelect = screen.getByLabelText('Trip Type');
+    fireEvent.change(tripTypeSelect, { target: { value: 'one-way' } });
+
+    // Return date should be hidden for one-way
+    expect(screen.queryByPlaceholderText('Return')).not.toBeInTheDocument();
+
+    // Select Arrival Airport as 'LHR'
+    const arrivalSelect = screen.getByLabelText('Arrival Airport');
+    fireEvent.change(arrivalSelect, { target: { value: 'LHR' } });
+
+    // Set Departure Date
+    const departureDateInput = screen.getByPlaceholderText('Departure');
+    fireEvent.change(departureDateInput, { target: { value: '2026-09-01' } });
+
+    // Click Search Flights
+    const searchButton = screen.getByRole('button', { name: /Search Flights/i });
+    fireEvent.click(searchButton);
+
+    // Outbound flights listed
+    const selectButtons = await screen.findAllByRole('button', { name: /Select Outbound/i });
+    expect(selectButtons.length).toBe(4);
+
+    // Select flight
+    fireEvent.click(selectButtons[0]);
+
+    // Transition directly to One-Way confirmation step
+    expect(screen.getByText('Confirm Your One-Way Flight')).toBeInTheDocument();
+    expect(screen.getByText('Track One-Way Flight')).toBeInTheDocument();
+  });
+
   test('validates origin and destination cannot be identical', async () => {
     render(<App />);
 
@@ -77,9 +114,9 @@ describe('Booking Flow Integration Tests', () => {
     fireEvent.change(departureSelect, { target: { value: 'KRK' } });
     fireEvent.change(arrivalSelect, { target: { value: 'KRK' } });
 
-    // Submit form (Search button or form submit)
-    const searchForm = screen.getByText('Roundtrip Flight Search').closest('div').querySelector('form');
-    fireEvent.submit(searchForm);
+    // Submit form by clicking Search Flights
+    const searchButton = screen.getByRole('button', { name: /Search Flights/i });
+    fireEvent.click(searchButton);
 
     // Check for error validation message
     expect(screen.getByText('Departure and Arrival airports cannot be the same.')).toBeInTheDocument();

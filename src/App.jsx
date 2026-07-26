@@ -30,6 +30,7 @@ export default function App() {
 
   // 1. Search Query Parameters
   const [searchParams, setSearchParams] = useState({
+    tripType: 'round-trip',
     origin: 'TLV',
     destination: '',
     departureDate: '',
