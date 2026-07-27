@@ -2,10 +2,17 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, test, expect } from 'vitest';
 import App from '../App';
+import { AuthProvider } from '../contexts/AuthProvider';
+
+const renderApp = () => render(
+  <AuthProvider>
+    <App />
+  </AuthProvider>
+);
 
 describe('Booking Flow Integration Tests', () => {
   test('successfully performs search and completes booking flow step-by-step', async () => {
-    render(<App />);
+    renderApp();
 
     // 1. Initially on Dashboard HUD
     expect(screen.getByText('Dashboard HUD')).toBeInTheDocument();
@@ -64,7 +71,7 @@ describe('Booking Flow Integration Tests', () => {
   });
 
   test('supports One-way trip selection and flow', async () => {
-    render(<App />);
+    renderApp();
 
     // Navigate to "Find Flights"
     fireEvent.click(screen.getByText('Find Flights'));
@@ -101,7 +108,7 @@ describe('Booking Flow Integration Tests', () => {
   });
 
   test('validates origin and destination cannot be identical', async () => {
-    render(<App />);
+    renderApp();
 
     // Navigate to "Find Flights"
     fireEvent.click(screen.getByText('Find Flights'));

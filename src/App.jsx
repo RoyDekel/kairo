@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plane, Calendar, Bookmark, Bell, Compass, Activity, Sun, Moon } from 'lucide-react';
+import { Plane, Calendar, Bookmark, Bell, Compass, Activity, Sun, Moon, LogIn, LogOut } from 'lucide-react';
 import { 
   AIRPORTS, 
   generateFlightsForRoute,
@@ -12,8 +12,18 @@ import FlightDetails from './components/FlightDetails';
 import AlternativeFlights from './components/AlternativeFlights';
 import Watchlist from './components/Watchlist';
 import AlertsManager from './components/AlertsManager';
+import AuthModal from './components/AuthModal';
+import { useAuth } from './contexts/AuthProvider';
+import * as dataService from './lib/dataService';
 
 export default function App() {
+  // Auth state
+  const { user, isAuthenticated, signOut } = useAuth();
+  const userId = user?.id;
+
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
   // 0. Theme State
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'light';
@@ -25,8 +35,8 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('dark-theme');
     }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+    dataService.savePreferences(userId, { theme });
+  }, [theme, userId]);
 
   // 1. Search Query Parameters
   const [searchParams, setSearchParams] = useState({
@@ -168,18 +178,33 @@ export default function App() {
     };
   }, []);
 
-  // Sync to LocalStorage
+  // Cloud / Local data loading effect when user changes
   useEffect(() => {
-    localStorage.setItem('watchlist', JSON.stringify(watchlist));
-  }, [watchlist]);
+    let active = true;
+    const loadUserData = async () => {
+      if (userId) {
+        await dataService.migrateLocalStorage(userId);
+      }
+      const [wList, aList, nList, prefs] = await Promise.all([
+        dataService.loadWatchlist(userId),
+        dataService.loadAlerts(userId),
+        dataService.loadNotifications(userId),
+        dataService.loadPreferences(userId)
+      ]);
 
-  useEffect(() => {
-    localStorage.setItem('alerts', JSON.stringify(alerts));
-  }, [alerts]);
+      if (active) {
+        setWatchlist(wList);
+        setAlerts(aList);
+        setNotifications(nList);
+        if (prefs?.theme) setTheme(prefs.theme);
+      }
+    };
 
-  useEffect(() => {
-    localStorage.setItem('notifications', JSON.stringify(notifications));
-  }, [notifications]);
+    loadUserData();
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   // Handle active leg switching
   const handleLegSwitch = (targetLeg) => {
@@ -314,13 +339,20 @@ export default function App() {
   }, [activeRoundtrip, activeFlight.id, alerts]);
 
   // Watchlist Actions
-  const handleToggleWatchlist = (flight) => {
+  const handleToggleWatchlist = async (flight) => {
     const exists = watchlist.some((w) => w.id === flight.id);
     if (exists) {
-      setWatchlist(watchlist.filter((w) => w.id !== flight.id));
+      setWatchlist((prev) => prev.filter((w) => w.id !== flight.id));
+      await dataService.removeWatchlistItem(userId, flight.id);
     } else {
-      setWatchlist([...watchlist, flight]);
+      setWatchlist((prev) => [...prev, flight]);
+      await dataService.saveWatchlistItem(userId, flight);
     }
+  };
+
+  const handleRemoveFromWatchlist = async (id) => {
+    setWatchlist((prev) => prev.filter((w) => w.id !== id));
+    await dataService.removeWatchlistItem(userId, id);
   };
 
   const handleTrackFromWatchlist = (flight, dateStr) => {
@@ -437,8 +469,46 @@ export default function App() {
           </button>
         </div>
 
-        {/* NOTIFICATIONS & THEME HUD */}
+        {/* AUTH, NOTIFICATIONS & THEME HUD */}
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {/* Auth Button or User Avatar */}
+          {isAuthenticated ? (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="user-avatar-btn"
+                title={user.email}
+              >
+                {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
+              </button>
+              {isUserMenuOpen && (
+                <div className="user-dropdown animate-fade-in">
+                  <div className="user-dropdown-email">{user.email}</div>
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setIsUserMenuOpen(false);
+                    }}
+                    className="user-dropdown-signout"
+                  >
+                    <LogOut size={14} />
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="btn btn-secondary"
+              style={{ padding: '8px 14px', fontSize: '0.8rem', gap: '6px' }}
+              title="Sign in to sync watchlists and alerts to the cloud"
+            >
+              <LogIn size={16} />
+              Sign In
+            </button>
+          )}
+
           <button
             onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
             className="btn-icon"
@@ -573,7 +643,7 @@ export default function App() {
         {activeTab === 'watchlist' && (
           <Watchlist
             watchlist={watchlist}
-            onRemoveFromWatchlist={(id) => setWatchlist(watchlist.filter(w => w.id !== id))}
+            onRemoveFromWatchlist={handleRemoveFromWatchlist}
             onTrackFlight={handleTrackFromWatchlist}
             activeFlight={activeFlight}
           />
@@ -603,6 +673,12 @@ export default function App() {
       }}>
         AeroTrack Flight Data Client © 2026. Roundtrip searches and live telemetry mapping.
       </footer>
+
+      {/* AUTH MODAL */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
 
     </div>
   );

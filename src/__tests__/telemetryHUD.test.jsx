@@ -2,10 +2,17 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, test, expect } from 'vitest';
 import App from '../App';
+import { AuthProvider } from '../contexts/AuthProvider';
+
+const renderApp = () => render(
+  <AuthProvider>
+    <App />
+  </AuthProvider>
+);
 
 describe('Telemetry HUD and Watchlist/Alerts UI Tests', () => {
   test('controls the simulator HUD (Play/Pause, speed selection, reset)', () => {
-    render(<App />);
+    renderApp();
 
     // 1. Initial simulation state (paused)
     const playButton = screen.getByRole('button', { name: /Start Simulation/i });
@@ -38,7 +45,7 @@ describe('Telemetry HUD and Watchlist/Alerts UI Tests', () => {
   });
 
   test('adds flight to watchlist and removes it', () => {
-    render(<App />);
+    renderApp();
 
     // 1. Click Track/Watch button in Dashboard HUD
     const watchButton = screen.getByRole('button', { name: /Track/i });
