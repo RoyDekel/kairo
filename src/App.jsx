@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plane, Calendar, Bookmark, Bell, Compass, Activity, Sun, Moon, LogIn, LogOut } from 'lucide-react';
+import { Plane, Calendar, Bookmark, Bell, Compass, Activity, Sun, Moon, LogIn, LogOut, Sparkles, Globe } from 'lucide-react';
 import { 
   AIRPORTS, 
   generateFlightsForRoute,
@@ -13,6 +13,8 @@ import AlternativeFlights from './components/AlternativeFlights';
 import Watchlist from './components/Watchlist';
 import AlertsManager from './components/AlertsManager';
 import AuthModal from './components/AuthModal';
+import LandingPage from './components/LandingPage';
+import AIDestinationExplorer from './components/AIDestinationExplorer';
 import { useAuth } from './contexts/AuthProvider';
 import * as dataService from './lib/dataService';
 
@@ -556,6 +558,8 @@ export default function App() {
         overflowX: 'auto'
       }}>
         {[
+          { id: 'landing', label: 'Overview & SaaS', icon: <Globe size={16} /> },
+          { id: 'ai-explorer', label: 'AI Event Explorer', icon: <Sparkles size={16} /> },
           { id: 'dashboard', label: 'Dashboard HUD', icon: <Activity size={16} /> },
           { id: 'alternative', label: 'Find Flights', icon: <Compass size={16} /> },
           { id: 'watchlist', label: 'Watchlist', icon: <Bookmark size={16} /> },
@@ -587,6 +591,32 @@ export default function App() {
       {/* TAB VIEWS CONTROLLER */}
       <main className="animate-fade-in" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
         
+        {/* VIEW 0: SAAS MARKETING LANDING PAGE */}
+        {activeTab === 'landing' && (
+          <LandingPage
+            onExploreAI={(params) => {
+              if (params) {
+                setSearchParams((prev) => ({ ...prev, ...params }));
+              }
+              setActiveTab('ai-explorer');
+            }}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+            setActiveTab={setActiveTab}
+          />
+        )}
+
+        {/* VIEW 0.5: AI EVENT & DESTINATION EXPLORER */}
+        {activeTab === 'ai-explorer' && (
+          <AIDestinationExplorer
+            searchParams={searchParams}
+            setSearchParams={setSearchParams}
+            setActiveRoundtrip={setActiveRoundtrip}
+            setActiveTab={setActiveTab}
+            onToggleWatchlist={handleToggleWatchlist}
+            watchlist={watchlist}
+          />
+        )}
+
         {/* VIEW 1: DASHBOARD HUD */}
         {activeTab === 'dashboard' && (
           <div className="dashboard-grid">
