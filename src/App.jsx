@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plane, Calendar, Bookmark, Bell, Compass, Activity, Sun, Moon, LogIn, LogOut, Sparkles, Globe } from 'lucide-react';
+import { Plane, Calendar, Bookmark, Bell, Compass, Activity, Sun, Moon, LogIn, LogOut, Sparkles, Globe, ArrowRight } from 'lucide-react';
 import { 
   AIRPORTS, 
   generateFlightsForRoute,
@@ -125,6 +125,13 @@ export default function App() {
   // 6. Navigation Tabs (Default page: SaaS Landing Page)
   const [activeTab, setActiveTab] = useState('landing');
   const [showNotifBadge, setShowNotifBadge] = useState(false);
+
+  // Auto-redirect authenticated user away from landing page to AI Event Explorer workspace
+  useEffect(() => {
+    if (user && activeTab === 'landing') {
+      setActiveTab('ai-explorer');
+    }
+  }, [user, activeTab]);
 
   const prevStatusRef = useRef('Scheduled');
 
@@ -429,25 +436,29 @@ export default function App() {
 
         {/* AUTH, NOTIFICATIONS & NAVIGATION HUD */}
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {/* Landing / Web App Mode Switcher */}
-          {activeTab === 'landing' ? (
+          {/* Header CTA Button - Displayed ONLY when user is NOT logged in */}
+          {!user && (
             <button
               onClick={() => setActiveTab('ai-explorer')}
-              className="btn btn-primary"
-              style={{ padding: '8px 16px', fontSize: '0.8rem', gap: '6px' }}
+              style={{
+                background: 'linear-gradient(135deg, #0284c7, #1d4ed8)',
+                border: 'none',
+                borderRadius: '50px',
+                color: '#ffffff',
+                padding: '8px 18px',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
             >
               <Sparkles size={16} />
-              Launch Web App
-            </button>
-          ) : (
-            <button
-              onClick={() => setActiveTab('landing')}
-              className="btn btn-secondary"
-              style={{ padding: '8px 14px', fontSize: '0.8rem', gap: '6px' }}
-              title="Return to Product Home"
-            >
-              <Globe size={16} />
-              Product Home
+              <span>Try KAIRO AI Explorer</span>
+              <ArrowRight size={16} />
             </button>
           )}
 

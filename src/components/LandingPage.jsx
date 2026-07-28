@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Sparkles, Plane, Activity, Bell, ArrowRight, CheckCircle, Zap, Ticket, Globe, Star, TrendingDown, Clock, ShieldCheck, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { AIRPORTS } from '../utils/flightSimulator';
 import { getZeroClickDemoData } from '../utils/priceConfidenceEngine';
+import { useAuth } from '../contexts/AuthProvider';
 
 export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
+  const { user } = useAuth();
   const demoData = getZeroClickDemoData();
   const [animatedStepIdx, setAnimatedStepIdx] = useState(0);
   const [activeFaq, setActiveFaq] = useState(null);
@@ -73,26 +75,41 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
           KAIRO predicts the exact right moment to buy. AI tracks fare trends in real-time and tells you whether to <strong>Buy Now</strong> or <strong>Wait for price drops</strong>.
         </p>
 
-        {/* HERO CTA BUTTONS */}
-        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setActiveTab('ai-explorer')}
-            className="btn btn-primary"
-            style={{ padding: '14px 30px', fontSize: '1rem', borderRadius: 'var(--radius-md)' }}
-          >
-            <Sparkles size={20} />
-            Try KAIRO AI Explorer
-            <ArrowRight size={18} />
-          </button>
-          
-          <button
-            onClick={onOpenAuth}
-            className="btn btn-secondary"
-            style={{ padding: '14px 28px', fontSize: '1rem', borderRadius: 'var(--radius-md)' }}
-          >
-            Sign In / Get Started Free
-          </button>
-        </div>
+        {/* HERO CTA BUTTONS — Displayed ONLY when user is NOT logged in */}
+        {!user && (
+          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setActiveTab('ai-explorer')}
+              style={{
+                background: 'linear-gradient(135deg, #0284c7, #1d4ed8)',
+                border: 'none',
+                borderRadius: '50px',
+                color: '#ffffff',
+                padding: '12px 28px',
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Sparkles size={18} />
+              <span>Try KAIRO AI Explorer</span>
+              <ArrowRight size={18} />
+            </button>
+            
+            <button
+              onClick={onOpenAuth}
+              className="btn btn-secondary"
+              style={{ padding: '12px 28px', fontSize: '0.95rem', borderRadius: '50px' }}
+            >
+              Sign In / Get Started Free
+            </button>
+          </div>
+        )}
 
         {/* ============================================================ */}
         {/* ZERO-CLICK DEMO WIDGET (No user input required) */}

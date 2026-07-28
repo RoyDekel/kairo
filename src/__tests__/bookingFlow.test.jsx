@@ -10,7 +10,7 @@ const renderApp = () => {
       <App />
     </AuthProvider>
   );
-  const launchBtn = screen.getByRole('button', { name: /Launch Web App/i });
+  const launchBtn = screen.getAllByRole('button', { name: /Try KAIRO AI Explorer/i })[0];
   fireEvent.click(launchBtn);
   const dashTab = screen.getByText('Dashboard HUD');
   fireEvent.click(dashTab);
