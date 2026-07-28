@@ -457,7 +457,7 @@ export default function App() {
               }}
             >
               <Sparkles size={16} />
-              <span>Try KAIRO AI Explorer</span>
+              <span>Should I Book?</span>
               <ArrowRight size={16} />
             </button>
           )}
@@ -548,9 +548,9 @@ export default function App() {
           overflowX: 'auto'
         }}>
           {[
-            { id: 'ai-explorer', label: 'AI Event Explorer', icon: <Sparkles size={16} /> },
-            { id: 'dashboard', label: 'Dashboard HUD', icon: <Activity size={16} /> },
-            { id: 'alternative', label: 'Find Flights', icon: <Compass size={16} /> },
+            { id: 'ai-explorer', label: 'Should I Book?', icon: <Sparkles size={16} /> },
+            { id: 'dashboard', label: 'Price Radar HUD', icon: <Activity size={16} /> },
+            { id: 'alternative', label: 'Compare Fares', icon: <Compass size={16} /> },
             { id: 'watchlist', label: 'Watchlist', icon: <Bookmark size={16} /> },
             { id: 'alerts', label: 'Alert Center', icon: <Bell size={16} /> }
           ].map((tab) => {

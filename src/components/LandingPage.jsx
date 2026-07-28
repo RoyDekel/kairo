@@ -54,7 +54,11 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
           <Sparkles size={16} /> KAIRO — SMART AI FLIGHT PRICE TIMING
         </div>
 
-        {/* OUTCOME-FOCUSED HERO HEADLINE */}
+        {/* OUTCOME-FOCUSED HERO HEADLINE & BRAND POSITIONING */}
+        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+          "We don't help you find flights. We help you know when to buy them."
+        </div>
+
         <h1 style={{
           fontSize: '3.2rem',
           fontWeight: 900,
@@ -63,7 +67,7 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
           margin: '0 auto 20px',
           letterSpacing: '-0.04em'
         }}>
-          Don't guess. <span className="brand-gradient-text">Let AI tell you when to buy.</span>
+          Don't guess. <span className="brand-gradient-text">Know when to book.</span>
         </h1>
 
         <p style={{
@@ -74,7 +78,7 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
           lineHeight: 1.6,
           fontWeight: 500
         }}>
-          Save up to 40% on flights by booking at the exact right moment. KAIRO predicts fare drops with up to 95% historical confidence.
+          Get instant AI Buy or Wait decisions backed by 90-day price trends and 95% historical confidence.
         </p>
 
         {/* HERO CTA BUTTONS — Displayed ONLY when user is NOT logged in */}
@@ -99,7 +103,7 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
               }}
             >
               <Sparkles size={18} />
-              <span>Try KAIRO AI Explorer</span>
+              <span>Should I Book?</span>
               <ArrowRight size={18} />
             </button>
             

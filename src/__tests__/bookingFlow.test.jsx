@@ -10,9 +10,9 @@ const renderApp = () => {
       <App />
     </AuthProvider>
   );
-  const launchBtn = screen.getAllByRole('button', { name: /Try KAIRO AI Explorer/i })[0];
+  const launchBtn = screen.getAllByRole('button', { name: /Should I Book\?/i })[0];
   fireEvent.click(launchBtn);
-  const dashTab = screen.getByText('Dashboard HUD');
+  const dashTab = screen.getByText('Price Radar HUD');
   fireEvent.click(dashTab);
   return result;
 };
@@ -21,11 +21,11 @@ describe('Booking Flow Integration Tests', () => {
   test('successfully performs search and completes booking flow step-by-step', async () => {
     renderApp();
 
-    // 1. Initially on Dashboard HUD
-    expect(screen.getByText('Dashboard HUD')).toBeInTheDocument();
+    // 1. Initially on Price Radar HUD
+    expect(screen.getByText('Price Radar HUD')).toBeInTheDocument();
     
-    // 2. Navigate to "Find Flights" tab
-    const findFlightsTab = screen.getByText('Find Flights');
+    // 2. Navigate to "Compare Fares" tab
+    const findFlightsTab = screen.getByText('Compare Fares');
     fireEvent.click(findFlightsTab);
     
     // Verify search panel is loaded
@@ -68,8 +68,8 @@ describe('Booking Flow Integration Tests', () => {
     const trackButton = screen.getByText('Track Roundtrip Bundle');
     fireEvent.click(trackButton);
 
-    // 8. Verify navigation back to Dashboard HUD tab
-    expect(screen.getByText('Dashboard HUD')).toHaveStyle({
+    // 8. Verify navigation back to Price Radar HUD tab
+    expect(screen.getByText('Price Radar HUD')).toHaveStyle({
       color: 'var(--primary)'
     });
     
@@ -80,8 +80,8 @@ describe('Booking Flow Integration Tests', () => {
   test('supports One-way trip selection and flow', async () => {
     renderApp();
 
-    // Navigate to "Find Flights"
-    fireEvent.click(screen.getByText('Find Flights'));
+    // Navigate to "Compare Fares"
+    fireEvent.click(screen.getByText('Compare Fares'));
 
     // Select One-way trip type
     const tripTypeSelect = screen.getByLabelText('Trip Type');
@@ -117,8 +117,8 @@ describe('Booking Flow Integration Tests', () => {
   test('validates origin and destination cannot be identical', async () => {
     renderApp();
 
-    // Navigate to "Find Flights"
-    fireEvent.click(screen.getByText('Find Flights'));
+    // Navigate to "Compare Fares"
+    fireEvent.click(screen.getByText('Compare Fares'));
 
     // We can select the Departure Airport dropdown and change it to match Arrival
     const departureSelect = screen.getByLabelText('Departure Airport');
