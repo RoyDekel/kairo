@@ -282,7 +282,7 @@ export default function FlightDetails({
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            {activeFlight.direction === 'outbound' ? 'Outbound' : 'Return'} Ticket Fare:
+            Flight Ticket Fare:
           </span>
           <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--primary)' }}>
             ${activeFlight.passengerCosts.total}

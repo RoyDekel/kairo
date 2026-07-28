@@ -427,54 +427,6 @@ export default function App() {
           </p>
         </div>
 
-        {/* DYNAMIC DIRECTION SWITCHER HUD */}
-        <div style={{
-          display: 'flex',
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border-glass)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '2px'
-        }}>
-          <button
-            onClick={() => handleLegSwitch('outbound')}
-            style={{
-              padding: '8px 14px',
-              borderRadius: '6px',
-              border: 'none',
-              backgroundColor: direction === 'outbound' ? 'var(--bg-tertiary)' : 'transparent',
-              color: direction === 'outbound' ? 'var(--primary)' : 'var(--text-secondary)',
-              fontWeight: 600,
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            Outbound ({searchParams.origin} → {searchParams.destination})
-          </button>
-          <button
-            onClick={() => handleLegSwitch('return')}
-            style={{
-              padding: '8px 14px',
-              borderRadius: '6px',
-              border: 'none',
-              backgroundColor: direction === 'return' ? 'var(--bg-tertiary)' : 'transparent',
-              color: direction === 'return' ? 'var(--primary)' : 'var(--text-secondary)',
-              fontWeight: 600,
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            Return ({searchParams.destination} → {searchParams.origin})
-          </button>
-        </div>
-
         {/* AUTH, NOTIFICATIONS & NAVIGATION HUD */}
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {/* Landing / Web App Mode Switcher */}
