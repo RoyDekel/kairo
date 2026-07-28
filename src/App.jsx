@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plane, Calendar, Bookmark, Bell, Compass, Activity, Sun, Moon, LogIn, LogOut, Sparkles, Globe, ArrowRight } from 'lucide-react';
+import { Plane, Calendar, Bookmark, Bell, Compass, Activity, Sun, Moon, LogIn, LogOut, Sparkles, Globe, ArrowRight, Zap } from 'lucide-react';
 import { 
   AIRPORTS, 
   generateFlightsForRoute,
