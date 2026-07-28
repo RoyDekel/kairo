@@ -140,8 +140,8 @@ export default function App() {
   const prevStatusRef = useRef('Scheduled');
 
   // Retrieve GPS Coordinates for active telemetry
-  const originAirport = AIRPORTS[activeFlight.origin] || AIRPORTS.TLV;
-  const destinationAirport = AIRPORTS[activeFlight.destination] || AIRPORTS.KRK;
+  const originAirport = AIRPORTS[activeFlight?.origin] || AIRPORTS.TLV;
+  const destinationAirport = AIRPORTS[activeFlight?.destination] || AIRPORTS.KRK;
   
   const telemetry = getFlightTelemetry(
     simulationProgress, 

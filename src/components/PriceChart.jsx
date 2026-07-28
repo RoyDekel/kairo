@@ -43,8 +43,8 @@ export default function PriceChart({ activeFlight, theme }) {
     tooltipBorder: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(15, 23, 42, 0.1)'
   };
   const { history, predictions } = generatePriceHistory(
-    activeFlight.flightNumber,
-    activeFlight.price
+    activeFlight?.flightNumber || 'FL-100',
+    activeFlight?.price || 450
   );
 
   // Unified single-source-of-truth recommendation engine

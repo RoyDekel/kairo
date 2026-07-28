@@ -57,7 +57,7 @@ export default function FlightDetails({
   // Added roundtrip context
   activeRoundtrip
 }) {
-  const airlineInfo = AIRLINES[activeFlight.airlineCode] || { name: 'Unknown', logo: '✈️', color: 'var(--primary)' };
+  const airlineInfo = AIRLINES[activeFlight?.airlineCode] || { name: 'Unknown', logo: '✈️', color: 'var(--primary)' };
 
   // Format date helper
   const formatDate = (dateStr) => {
@@ -68,7 +68,7 @@ export default function FlightDetails({
   const progressPercent = Math.round(simulationProgress * 100);
 
   // Skyscanner Link
-  const skyscannerUrl = getSkyscannerUrl(activeFlight.origin, activeFlight.destination, selectedDate);
+  const skyscannerUrl = getSkyscannerUrl(activeFlight?.origin || 'TLV', activeFlight?.destination || 'KRK', selectedDate);
 
   // Passenger summary text helper
   const getPassengersText = (passengers) => {

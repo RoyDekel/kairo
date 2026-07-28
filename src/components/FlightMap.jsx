@@ -14,8 +14,8 @@ export default function FlightMap({ telemetry, activeFlight, theme }) {
   const destMarkerRef = useRef(null);
 
   // Retrieve coordinates dynamically based on selected flight route
-  const origin = AIRPORTS[activeFlight.origin] || AIRPORTS.TLV;
-  const destination = AIRPORTS[activeFlight.destination] || AIRPORTS.KRK;
+  const origin = AIRPORTS[activeFlight?.origin] || AIRPORTS.TLV;
+  const destination = AIRPORTS[activeFlight?.destination] || AIRPORTS.KRK;
   
   const startCoords = origin.coords;
   const endCoords = destination.coords;
