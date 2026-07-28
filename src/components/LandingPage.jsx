@@ -127,14 +127,6 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
               <span>Should I Book?</span>
               <ArrowRight size={18} />
             </button>
-            
-            <button
-              onClick={onOpenAuth}
-              className="btn btn-secondary"
-              style={{ padding: '12px 28px', fontSize: '0.95rem', borderRadius: '50px' }}
-            >
-              Sign In / Get Started Free
-            </button>
           </div>
         )}
 
