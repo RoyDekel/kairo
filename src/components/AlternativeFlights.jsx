@@ -185,7 +185,11 @@ export default function AlternativeFlights({
           stops: searchParams.stops || '0'
         });
         const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'http://localhost:3001');
-        const res = await fetch(`${apiBase}/api/flights?${queryParams.toString()}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(`${apiBase}/api/flights?${queryParams.toString()}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
         if (!res.ok) {
           throw new Error(`Server returned status ${res.status}`);
         }

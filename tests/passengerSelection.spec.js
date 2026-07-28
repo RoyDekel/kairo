@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('AeroTrack Passenger Selection E2E Tests', () => {
+test.describe('KAIRO Passenger Selection E2E Tests', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to local development server page
-    await page.goto('http://localhost:5173/flight-tracker/');
+    await page.goto('http://localhost:5173/kairo/');
     
     // Switch to "Find Flights" tab
     await page.click('text=Find Flights');

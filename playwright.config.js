@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:5173/flight-tracker/',
+    baseURL: 'http://localhost:5173/kairo/',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -22,7 +22,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm.cmd run dev',
-    url: 'http://localhost:5173/flight-tracker/',
+    url: 'http://localhost:5173/kairo/',
     reuseExistingServer: true,
     timeout: 15000,
   },

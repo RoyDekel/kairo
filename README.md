@@ -42,7 +42,7 @@ Ensure you have [Node.js](https://nodejs.org/) installed (which includes `npm`).
 Navigate to your project directory and install the dependencies:
 ```bash
 # Navigate to the folder
-cd flight-tracker
+cd kairo
 
 # Install packages
 npm install
@@ -53,7 +53,7 @@ Launch the development server to run it on your machine:
 ```bash
 npm run dev
 ```
-Once started, open **[http://localhost:5173/flight-tracker/](http://localhost:5173/flight-tracker/)** in your web browser.
+Once started, open **[http://localhost:5173/kairo/](http://localhost:5173/kairo/)** in your web browser.
 
 ### 4. Build & Deployment (GitHub Pages)
 To compile the production bundles and deploy them directly to GitHub Pages:
@@ -67,4 +67,4 @@ git commit -m "Update tracker features and configuration"
 git push
 ```
 The application will be hosted on your GitHub subdomain at:
-`https://<your-github-username>.github.io/flight-tracker/`
+`https://<your-github-username>.github.io/kairo/`

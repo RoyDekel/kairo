@@ -148,6 +148,21 @@ export default function App() {
   // Fetch initial default flights from the server to align with the client-server pattern
   useEffect(() => {
     let active = true;
+    const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'http://localhost:3001');
+
+    // Background ping to wake up free tier backend service on Render
+    const pingBackend = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        await fetch(`${apiBase}/api/health`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+      } catch (err) {
+        // Silent catch for background ping
+      }
+    };
+    pingBackend();
+
     const fetchDefaultFlights = async () => {
       try {
         const queryParams = new URLSearchParams({
@@ -160,8 +175,11 @@ export default function App() {
           infants: '0',
           stops: '0'
         });
-        const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'http://localhost:3001');
-        const res = await fetch(`${apiBase}/api/flights?${queryParams.toString()}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(`${apiBase}/api/flights?${queryParams.toString()}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
         if (res.ok) {
           const data = await res.json();
           if (active && data.outbound?.length && data.return?.length) {
@@ -410,7 +428,7 @@ export default function App() {
         <div 
           onClick={() => setActiveTab('landing')} 
           style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
-          title="Back to AeroTrack Home"
+          title="Back to KAIRO Home"
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{
@@ -425,12 +443,15 @@ export default function App() {
             }}>
               <Plane size={18} style={{ color: '#0b0f19', transform: 'rotate(45deg)' }} />
             </div>
-            <h1 className="brand-gradient-text" style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0 }}>
+            <h1 className="brand-gradient-text" style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
               KAIRO
+              <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', fontWeight: 600, letterSpacing: '0.5px' }}>
+                DEMO SIMULATION
+              </span>
             </h1>
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-            Smart AI Flight Price & Buy Timing Engine
+            Smart Flight Price & Buy Timing Engine (Real-Time Demo Simulation)
           </p>
         </div>
 

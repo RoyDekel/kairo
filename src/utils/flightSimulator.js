@@ -1,4 +1,4 @@
-// AeroTrack Flight & Price Simulator Engine - Upgraded for Dynamic Search
+// KAIRO Flight & Price Simulator Engine - Upgraded for Dynamic Search
 
 // Catalog of supported airports with coordinates, names, cities, and countries
 export const AIRPORTS = {

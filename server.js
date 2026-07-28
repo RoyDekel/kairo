@@ -20,6 +20,11 @@ app.use((req, res, next) => {
 // Initialize the Strategy Orchestrator
 const flightSearchService = new FlightSearchService();
 
+// Health check endpoint for zero-downtime & cold-start warming
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', service: 'kairo-backend', timestamp: new Date().toISOString() });
+});
+
 // Unified search endpoint
 app.get('/api/flights', async (req, res) => {
   const {
@@ -62,7 +67,7 @@ app.get('/api/flights', async (req, res) => {
 // Start Server
 app.listen(PORT, () => {
   console.log(`===============================================`);
-  console.log(` AeroTrack Backend Server listening on port ${PORT}`);
+  console.log(` KAIRO Backend Server listening on port ${PORT}`);
   console.log(` Target Endpoint: http://localhost:${PORT}`);
   console.log(`===============================================`);
 });
