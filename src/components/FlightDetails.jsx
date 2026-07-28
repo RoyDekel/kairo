@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { 
   Plane, Clock, ShieldAlert, Award, 
   Play, Pause, RotateCcw, Bell, 
-  Bookmark, BookmarkCheck, Calendar, Info, Globe, Users 
+  Bookmark, BookmarkCheck, Calendar, Info, Globe, Users, Sparkles 
 } from 'lucide-react';
 import { AIRLINES, getSkyscannerUrl } from '../utils/flightSimulator';
+import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
 
 const AirlineLogo = ({ flight, fallbackLogo, size = 32 }) => {
   const iata = flight.airlineCode ? flight.airlineCode.toUpperCase() : '';
@@ -299,6 +300,52 @@ export default function FlightDetails({
           </div>
         )}
       </div>
+
+      {/* KAIRO AI PRICE CONFIDENCE & BUY TIMING INSIGHT */}
+      {(() => {
+        const priceInsight = getPriceConfidenceInsight(activeFlight, activeFlight.price);
+        return (
+          <div style={{
+            background: 'var(--primary-glow-weak)',
+            border: '1px solid var(--primary-glow)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '16px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sparkles size={16} style={{ color: 'var(--primary)' }} />
+                <span>KAIRO AI Buy Timing Recommendation</span>
+              </div>
+
+              <div style={{
+                padding: '4px 10px',
+                borderRadius: '12px',
+                fontSize: '0.75rem',
+                fontWeight: 800,
+                backgroundColor: priceInsight.recommendation === 'BUY_NOW' ? 'var(--success-glow)' : 'var(--warning-glow)',
+                color: priceInsight.recommendation === 'BUY_NOW' ? 'var(--success)' : 'var(--warning)',
+                border: priceInsight.recommendation === 'BUY_NOW' ? '1px solid var(--success)' : '1px solid var(--warning)'
+              }}>
+                {priceInsight.actionHeadline}
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              {priceInsight.summary}
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', paddingTop: '6px', borderTop: '1px dashed var(--border-glass)' }}>
+              <span>90-Day Range: ${priceInsight.low90Day} – ${priceInsight.high90Day}</span>
+              <span style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                {priceInsight.confidenceStars} ({priceInsight.confidenceScore}% Confidence)
+              </span>
+            </div>
+          </div>
+        );
+      })()}
 
       <div style={{ borderBottom: '1px solid var(--border-glass)' }}></div>
 

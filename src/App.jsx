@@ -419,11 +419,11 @@ export default function App() {
               <Plane size={18} style={{ color: '#0b0f19', transform: 'rotate(45deg)' }} />
             </div>
             <h1 className="brand-gradient-text" style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0 }}>
-              AeroTrack
+              KAIRO
             </h1>
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-            Advanced Live Flight Tracker & Price Engine
+            Smart AI Flight Price & Buy Timing Engine
           </p>
         </div>
 
@@ -728,7 +728,7 @@ export default function App() {
         fontSize: '0.75rem',
         color: 'var(--text-muted)'
       }}>
-        AeroTrack Flight Data Client © 2026. Roundtrip searches and live telemetry mapping.
+        KAIRO Smart Flight Intelligence © 2026. Predict the exact right moment to buy.
       </footer>
 
       {/* AUTH MODAL */}
