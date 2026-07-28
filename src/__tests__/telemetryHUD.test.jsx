@@ -19,6 +19,8 @@ const renderApp = () => {
       <App />
     </AuthProvider>
   );
+  const menuBtn = screen.getByTitle('Open Navigation Menu');
+  fireEvent.click(menuBtn);
   const dashTab = screen.getByText('Price Radar HUD');
   fireEvent.click(dashTab);
   return result;
@@ -71,7 +73,8 @@ describe('Telemetry HUD and Watchlist/Alerts UI Tests', () => {
     expect(screen.getByRole('button', { name: /Watched/i })).toBeInTheDocument();
 
     // 3. Navigate to Watchlist tab
-    fireEvent.click(screen.getByText('Watchlist'));
+    fireEvent.click(screen.getByTitle('Open Navigation Menu'));
+    fireEvent.click(screen.getByText(/Watchlist Manager/i));
     
     // Verify flight is listed in Watchlist View
     expect(screen.getByText(/LOT Polish Airlines/i)).toBeInTheDocument();

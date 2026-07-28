@@ -19,6 +19,8 @@ const renderApp = () => {
       <App />
     </AuthProvider>
   );
+  const menuBtn = screen.getByTitle('Open Navigation Menu');
+  fireEvent.click(menuBtn);
   const dashTab = screen.getByText('Price Radar HUD');
   fireEvent.click(dashTab);
   return result;
@@ -29,10 +31,12 @@ describe('Booking Flow Integration Tests', () => {
     renderApp();
 
     // 1. Initially on Price Radar HUD
-    expect(screen.getByText('Price Radar HUD')).toBeInTheDocument();
+    expect(screen.getByText('Active Route')).toBeInTheDocument();
     
-    // 2. Navigate to "Compare Fares" tab
-    const findFlightsTab = screen.getByText('Compare Fares');
+    // 2. Navigate to "Compare Fares" tab via Hamburger Menu
+    const menuBtn = screen.getByTitle('Open Navigation Menu');
+    fireEvent.click(menuBtn);
+    const findFlightsTab = screen.getByText(/Compare Fares/i);
     fireEvent.click(findFlightsTab);
     
     // Verify search panel is loaded
@@ -75,12 +79,7 @@ describe('Booking Flow Integration Tests', () => {
     const trackButton = screen.getByText('Track Roundtrip Bundle');
     fireEvent.click(trackButton);
 
-    // 8. Verify navigation back to Price Radar HUD tab
-    expect(screen.getByText('Price Radar HUD')).toHaveStyle({
-      color: 'var(--primary)'
-    });
-    
-    // Verify active route HUD displays the correct airports on Dashboard
+    // 8. Verify active route HUD displays the correct airports on Dashboard
     expect(screen.getByText('Active Route')).toBeInTheDocument();
   });
 
@@ -88,7 +87,8 @@ describe('Booking Flow Integration Tests', () => {
     renderApp();
 
     // Navigate to "Compare Fares"
-    fireEvent.click(screen.getByText('Compare Fares'));
+    fireEvent.click(screen.getByTitle('Open Navigation Menu'));
+    fireEvent.click(screen.getByText(/Compare Fares/i));
 
     // Select One-way trip type
     const tripTypeSelect = screen.getByLabelText('Trip Type');
@@ -125,7 +125,8 @@ describe('Booking Flow Integration Tests', () => {
     renderApp();
 
     // Navigate to "Compare Fares"
-    fireEvent.click(screen.getByText('Compare Fares'));
+    fireEvent.click(screen.getByTitle('Open Navigation Menu'));
+    fireEvent.click(screen.getByText(/Compare Fares/i));
 
     // We can select the Departure Airport dropdown and change it to match Arrival
     const departureSelect = screen.getByLabelText('Departure Airport');

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plane, Calendar, Bookmark, Bell, Compass, Activity, Sun, Moon, LogIn, LogOut, Sparkles, Globe, ArrowRight, Zap } from 'lucide-react';
+import { Plane, Calendar, Bookmark, Bell, Compass, Activity, Sun, Moon, LogIn, LogOut, Sparkles, Globe, ArrowRight, Zap, Menu, X, ChevronRight } from 'lucide-react';
 import { 
   AIRPORTS, 
   generateFlightsForRoute,
@@ -25,6 +25,7 @@ export default function App() {
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isNavDrawerOpen, setIsNavDrawerOpen] = useState(false);
 
   // 0. Theme State
   const [theme, setTheme] = useState(() => {
@@ -435,34 +436,56 @@ export default function App() {
         paddingBottom: '16px',
         borderBottom: '1px solid var(--border-glass)'
       }}>
-        <div 
-          onClick={() => setActiveTab('landing')} 
-          style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
-          title="Back to KAIRO Home"
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <button
+            onClick={() => setIsNavDrawerOpen(prev => !prev)}
+            className="btn-icon hamburger-btn"
+            title={isNavDrawerOpen ? "Close Menu" : "Open Navigation Menu"}
+            style={{
+              padding: '8px',
               borderRadius: '8px',
-              background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+              background: isNavDrawerOpen ? 'rgba(56, 189, 248, 0.2)' : 'var(--bg-secondary)',
+              border: '1px solid var(--border-glass-bright)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: 'var(--shadow-glow)'
-            }}>
-              <Plane size={18} style={{ color: '#0b0f19', transform: 'rotate(45deg)' }} />
+              transition: 'all 0.2s ease'
+            }}
+          >
+            {isNavDrawerOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+
+          <div 
+            onClick={() => setActiveTab('landing')} 
+            style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
+            title="Back to KAIRO Home"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: 'var(--shadow-glow)'
+              }}>
+                <Plane size={18} style={{ color: '#0b0f19', transform: 'rotate(45deg)' }} />
+              </div>
+              <h1 className="brand-gradient-text" style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                KAIRO
+                <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', fontWeight: 600, letterSpacing: '0.5px' }}>
+                  DEMO SIMULATION
+                </span>
+              </h1>
             </div>
-            <h1 className="brand-gradient-text" style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              KAIRO
-              <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', fontWeight: 600, letterSpacing: '0.5px' }}>
-                DEMO SIMULATION
-              </span>
-            </h1>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              Smart Flight Price & Buy Timing Engine (Real-Time Demo Simulation)
+            </p>
           </div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-            Smart Flight Price & Buy Timing Engine (Real-Time Demo Simulation)
-          </p>
         </div>
 
         {/* AUTH, NOTIFICATIONS & NAVIGATION HUD */}
@@ -590,52 +613,190 @@ export default function App() {
         </div>
       </header>
 
-      {/* DASHBOARD TAB BAR (Only shown when inside the App views) */}
-      {activeTab !== 'landing' && (
-        <nav style={{
-          display: 'flex',
-          gap: '8px',
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border-glass)',
-          borderRadius: 'var(--radius-md)',
-          padding: '6px',
-          overflowX: 'auto'
-        }}>
-          {[
-            { id: 'ai-explorer', label: 'Should I Book?', icon: <Sparkles size={16} /> },
-            { id: 'dashboard', label: 'Price Radar HUD', icon: <Activity size={16} /> },
-            { id: 'alternative', label: 'Compare Fares', icon: <Compass size={16} /> },
-            { id: 'watchlist', label: 'Watchlist', icon: <Bookmark size={16} /> },
-            { id: 'alerts', label: 'Alert Center', icon: <Bell size={16} /> }
-          ].map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  if (!user) {
-                    setIsAuthModalOpen(true);
-                  } else {
-                    setActiveTab(tab.id);
-                  }
-                }}
-                className="btn"
-                style={{
-                  backgroundColor: isActive ? 'var(--bg-tertiary)' : 'transparent',
-                  color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
-                  border: isActive ? '1px solid var(--border-glass-bright)' : '1px solid transparent',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '10px 18px',
-                  fontSize: '0.85rem',
-                  flexGrow: 1
-                }}
+      {/* SLIDE-OVER NAVIGATION DRAWER */}
+      {isNavDrawerOpen && (
+        <div 
+          className="nav-drawer-overlay animate-fade-in"
+          onClick={() => setIsNavDrawerOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(11, 15, 25, 0.65)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 9000,
+            display: 'flex'
+          }}
+        >
+          <div 
+            className="nav-drawer-panel animate-slide-right"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '320px',
+              maxWidth: '85vw',
+              height: '100%',
+              backgroundColor: 'var(--bg-secondary)',
+              borderRight: '1px solid var(--border-glass-bright)',
+              boxShadow: 'var(--shadow-lg)',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '24px 20px',
+              overflowY: 'auto'
+            }}
+          >
+            {/* Drawer Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--border-glass)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: 'var(--shadow-glow)'
+                }}>
+                  <Plane size={20} style={{ color: '#0b0f19', transform: 'rotate(45deg)' }} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--text-primary)', letterSpacing: '0.5px' }}>KAIRO</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Flight Intelligence Workspace</div>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setIsNavDrawerOpen(false)}
+                className="btn-icon"
+                style={{ padding: '6px' }}
+                title="Close Navigation"
               >
-                {tab.icon}
-                {tab.label}
+                <X size={20} />
               </button>
-            );
-          })}
-        </nav>
+            </div>
+
+            {/* Navigation Items List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', paddingLeft: '8px' }}>
+                Workspace Pages
+              </div>
+
+              {[
+                { id: 'ai-explorer', label: 'Should I Book? (AI Engine)', icon: <Sparkles size={18} />, requiresAuth: true },
+                { id: 'dashboard', label: 'Price Radar HUD', icon: <Activity size={18} />, requiresAuth: true },
+                { id: 'alternative', label: 'Compare Fares & Search', icon: <Compass size={18} />, requiresAuth: true },
+                { id: 'watchlist', label: 'Watchlist Manager', icon: <Bookmark size={18} />, requiresAuth: true, badge: (watchlist || []).length },
+                { id: 'alerts', label: 'Alert Center & Logs', icon: <Bell size={18} />, requiresAuth: true, badge: (alerts || []).length }
+              ].map((item) => {
+                const isActive = activeTab === item.id;
+                const isLocked = item.requiresAuth && !user;
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setIsNavDrawerOpen(false);
+                      if (isLocked) {
+                        setIsAuthModalOpen(true);
+                      } else {
+                        setActiveTab(item.id);
+                      }
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: isActive ? '1px solid var(--border-glass-bright)' : '1px solid transparent',
+                      backgroundColor: isActive ? 'var(--bg-tertiary)' : 'transparent',
+                      color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
+                      fontWeight: isActive ? 700 : 500,
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      textAlign: 'left'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+                        e.currentTarget.style.color = 'var(--text-primary)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'var(--text-secondary)';
+                      }
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ color: isActive ? 'var(--primary)' : 'var(--text-muted)' }}>{item.icon}</span>
+                      <span>{item.label}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {item.badge !== undefined && item.badge > 0 && (
+                        <span style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          padding: '2px 7px',
+                          borderRadius: '10px',
+                          backgroundColor: 'var(--primary-glow-weak)',
+                          color: 'var(--primary)',
+                          border: '1px solid var(--border-glass)'
+                        }}>
+                          {item.badge}
+                        </span>
+                      )}
+
+                      {isLocked ? (
+                        <span title="Requires sign in" style={{ fontSize: '0.82rem', opacity: 0.7 }}>🔒</span>
+                      ) : (
+                        <ChevronRight size={14} style={{ opacity: isActive ? 1 : 0.4 }} />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Drawer Footer / Account Summary */}
+            <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid var(--border-glass)' }}>
+              {isAuthenticated ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Signed in as</div>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)', wordBreak: 'break-all' }}>{user?.email}</div>
+                  <button
+                    onClick={() => {
+                      setIsNavDrawerOpen(false);
+                      signOut();
+                    }}
+                    className="btn btn-secondary"
+                    style={{ width: '100%', marginTop: '6px', justifyContent: 'center', gap: '6px', fontSize: '0.82rem' }}
+                  >
+                    <LogOut size={14} />
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setIsNavDrawerOpen(false);
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="btn btn-primary"
+                  style={{ width: '100%', justifyContent: 'center', gap: '8px', fontSize: '0.88rem' }}
+                >
+                  <LogIn size={16} />
+                  Sign In / Register
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* TAB VIEWS CONTROLLER */}
