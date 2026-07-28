@@ -311,51 +311,41 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
         </div>
       </section>
 
-      {/* WHY CHOOSE KAIRO & SOCIAL PROOF */}
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-        <div className="glass-panel" style={{ padding: '32px 28px' }}>
-          <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '20px' }}>Why Choose KAIRO?</h3>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '0.92rem' }}>
-            <li style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <CheckCircle size={18} style={{ color: 'var(--success)', flexShrink: 0 }} />
-              <span><strong>AI Predicts Price Trends</strong> — Know whether to buy or wait.</span>
-            </li>
-            <li style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <CheckCircle size={18} style={{ color: 'var(--success)', flexShrink: 0 }} />
-              <span><strong>Real-Time Fare Monitoring</strong> — Scans 32 global destination hubs.</span>
-            </li>
-            <li style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <CheckCircle size={18} style={{ color: 'var(--success)', flexShrink: 0 }} />
-              <span><strong>Event Intelligence</strong> — Pair flights with concerts & football matches.</span>
-            </li>
-            <li style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <CheckCircle size={18} style={{ color: 'var(--success)', flexShrink: 0 }} />
-              <span><strong>100% Free Pilot Tier</strong> — Zero spam, no credit card required.</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* SOCIAL PROOF & CREATOR BADGE */}
-        <div className="glass-panel" style={{ padding: '32px 28px', background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.05), rgba(16, 185, 129, 0.05))' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-            <ShieldCheck size={24} style={{ color: 'var(--primary)' }} />
-            <h3 style={{ fontSize: '1.3rem', fontWeight: 800, margin: 0 }}>Social Proof & Credibility</h3>
+      {/* WHY CHOOSE KAIRO */}
+      <section className="glass-panel" style={{ padding: '36px 32px' }}>
+        <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '20px', textAlign: 'center' }}>Why Choose KAIRO?</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
+            <CheckCircle size={20} style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>AI Predicts Price Trends</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Know whether to buy now or wait for expected price drops.</div>
+            </div>
           </div>
-          
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
-            KAIRO was engineered with precision by a <strong>Senior QA Engineering Lead</strong> with expertise in automated price algorithms and real-time telemetry systems.
-          </p>
 
-          <a
-            href="https://github.com/RoyDekel/flight-tracker"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-secondary"
-            style={{ width: '100%', gap: '8px' }}
-          >
-            <Globe size={18} />
-            100% Open Source on GitHub
-          </a>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
+            <CheckCircle size={20} style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Real-Time Fare Monitoring</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Scans 32 global destination hubs continuously.</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
+            <CheckCircle size={20} style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Event Intelligence</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Pairs cheap flight deals with live concerts & sports matches.</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
+            <CheckCircle size={20} style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>100% Free Pilot Tier</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Zero spam, no credit card required to get started.</div>
+            </div>
+          </div>
         </div>
       </section>
 
