@@ -18,9 +18,9 @@ describe('KAIRO Price Confidence Engine', () => {
     const demo = getZeroClickDemoData();
 
     expect(demo.routeStr).toContain('Tokyo');
-    expect(demo.currentPrice).toBe(1086);
-    expect(demo.low90Day).toBe(812);
-    expect(demo.confidenceScore).toBe(87);
+    expect(demo.currentPrice).toBe(814);
+    expect(demo.low90Day).toBe(718);
+    expect(demo.confidenceScore).toBe(89);
     expect(demo.recommendation).toBe('WAIT');
   });
 });

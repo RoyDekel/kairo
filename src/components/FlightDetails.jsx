@@ -333,9 +333,35 @@ export default function FlightDetails({
               </div>
             </div>
 
+            <div style={{
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              padding: '8px 12px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-glass)'
+            }}>
+              {priceInsight.personalityBadge}
+            </div>
+
             <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
               {priceInsight.summary}
             </p>
+
+            {/* WHY TRUST KAIRO (DATA RATIONALE) */}
+            <div style={{ paddingTop: '6px', borderTop: '1px dashed var(--border-glass)' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                Recommendation Rationale (Based On):
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                {priceInsight.rationalePillars.map((pillar, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ color: 'var(--success)' }}>✓</span> {pillar}
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', paddingTop: '6px', borderTop: '1px dashed var(--border-glass)' }}>
               <span>90-Day Range: ${priceInsight.low90Day} – ${priceInsight.high90Day}</span>

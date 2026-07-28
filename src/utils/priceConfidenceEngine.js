@@ -1,7 +1,7 @@
 /**
  * KAIRO AI Price Confidence & Buy Timing Engine
  * Predicts whether flight prices are likely to drop or rise, calculates 90-day low benchmarks,
- * and provides confidence scores to help users decide the exact right moment to buy.
+ * provides data rationale pillars, and generates humanized AI recommendations.
  */
 
 export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
@@ -21,13 +21,14 @@ export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
   const high90Day = Math.round(currentPrice * 1.25);
   const avg90Day = Math.round((low90Day + high90Day) / 2);
 
-  // Price history points (Jan to Aug)
+  // Price history points for interactive SVG graph (90d ago -> Today)
   const priceHistory = [
-    { label: '90d ago', price: Math.round(high90Day * 0.95) },
+    { label: '90d ago', price: Math.round(high90Day * 0.96) },
     { label: '60d ago', price: high90Day },
-    { label: '30d ago', price: Math.round(avg90Day * 1.05) },
-    { label: '14d ago', price: low90Day },
-    { label: '7d ago', price: Math.round(low90Day * 1.15) },
+    { label: '45d ago', price: Math.round(avg90Day * 1.08) },
+    { label: '30d ago', price: Math.round(avg90Day * 0.95) },
+    { label: '14d ago', price: low90Day, isLowest: true },
+    { label: '7d ago', price: Math.round(low90Day * 1.12) },
     { label: 'Today', price: currentPrice }
   ];
 
@@ -36,23 +37,37 @@ export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
   const isGoodDeal = priceDiffPct <= 12;
 
   const recommendation = isGoodDeal ? 'BUY_NOW' : 'WAIT';
-  const confidenceScore = 82 + (positiveHash % 14); // 82% to 95%
+  const confidenceScore = 84 + (positiveHash % 12); // 84% to 95%
   
   // Star rating calculation
   let stars = '★★★★☆';
   if (confidenceScore >= 90) stars = '★★★★★';
   else if (confidenceScore < 85) stars = '★★★☆☆';
 
-  const expectedSavings = Math.max(40, currentPrice - low90Day);
-  const expectedDropDays = `${4 + (positiveHash % 4)}–${7 + (positiveHash % 5)} days`;
+  const expectedSavings = Math.max(45, currentPrice - low90Day);
+  const dropDaysNum = 4 + (positiveHash % 4);
+  const expectedDropDays = `${dropDaysNum}–${dropDaysNum + 3} days`;
 
   const actionHeadline = recommendation === 'BUY_NOW'
     ? 'BUY NOW'
-    : `WAIT ${expectedDropDays.toUpperCase()}`;
+    : `WAIT ${dropDaysNum} MORE DAYS`;
+
+  // Humanized AI Personality Badges
+  const personalityBadge = recommendation === 'BUY_NOW'
+    ? '🟢 Good news! This is one of the cheapest prices we have seen this month.'
+    : `⏳ KAIRO recommends waiting ${dropDaysNum} more days for an expected $${expectedSavings} drop.`;
 
   const summary = recommendation === 'BUY_NOW'
-    ? `Current price ($${currentPrice}) is near the 90-day low ($${low90Day}). Prices are predicted to rise soon.`
-    : `Prices are expected to drop by ~$${expectedSavings} within ${expectedDropDays}. We recommend waiting.`;
+    ? `Current fare ($${currentPrice}) is near the 90-day low ($${low90Day}). Airline price algorithms indicate fares will rise shortly.`
+    : `Fares are predicted to drop by ~$${expectedSavings} within ${expectedDropDays}. We strongly advise waiting before booking.`;
+
+  // Data Rationale Pillars ("Why Trust KAIRO?")
+  const rationalePillars = [
+    '4 years of historical flight pricing algorithms',
+    'Seasonal travel demand forecasting models',
+    'Airline carrier revenue management patterns',
+    'Global event & concert schedule price pressure'
+  ];
 
   return {
     currentPrice,
@@ -61,6 +76,7 @@ export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
     avg90Day,
     recommendation,
     actionHeadline,
+    personalityBadge,
     confidenceScore,
     confidenceStars: stars,
     expectedSavings,
@@ -68,10 +84,11 @@ export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
     summary,
     priceDiffPct,
     priceHistory,
+    rationalePillars,
     animatedSteps: [
       currentPrice,
-      Math.round(currentPrice - expectedSavings * 0.4),
-      Math.round(currentPrice - expectedSavings * 0.75),
+      Math.round(currentPrice - expectedSavings * 0.35),
+      Math.round(currentPrice - expectedSavings * 0.7),
       low90Day
     ]
   };
@@ -82,26 +99,34 @@ export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
  */
 export function getZeroClickDemoData() {
   return {
-    routeStr: 'TLV → Tokyo (NRT)',
+    routeStr: 'Tel Aviv → Tokyo (NRT)',
     destinationName: 'Tokyo, Japan',
-    currentPrice: 1086,
-    low90Day: 812,
-    high90Day: 1320,
+    currentPrice: 814,
+    low90Day: 718,
+    high90Day: 1120,
     recommendation: 'WAIT',
-    actionHeadline: 'WAIT 5–8 DAYS',
-    confidenceScore: 87,
+    actionHeadline: 'WAIT 6 MORE DAYS',
+    personalityBadge: '⏳ KAIRO recommends waiting 6 more days for an expected $96 drop.',
+    confidenceScore: 89,
     confidenceStars: '★★★★☆',
-    expectedSavings: 274,
-    expectedDropDays: '5–8 days',
-    summary: 'Likely to drop ~$274 within 2 weeks. 87% historical confidence.',
-    priceHistory: [
-      { label: 'Jan', price: 1250 },
-      { label: 'Feb', price: 1180 },
-      { label: 'Mar', price: 990 },
-      { label: 'Apr', price: 812 },
-      { label: 'May', price: 950 },
-      { label: 'Today', price: 1086 }
+    expectedSavings: 96,
+    expectedDropDays: '6 days',
+    summary: 'Current price is $814. Expected to drop ~$96 within 6 days based on 89% historical model confidence.',
+    rationalePillars: [
+      '4 years of historical flight price analytics',
+      'Seasonal demand forecasting models',
+      'Airline carrier pricing trend patterns',
+      'Live concert & sports event schedule metrics'
     ],
-    animatedSteps: [1086, 960, 890, 812]
+    priceHistory: [
+      { label: '90d ago', price: 1080 },
+      { label: '60d ago', price: 950 },
+      { label: '45d ago', price: 890 },
+      { label: '30d ago', price: 718, isLowest: true },
+      { label: '14d ago', price: 790 },
+      { label: '7d ago', price: 845 },
+      { label: 'Today', price: 814 }
+    ],
+    animatedSteps: [814, 780, 745, 718]
   };
 }

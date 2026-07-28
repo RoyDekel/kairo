@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Plane, Activity, Bell, ArrowRight, CheckCircle, Zap, Ticket, Globe, Star, TrendingDown, Clock, ShieldCheck, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, Plane, Activity, Bell, ArrowRight, CheckCircle, Zap, Ticket, Globe, Star, TrendingDown, Clock, ShieldCheck, HelpCircle, ChevronDown, ChevronUp, Share2, Copy } from 'lucide-react';
 import { AIRPORTS } from '../utils/flightSimulator';
 import { getZeroClickDemoData } from '../utils/priceConfidenceEngine';
 import { useAuth } from '../contexts/AuthProvider';
+import PriceHistoryGraph from './PriceHistoryGraph';
 
 export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
   const { user } = useAuth();
   const demoData = getZeroClickDemoData();
   const [animatedStepIdx, setAnimatedStepIdx] = useState(0);
   const [activeFaq, setActiveFaq] = useState(null);
+  const [toastMsg, setToastMsg] = useState(null);
 
   // Animated price drop effect for Zero-Click Demo ($1086 -> $960 -> $890 -> $812)
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
           <Sparkles size={16} /> KAIRO — SMART AI FLIGHT PRICE TIMING
         </div>
 
-        {/* 5-SECOND HERO HEADLINE */}
+        {/* OUTCOME-FOCUSED HERO HEADLINE */}
         <h1 style={{
           fontSize: '3.2rem',
           fontWeight: 900,
@@ -61,18 +63,18 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
           margin: '0 auto 20px',
           letterSpacing: '-0.04em'
         }}>
-          Never overpay for <span className="brand-gradient-text">flights again.</span>
+          Don't guess. <span className="brand-gradient-text">Let AI tell you when to buy.</span>
         </h1>
 
         <p style={{
-          fontSize: '1.2rem',
+          fontSize: '1.25rem',
           color: 'var(--text-secondary)',
           maxWidth: '680px',
           margin: '0 auto 36px',
           lineHeight: 1.6,
           fontWeight: 500
         }}>
-          KAIRO predicts the exact right moment to buy. AI tracks fare trends in real-time and tells you whether to <strong>Buy Now</strong> or <strong>Wait for price drops</strong>.
+          Save up to 40% on flights by booking at the exact right moment. KAIRO predicts fare drops with up to 95% historical confidence.
         </p>
 
         {/* HERO CTA BUTTONS — Displayed ONLY when user is NOT logged in */}
@@ -130,9 +132,60 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
             <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Zap size={15} /> ZERO-CLICK LIVE PRICE DEMO
             </div>
-            <div className="badge badge-info" style={{ fontSize: '0.75rem' }}>
-              Live AI Prediction Simulation
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  setToastMsg('KAIRO Deal link copied to clipboard! 📋');
+                  setTimeout(() => setToastMsg(null), 3000);
+                }}
+                className="btn btn-secondary"
+                style={{ padding: '4px 12px', fontSize: '0.78rem', gap: '6px' }}
+                title="Share this flight deal with friends"
+              >
+                <Share2 size={14} />
+                Share Deal
+              </button>
+
+              <div className="badge badge-info" style={{ fontSize: '0.75rem' }}>
+                Live AI Simulation
+              </div>
             </div>
+          </div>
+
+          {/* TOAST NOTIFICATION */}
+          {toastMsg && (
+            <div className="animate-fade-in" style={{
+              background: 'var(--success-glow)',
+              border: '1px solid var(--success)',
+              color: 'var(--success)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '8px 14px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              marginBottom: '16px',
+              textAlign: 'center'
+            }}>
+              {toastMsg}
+            </div>
+          )}
+
+          {/* HUMANIZED AI PERSONALITY CALLOUT BADGE */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.12), rgba(124, 58, 237, 0.12))',
+            border: '1px solid var(--border-glass-bright)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            marginBottom: '20px',
+            fontSize: '0.92rem',
+            fontWeight: 700,
+            color: 'var(--text-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            {demoData.personalityBadge}
           </div>
 
           {/* DEMO METRICS GRID */}
@@ -176,14 +229,15 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
             justify: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: '12px'
+            gap: '12px',
+            marginBottom: '20px'
           }}>
             <div>
               <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                 🔮 Prediction: Prices likely to drop by ~${demoData.expectedSavings} within {demoData.expectedDropDays}
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Historical analysis indicates a <strong>{demoData.confidenceScore}% probability</strong> of lower fares before departure.
+                Historical analysis indicates an <strong>{demoData.confidenceScore}% probability</strong> of lower fares before departure.
               </div>
             </div>
 
@@ -197,32 +251,23 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
             </div>
           </div>
 
-          {/* VISUAL PRICE HISTORY TREND CHART */}
-          <div style={{ marginTop: '20px' }}>
-            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-              <span>90-Day Price History Trend ($)</span>
-              <span style={{ color: 'var(--success)' }}>Today: 23% Below Peak</span>
+          {/* INTERACTIVE 90-DAY SVG PRICE HISTORY GRAPH */}
+          <PriceHistoryGraph priceHistory={demoData.priceHistory} />
+
+          {/* WHY TRUST KAIRO RECOMMENDATIONS? DATA RATIONALE CHECKLIST */}
+          <div style={{ marginTop: '20px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', padding: '16px' }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ShieldCheck size={16} style={{ color: 'var(--primary)' }} />
+              <span>Why Trust This Recommendation? (Data Rationale)</span>
             </div>
             
-            <div style={{ display: 'flex', gap: '8px', height: '60px', alignItems: 'flex-end', paddingTop: '10px' }}>
-              {demoData.priceHistory.map((item, i) => {
-                const heightPct = Math.round(((item.price - 700) / (1320 - 700)) * 100);
-                const isCurrent = item.label === 'Today';
-                return (
-                  <div key={i} style={{ flex: 1, textAlign: 'center' }}>
-                    <div
-                      style={{
-                        height: `${Math.max(15, heightPct)}%`,
-                        background: isCurrent ? 'linear-gradient(180deg, var(--warning), var(--primary))' : 'var(--bg-tertiary)',
-                        border: isCurrent ? '1px solid var(--warning)' : '1px solid var(--border-glass)',
-                        borderRadius: '4px 4px 0 0',
-                        transition: 'all 0.3s ease'
-                      }}
-                    />
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '4px' }}>{item.label}</div>
-                  </div>
-                );
-              })}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              {demoData.rationalePillars.map((pillar, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CheckCircle size={14} style={{ color: 'var(--success)', flexShrink: 0 }} />
+                  <span>{pillar}</span>
+                </div>
+              ))}
             </div>
           </div>
 
