@@ -214,20 +214,28 @@ export default function App() {
     let active = true;
     const loadUserData = async () => {
       if (userId) {
-        await dataService.migrateLocalStorage(userId);
+        try {
+          await dataService.migrateLocalStorage(userId);
+        } catch (err) {
+          console.warn('Migration error fallback:', err);
+        }
       }
-      const [wList, aList, nList, prefs] = await Promise.all([
-        dataService.loadWatchlist(userId),
-        dataService.loadAlerts(userId),
-        dataService.loadNotifications(userId),
-        dataService.loadPreferences(userId)
-      ]);
+      try {
+        const [wList, aList, nList, prefs] = await Promise.all([
+          dataService.loadWatchlist(userId),
+          dataService.loadAlerts(userId),
+          dataService.loadNotifications(userId),
+          dataService.loadPreferences(userId)
+        ]);
 
-      if (active) {
-        setWatchlist(wList);
-        setAlerts(aList);
-        setNotifications(nList);
-        if (prefs?.theme) setTheme(prefs.theme);
+        if (active) {
+          setWatchlist(Array.isArray(wList) ? wList : []);
+          setAlerts(Array.isArray(aList) ? aList : []);
+          setNotifications(Array.isArray(nList) ? nList : []);
+          if (prefs?.theme) setTheme(prefs.theme);
+        }
+      } catch (err) {
+        console.error('Data loading error fallback:', err);
       }
     };
 
@@ -492,13 +500,13 @@ export default function App() {
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="user-avatar-btn"
-                title={user.email}
+                title={user?.email || 'User Account'}
               >
-                {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
+                {user?.email ? user.email.charAt(0).toUpperCase() : 'U'}
               </button>
               {isUserMenuOpen && (
                 <div className="user-dropdown animate-fade-in">
-                  <div className="user-dropdown-email">{user.email}</div>
+                  <div className="user-dropdown-email">{user?.email || 'Signed In'}</div>
                   <button
                     onClick={() => {
                       setActiveTab('landing');
@@ -652,7 +660,7 @@ export default function App() {
             setActiveRoundtrip={setActiveRoundtrip}
             setActiveTab={setActiveTab}
             onToggleWatchlist={handleToggleWatchlist}
-            watchlist={watchlist}
+            watchlist={watchlist || []}
           />
         )}
 
@@ -682,7 +690,7 @@ export default function App() {
                 simulationSpeed={simulationSpeed}
                 setSimulationSpeed={setSimulationSpeed}
                 onToggleWatchlist={handleToggleWatchlist}
-                isWatched={watchlist.some(w => w.id === activeFlight.id)}
+                isWatched={(watchlist || []).some(w => w?.id === activeFlight?.id)}
                 selectedDate={selectedDate}
                 onOpenAlertModal={() => setActiveTab('alerts')}
                 activeRoundtrip={activeRoundtrip}
@@ -699,7 +707,7 @@ export default function App() {
             activeFlight={activeFlight}
             setActiveFlight={setActiveFlight}
             onToggleWatchlist={handleToggleWatchlist}
-            watchlist={watchlist}
+            watchlist={watchlist || []}
             searchParams={searchParams}
             setSearchParams={setSearchParams}
             activeRoundtrip={activeRoundtrip}
@@ -711,7 +719,7 @@ export default function App() {
         {/* VIEW 3: WATCHLIST MANAGER */}
         {activeTab === 'watchlist' && (
           <Watchlist
-            watchlist={watchlist}
+            watchlist={watchlist || []}
             onRemoveFromWatchlist={handleRemoveFromWatchlist}
             onTrackFlight={handleTrackFromWatchlist}
             activeFlight={activeFlight}
@@ -721,9 +729,9 @@ export default function App() {
         {/* VIEW 4: ALERTS CONFIG & LOGS */}
         {activeTab === 'alerts' && (
           <AlertsManager
-            alerts={alerts}
+            alerts={alerts || []}
             setAlerts={setAlerts}
-            notifications={notifications}
+            notifications={notifications || []}
             setNotifications={setNotifications}
             activeFlight={activeFlight}
             flightDatabase={{}} // Not strictly required as inputs now read activeFlight dynamically

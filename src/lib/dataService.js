@@ -10,26 +10,36 @@ import { supabase } from './supabaseClient';
 
 export async function loadWatchlist(userId) {
   if (!supabase || !userId) {
+    try {
+      const saved = localStorage.getItem('watchlist');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('watchlist')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error || !data) {
+      if (error) console.error('Failed to load watchlist from Supabase:', error.message);
+      const saved = localStorage.getItem('watchlist');
+      return saved ? JSON.parse(saved) : [];
+    }
+
+    return data.map((row) => ({
+      ...row.flight_data,
+      _supabaseId: row.id,
+    }));
+  } catch (err) {
+    console.error('Watchlist fetch error:', err);
     const saved = localStorage.getItem('watchlist');
     return saved ? JSON.parse(saved) : [];
   }
-
-  const { data, error } = await supabase
-    .from('watchlist')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Failed to load watchlist from Supabase:', error.message);
-    const saved = localStorage.getItem('watchlist');
-    return saved ? JSON.parse(saved) : [];
-  }
-
-  return data.map((row) => ({
-    ...row.flight_data,
-    _supabaseId: row.id,
-  }));
 }
 
 export async function saveWatchlistItem(userId, flight) {
@@ -103,34 +113,44 @@ const DEFAULT_ALERTS = [
 
 export async function loadAlerts(userId) {
   if (!supabase || !userId) {
+    try {
+      const saved = localStorage.getItem('alerts');
+      return saved ? JSON.parse(saved) : DEFAULT_ALERTS;
+    } catch {
+      return DEFAULT_ALERTS;
+    }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('alerts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error || !data) {
+      if (error) console.error('Failed to load alerts from Supabase:', error.message);
+      const saved = localStorage.getItem('alerts');
+      return saved ? JSON.parse(saved) : DEFAULT_ALERTS;
+    }
+
+    return data.map((row) => ({
+      id: row.id,
+      flightNumber: row.flight_number,
+      flightId: row.flight_id,
+      type: row.alert_type,
+      thresholdPrice: row.threshold_price ? Number(row.threshold_price) : null,
+      isActive: row.is_active,
+      createdAt: new Date(row.created_at).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    }));
+  } catch (err) {
+    console.error('Alerts fetch error:', err);
     const saved = localStorage.getItem('alerts');
     return saved ? JSON.parse(saved) : DEFAULT_ALERTS;
   }
-
-  const { data, error } = await supabase
-    .from('alerts')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Failed to load alerts from Supabase:', error.message);
-    const saved = localStorage.getItem('alerts');
-    return saved ? JSON.parse(saved) : DEFAULT_ALERTS;
-  }
-
-  return data.map((row) => ({
-    id: row.id,
-    flightNumber: row.flight_number,
-    flightId: row.flight_id,
-    type: row.alert_type,
-    thresholdPrice: row.threshold_price ? Number(row.threshold_price) : null,
-    isActive: row.is_active,
-    createdAt: new Date(row.created_at).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
-  }));
 }
 
 export async function saveAlert(userId, alert) {
@@ -228,33 +248,43 @@ const DEFAULT_NOTIFICATIONS = [
 
 export async function loadNotifications(userId) {
   if (!supabase || !userId) {
+    try {
+      const saved = localStorage.getItem('notifications');
+      return saved ? JSON.parse(saved) : DEFAULT_NOTIFICATIONS;
+    } catch {
+      return DEFAULT_NOTIFICATIONS;
+    }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error || !data) {
+      if (error) console.error('Failed to load notifications from Supabase:', error.message);
+      const saved = localStorage.getItem('notifications');
+      return saved ? JSON.parse(saved) : DEFAULT_NOTIFICATIONS;
+    }
+
+    return data.map((row) => ({
+      id: row.id,
+      time: new Date(row.created_at).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      flightNumber: row.flight_number || '',
+      type: row.notification_type,
+      message: row.message,
+    }));
+  } catch (err) {
+    console.error('Notifications fetch error:', err);
     const saved = localStorage.getItem('notifications');
     return saved ? JSON.parse(saved) : DEFAULT_NOTIFICATIONS;
   }
-
-  const { data, error } = await supabase
-    .from('notifications')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(50);
-
-  if (error) {
-    console.error('Failed to load notifications from Supabase:', error.message);
-    const saved = localStorage.getItem('notifications');
-    return saved ? JSON.parse(saved) : DEFAULT_NOTIFICATIONS;
-  }
-
-  return data.map((row) => ({
-    id: row.id,
-    time: new Date(row.created_at).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
-    flightNumber: row.flight_number || '',
-    type: row.notification_type,
-    message: row.message,
-  }));
 }
 
 export async function saveNotification(userId, notification) {
