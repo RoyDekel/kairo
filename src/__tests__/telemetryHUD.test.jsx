@@ -1,8 +1,17 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 import App from '../App';
 import { AuthProvider } from '../contexts/AuthProvider';
+
+vi.mock('../contexts/AuthProvider', () => ({
+  useAuth: () => ({
+    user: { id: 'test-user-123', email: 'test@example.com' },
+    isAuthenticated: true,
+    signOut: vi.fn(),
+  }),
+  AuthProvider: ({ children }) => <div>{children}</div>
+}));
 
 const renderApp = () => {
   const result = render(
@@ -10,8 +19,6 @@ const renderApp = () => {
       <App />
     </AuthProvider>
   );
-  const launchBtn = screen.getAllByRole('button', { name: /Should I Book\?/i })[0];
-  fireEvent.click(launchBtn);
   const dashTab = screen.getByText('Price Radar HUD');
   fireEvent.click(dashTab);
   return result;

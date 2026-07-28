@@ -106,7 +106,7 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
         {!user && (
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
-              onClick={() => setActiveTab('ai-explorer')}
+              onClick={onOpenAuth}
               style={{
                 background: 'linear-gradient(135deg, #0284c7, #1d4ed8)',
                 border: 'none',
@@ -397,7 +397,7 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
               </ul>
             </div>
 
-            <button onClick={() => setActiveTab('ai-explorer')} className="btn btn-secondary" style={{ width: '100%', marginTop: '32px' }}>
+            <button onClick={onOpenAuth} className="btn btn-secondary" style={{ width: '100%', marginTop: '32px' }}>
               Get Started Free
             </button>
           </div>

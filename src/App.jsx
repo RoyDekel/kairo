@@ -127,15 +127,12 @@ export default function App() {
   const [showNotifBadge, setShowNotifBadge] = useState(false);
   const hasAutoRedirectedRef = useRef(false);
 
-  // Auto-redirect authenticated user ONCE on initial session load to AI Event Explorer workspace
+  // Auto-redirect authenticated user on login to AI Event Explorer workspace
   useEffect(() => {
-    if (user && !hasAutoRedirectedRef.current) {
-      hasAutoRedirectedRef.current = true;
-      if (activeTab === 'landing') {
-        setActiveTab('ai-explorer');
-      }
+    if (user && activeTab === 'landing') {
+      setActiveTab('ai-explorer');
     }
-  }, [user]);
+  }, [user, activeTab]);
 
   const prevStatusRef = useRef('Scheduled');
 
@@ -151,6 +148,7 @@ export default function App() {
 
   // Fetch initial default flights from the server to align with the client-server pattern
   useEffect(() => {
+    if (!user) return;
     let active = true;
     const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'http://localhost:3001');
 
@@ -207,7 +205,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [user]);
 
   // Cloud / Local data loading effect when user changes
   useEffect(() => {
@@ -614,7 +612,13 @@ export default function App() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  if (!user) {
+                    setIsAuthModalOpen(true);
+                  } else {
+                    setActiveTab(tab.id);
+                  }
+                }}
                 className="btn"
                 style={{
                   backgroundColor: isActive ? 'var(--bg-tertiary)' : 'transparent',
