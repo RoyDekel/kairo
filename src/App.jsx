@@ -125,13 +125,17 @@ export default function App() {
   // 6. Navigation Tabs (Default page: SaaS Landing Page)
   const [activeTab, setActiveTab] = useState('landing');
   const [showNotifBadge, setShowNotifBadge] = useState(false);
+  const hasAutoRedirectedRef = useRef(false);
 
-  // Auto-redirect authenticated user away from landing page to AI Event Explorer workspace
+  // Auto-redirect authenticated user ONCE on initial session load to AI Event Explorer workspace
   useEffect(() => {
-    if (user && activeTab === 'landing') {
-      setActiveTab('ai-explorer');
+    if (user && !hasAutoRedirectedRef.current) {
+      hasAutoRedirectedRef.current = true;
+      if (activeTab === 'landing') {
+        setActiveTab('ai-explorer');
+      }
     }
-  }, [user, activeTab]);
+  }, [user]);
 
   const prevStatusRef = useRef('Scheduled');
 
@@ -457,29 +461,28 @@ export default function App() {
 
         {/* AUTH, NOTIFICATIONS & NAVIGATION HUD */}
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {/* Header CTA Button - Displayed ONLY when user is NOT logged in */}
-          {!user && (
+          {/* Pro Plan / Pricing Quick Link for Logged-In Users */}
+          {isAuthenticated && (
             <button
-              onClick={() => setActiveTab('ai-explorer')}
+              onClick={() => setActiveTab('landing')}
               style={{
-                background: 'linear-gradient(135deg, #0284c7, #1d4ed8)',
-                border: 'none',
+                background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(249, 115, 22, 0.15))',
+                border: '1px solid rgba(234, 179, 8, 0.4)',
                 borderRadius: '50px',
-                color: '#ffffff',
-                padding: '8px 18px',
-                fontSize: '0.85rem',
+                color: '#eab308',
+                padding: '6px 14px',
+                fontSize: '0.78rem',
                 fontWeight: 700,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
+                gap: '6px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease'
               }}
+              title="View Pro Plans & Pricing"
             >
-              <Sparkles size={16} />
-              <span>Should I Book?</span>
-              <ArrowRight size={16} />
+              <Zap size={14} style={{ color: '#eab308' }} />
+              <span>Pro Plan</span>
             </button>
           )}
 
@@ -496,6 +499,30 @@ export default function App() {
               {isUserMenuOpen && (
                 <div className="user-dropdown animate-fade-in">
                   <div className="user-dropdown-email">{user.email}</div>
+                  <button
+                    onClick={() => {
+                      setActiveTab('landing');
+                      setIsUserMenuOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 14px',
+                      background: 'transparent',
+                      border: 'none',
+                      borderBottom: '1px solid var(--border-glass)',
+                      color: 'var(--primary)',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      width: '100%',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <Zap size={14} />
+                    Upgrade to Pro / Pricing
+                  </button>
                   <button
                     onClick={() => {
                       signOut();
@@ -605,6 +632,7 @@ export default function App() {
         {/* VIEW 0: SAAS MARKETING LANDING PAGE */}
         {activeTab === 'landing' && (
           <LandingPage
+            user={user}
             onExploreAI={(params) => {
               if (params) {
                 setSearchParams((prev) => ({ ...prev, ...params }));

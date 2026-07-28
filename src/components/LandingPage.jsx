@@ -25,7 +25,28 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '48px', paddingBottom: '40px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '48px', paddingBottom: '40px', position: 'relative' }}>
+      {toastMsg && (
+        <div className="animate-fade-in" style={{
+          position: 'fixed',
+          top: '80px',
+          right: '24px',
+          zIndex: 9999,
+          background: 'linear-gradient(135deg, #059669, #10b981)',
+          color: '#ffffff',
+          padding: '12px 20px',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: 'var(--shadow-lg)',
+          fontSize: '0.88rem',
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <CheckCircle size={18} />
+          <span>{toastMsg}</span>
+        </div>
+      )}
       
       {/* HERO SECTION */}
       <section className="glass-panel" style={{
@@ -429,8 +450,19 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
               </ul>
             </div>
 
-            <button onClick={onOpenAuth} className="btn btn-primary" style={{ width: '100%', marginTop: '32px' }}>
-              <Zap size={18} /> Upgrade to Pro
+            <button 
+              onClick={() => {
+                if (user) {
+                  setToastMsg('⚡ Pro Membership Activated! Unlimited AI Queries & Priority Sync Enabled.');
+                  setTimeout(() => setToastMsg(null), 4000);
+                } else {
+                  onOpenAuth();
+                }
+              }} 
+              className="btn btn-primary" 
+              style={{ width: '100%', marginTop: '32px' }}
+            >
+              <Zap size={18} /> {user ? 'Activate Pro Membership' : 'Upgrade to Pro'}
             </button>
           </div>
         </div>
