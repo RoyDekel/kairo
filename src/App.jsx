@@ -122,8 +122,8 @@ export default function App() {
     ];
   });
 
-  // 6. Navigation Tabs
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // 6. Navigation Tabs (Default page: SaaS Landing Page)
+  const [activeTab, setActiveTab] = useState('landing');
   const [showNotifBadge, setShowNotifBadge] = useState(false);
 
   const prevStatusRef = useRef('Scheduled');
@@ -400,7 +400,11 @@ export default function App() {
         paddingBottom: '16px',
         borderBottom: '1px solid var(--border-glass)'
       }}>
-        <div>
+        <div 
+          onClick={() => setActiveTab('landing')} 
+          style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
+          title="Back to AeroTrack Home"
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{
               width: '32px',
@@ -471,8 +475,30 @@ export default function App() {
           </button>
         </div>
 
-        {/* AUTH, NOTIFICATIONS & THEME HUD */}
+        {/* AUTH, NOTIFICATIONS & NAVIGATION HUD */}
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {/* Landing / Web App Mode Switcher */}
+          {activeTab === 'landing' ? (
+            <button
+              onClick={() => setActiveTab('ai-explorer')}
+              className="btn btn-primary"
+              style={{ padding: '8px 16px', fontSize: '0.8rem', gap: '6px' }}
+            >
+              <Sparkles size={16} />
+              Launch Web App
+            </button>
+          ) : (
+            <button
+              onClick={() => setActiveTab('landing')}
+              className="btn btn-secondary"
+              style={{ padding: '8px 14px', fontSize: '0.8rem', gap: '6px' }}
+              title="Return to Product Home"
+            >
+              <Globe size={16} />
+              Product Home
+            </button>
+          )}
+
           {/* Auth Button or User Avatar */}
           {isAuthenticated ? (
             <div style={{ position: 'relative' }}>
@@ -547,46 +573,47 @@ export default function App() {
         </div>
       </header>
 
-      {/* DASHBOARD TAB BAR */}
-      <nav style={{
-        display: 'flex',
-        gap: '8px',
-        background: 'var(--bg-secondary)',
-        border: '1px solid var(--border-glass)',
-        borderRadius: 'var(--radius-md)',
-        padding: '6px',
-        overflowX: 'auto'
-      }}>
-        {[
-          { id: 'landing', label: 'Overview & SaaS', icon: <Globe size={16} /> },
-          { id: 'ai-explorer', label: 'AI Event Explorer', icon: <Sparkles size={16} /> },
-          { id: 'dashboard', label: 'Dashboard HUD', icon: <Activity size={16} /> },
-          { id: 'alternative', label: 'Find Flights', icon: <Compass size={16} /> },
-          { id: 'watchlist', label: 'Watchlist', icon: <Bookmark size={16} /> },
-          { id: 'alerts', label: 'Alert Center', icon: <Bell size={16} /> }
-        ].map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className="btn"
-              style={{
-                backgroundColor: isActive ? 'var(--bg-tertiary)' : 'transparent',
-                color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
-                border: isActive ? '1px solid var(--border-glass-bright)' : '1px solid transparent',
-                borderRadius: 'var(--radius-sm)',
-                padding: '10px 18px',
-                fontSize: '0.85rem',
-                flexGrow: 1
-              }}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          );
-        })}
-      </nav>
+      {/* DASHBOARD TAB BAR (Only shown when inside the App views) */}
+      {activeTab !== 'landing' && (
+        <nav style={{
+          display: 'flex',
+          gap: '8px',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-glass)',
+          borderRadius: 'var(--radius-md)',
+          padding: '6px',
+          overflowX: 'auto'
+        }}>
+          {[
+            { id: 'ai-explorer', label: 'AI Event Explorer', icon: <Sparkles size={16} /> },
+            { id: 'dashboard', label: 'Dashboard HUD', icon: <Activity size={16} /> },
+            { id: 'alternative', label: 'Find Flights', icon: <Compass size={16} /> },
+            { id: 'watchlist', label: 'Watchlist', icon: <Bookmark size={16} /> },
+            { id: 'alerts', label: 'Alert Center', icon: <Bell size={16} /> }
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className="btn"
+                style={{
+                  backgroundColor: isActive ? 'var(--bg-tertiary)' : 'transparent',
+                  color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
+                  border: isActive ? '1px solid var(--border-glass-bright)' : '1px solid transparent',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '10px 18px',
+                  fontSize: '0.85rem',
+                  flexGrow: 1
+                }}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+      )}
 
       {/* TAB VIEWS CONTROLLER */}
       <main className="animate-fade-in" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>

@@ -145,6 +145,43 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
         </div>
       </section>
 
+      {/* GUIDED PRODUCT WORKFLOW SECTION */}
+      <section className="glass-panel" style={{ padding: '40px 32px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '36px' }}>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 800 }}>How AeroTrack Works in 3 Simple Steps</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Your intelligent AI travel companion from decision to touchdown</p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px' }}>
+          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '24px', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '2rem', fontWeight: 900, color: 'var(--primary-glow)', opacity: 0.5 }}>01</div>
+            <div style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 1</div>
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Input Dates & Preferences</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              Choose your origin city, preferred travel dates, max flight budget, and interest tags (*Music, Sports, Festivals, Culture*).
+            </p>
+          </div>
+
+          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '24px', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '2rem', fontWeight: 900, color: 'var(--accent-glow)', opacity: 0.5 }}>02</div>
+            <div style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 2</div>
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>AI Match & Event Intelligence</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              AI scans 32 global hubs, pairs flight deals ($20\%-50\%$ savings) with concerts and games occurring during your trip, and generates AI Recommendation Scores.
+            </p>
+          </div>
+
+          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '24px', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '2rem', fontWeight: 900, color: 'var(--success-glow)', opacity: 0.5 }}>03</div>
+            <div style={{ color: 'var(--success)', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 3</div>
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Live Telemetry & Cloud Alerts</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              Track live radar coordinates on Leaflet maps and sync price alerts to your cloud account powered by Supabase.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* VALUE PROPOSITION GRID */}
       <section>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>

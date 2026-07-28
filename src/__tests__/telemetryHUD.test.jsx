@@ -4,11 +4,18 @@ import { describe, test, expect } from 'vitest';
 import App from '../App';
 import { AuthProvider } from '../contexts/AuthProvider';
 
-const renderApp = () => render(
-  <AuthProvider>
-    <App />
-  </AuthProvider>
-);
+const renderApp = () => {
+  const result = render(
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+  const launchBtn = screen.getByRole('button', { name: /Launch Web App/i });
+  fireEvent.click(launchBtn);
+  const dashTab = screen.getByText('Dashboard HUD');
+  fireEvent.click(dashTab);
+  return result;
+};
 
 describe('Telemetry HUD and Watchlist/Alerts UI Tests', () => {
   test('controls the simulator HUD (Play/Pause, speed selection, reset)', () => {
