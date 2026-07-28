@@ -117,7 +117,7 @@ export default function App() {
         time: '12:00 PM',
         flightNumber: 'W6 5122',
         type: 'system',
-        message: 'AeroTrack dynamic engine initialized. Select the "Find Flights" tab to query new destinations.'
+        message: 'KAIRO AI engine initialized. Select "AI Event Explorer" or "Find Flights" to discover destinations.'
       }
     ];
   });

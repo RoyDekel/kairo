@@ -1,6 +1,6 @@
-# AeroTrack ✈️ (Dynamic Roundtrip Flight Tracker & Price Engine)
+# KAIRO ✈️ — Smart AI Flight Price & Buy Timing Engine
 
-**AeroTrack** is a modern, high-fidelity Flight Search and Telemetry Tracking web application. It functions as a dynamic roundtrip search engine, letting users query flights between major international airports, configure passenger details, select outbound and return legs, and track flight simulations on an interactive HUD map overlay.
+**KAIRO** ("Never Overpay For Flights Again") is an AI-powered Flight Price Intelligence and Telemetry web application. Inspired by the ancient concept of *Kairos* (the exact right moment to act), KAIRO predicts whether flight prices will rise or drop, gives you an instant Buy Timing rating with confidence scores, and pairs flight deals with live concerts, sports matches, and music festivals across 32 global hubs.
 
 ---
 
