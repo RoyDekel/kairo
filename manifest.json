@@ -1,0 +1,16 @@
+{
+  "short_name": "KAIRO",
+  "name": "KAIRO — Smart AI Flight Price & Buy Timing Engine",
+  "description": "Never overpay for flights again. KAIRO predicts the exact right moment to buy using AI price trend analytics.",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "./",
+  "background_color": "#0b0f19",
+  "theme_color": "#00f2fe",
+  "display": "standalone"
+}
