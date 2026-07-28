@@ -12,6 +12,7 @@ import {
   Filler
 } from 'chart.js';
 import { generatePriceHistory } from '../utils/flightSimulator';
+import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
 import { TrendingUp, Info, AlertCircle } from 'lucide-react';
 
 // Register Chart.js components
@@ -41,10 +42,16 @@ export default function PriceChart({ activeFlight, theme }) {
     tooltipBody: isDark ? '#94a3b8' : '#475569',
     tooltipBorder: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(15, 23, 42, 0.1)'
   };
-  const { history, predictions, advice, adviceDetails } = generatePriceHistory(
+  const { history, predictions } = generatePriceHistory(
     activeFlight.flightNumber,
     activeFlight.price
   );
+
+  // Unified single-source-of-truth recommendation engine
+  const priceInsight = getPriceConfidenceInsight(activeFlight, activeFlight.price);
+  const advice = priceInsight.actionHeadline;
+  const adviceDetails = priceInsight.summary;
+  const isBuyNow = priceInsight.recommendation === 'BUY_NOW';
 
   // Combine history and prediction labels
   const allLabels = [
@@ -199,8 +206,8 @@ export default function PriceChart({ activeFlight, theme }) {
 
       {/* Booking Advice Banner */}
       <div style={{
-        background: advice === 'BUY NOW' ? 'rgba(5, 150, 105, 0.1)' : advice === 'WAIT' ? 'rgba(217, 119, 6, 0.1)' : 'rgba(148, 163, 184, 0.08)',
-        border: `1px solid ${advice === 'BUY NOW' ? 'rgba(5, 150, 105, 0.3)' : advice === 'WAIT' ? 'rgba(217, 119, 6, 0.3)' : 'var(--border-glass)'}`,
+        background: isBuyNow ? 'rgba(5, 150, 105, 0.1)' : 'rgba(217, 119, 6, 0.1)',
+        border: `1px solid ${isBuyNow ? 'rgba(5, 150, 105, 0.3)' : 'rgba(217, 119, 6, 0.3)'}`,
         borderRadius: 'var(--radius-sm)',
         padding: '12px 16px',
         display: 'flex',
@@ -208,14 +215,15 @@ export default function PriceChart({ activeFlight, theme }) {
         gap: '12px'
       }}>
         <div style={{
-          backgroundColor: advice === 'BUY NOW' ? 'var(--success)' : advice === 'WAIT' ? 'var(--warning)' : 'var(--text-muted)',
+          backgroundColor: isBuyNow ? 'var(--success)' : 'var(--warning)',
           color: '#0b0f19',
           fontWeight: 800,
           fontSize: '0.75rem',
           padding: '4px 10px',
           borderRadius: '4px',
           textTransform: 'uppercase',
-          marginTop: '2px'
+          marginTop: '2px',
+          whiteSpace: 'nowrap'
         }}>
           {advice}
         </div>

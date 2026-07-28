@@ -309,7 +309,7 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
             <div style={{ color: 'var(--success)', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 3</div>
             <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Instant Price Drop Alerts</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              Save routes to your cloud watchlist. KAIRO notifies you the second fares drop to your target threshold via Supabase.
+              Save routes to your cloud watchlist. KAIRO notifies you the second fares drop to your target threshold.
             </p>
           </div>
         </div>
@@ -425,7 +425,7 @@ export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.88rem' }}>
                 <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: 'var(--primary)' }} /> <strong>Unlimited</strong> AI Destination queries</li>
                 <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: 'var(--primary)' }} /> Live Concert & Football event matching</li>
-                <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: 'var(--primary)' }} /> Priority Price Drop alerts via Supabase</li>
+                <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: 'var(--primary)' }} /> Priority Price Drop alerts & real-time cloud sync</li>
               </ul>
             </div>
 

@@ -1,4 +1,5 @@
 // KAIRO Flight & Price Simulator Engine - Upgraded for Dynamic Search
+import { getPriceConfidenceInsight } from './priceConfidenceEngine.js';
 
 // Catalog of supported airports with coordinates, names, cities, and countries
 export const AIRPORTS = {
@@ -252,23 +253,9 @@ export const generatePriceHistory = (flightNumber, basePrice) => {
     });
   }
 
-  let advice = 'HOLD';
-  let adviceDetails = 'Prices are fluctuating but stable. Watch for drops.';
-  
-  const lastHistoryPrice = history[history.length - 1].price;
-  const startHistoryPrice = history[0].price;
-  const avgPredPrice = predictions.reduce((sum, item) => sum + item.price, 0) / daysOfPrediction;
-
-  if (avgPredPrice > lastHistoryPrice * 1.05) {
-    advice = 'BUY NOW';
-    adviceDetails = 'Prices are projected to increase by 5-15% as seat availability shrinks.';
-  } else if (lastHistoryPrice < startHistoryPrice * 0.95 || avgPredPrice < lastHistoryPrice * 0.95) {
-    advice = 'WAIT';
-    adviceDetails = 'Prices are currently lower than average or expected to dip in the coming days.';
-  } else {
-    advice = 'BUY NOW';
-    adviceDetails = 'High demand season. Fares are unlikely to drop further.';
-  }
+  const priceInsight = getPriceConfidenceInsight({ id: flightNumber, price: basePrice }, basePrice);
+  const advice = priceInsight.actionHeadline;
+  const adviceDetails = priceInsight.summary;
 
   return { history, predictions, advice, adviceDetails };
 };

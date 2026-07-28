@@ -139,18 +139,21 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
       {/* BENCHMARK FOOTER */}
       <div style={{
         display: 'flex',
-        justify: 'space-between',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '8px',
         fontSize: '0.75rem',
         color: 'var(--text-muted)',
         marginTop: '10px',
         paddingTop: '8px',
         borderTop: '1px dashed var(--border-glass)'
       }}>
-        <span>High Peak: ${maxPrice}</span>
-        <span style={{ color: 'var(--success)', fontWeight: 700 }}>
+        <span>High Peak: <strong style={{ color: 'var(--text-primary)' }}>${maxPrice}</strong></span>
+        <span style={{ color: 'var(--success)', fontWeight: 700, padding: '2px 8px', background: 'rgba(5, 150, 105, 0.1)', borderRadius: '12px', border: '1px solid rgba(5, 150, 105, 0.2)' }}>
           Current Fare is {Math.round(((maxPrice - points[points.length - 1].price) / maxPrice) * 100)}% below peak
         </span>
-        <span>Low Benchmark: ${minPrice}</span>
+        <span>Low Benchmark: <strong style={{ color: 'var(--text-primary)' }}>${minPrice}</strong></span>
       </div>
     </div>
   );
