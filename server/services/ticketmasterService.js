@@ -32,6 +32,7 @@ export class TicketmasterService {
 
     if (this.apiKey && this.apiKey.trim() !== '') {
       try {
+        console.log(`[TicketmasterService] Calling LIVE Ticketmaster Discovery API for city: ${locInfo.city} (${airportCode})...`);
         const startIso = startDateStr ? new Date(startDateStr).toISOString().split('.')[0] + 'Z' : '';
         const endIso = endDateStr ? new Date(endDateStr).toISOString().split('.')[0] + 'Z' : '';
 
@@ -49,11 +50,14 @@ export class TicketmasterService {
         if (res.ok) {
           const data = await res.json();
           const rawEvents = data._embedded?.events || [];
-          return this.formatTicketmasterEvents(rawEvents, airportCode);
+          console.log(`[TicketmasterService] Live API Success: Retrieved ${rawEvents.length} real-time events for ${locInfo.city}.`);
+          return this.formatTicketmasterEvents(rawEvents, airportCode, true);
         }
       } catch (err) {
         console.warn(`[TicketmasterService] Live API request failed, utilizing high-fidelity fallback engine:`, err.message);
       }
+    } else {
+      console.log(`[TicketmasterService] TICKETMASTER_API_KEY not configured in .env; utilizing event simulation engine.`);
     }
 
     // High-Fidelity Fallback Event Engine (guarantees availability and rich simulation)
@@ -63,7 +67,7 @@ export class TicketmasterService {
   /**
    * Format raw Ticketmaster API response into standardized KAIRO event objects
    */
-  formatTicketmasterEvents(rawEvents, airportCode) {
+  formatTicketmasterEvents(rawEvents, airportCode, isLive = false) {
     return rawEvents.map((evt, idx) => {
       const venue = evt._embedded?.venues?.[0]?.name || 'Major Stadium / Arena';
       const category = evt.classifications?.[0]?.segment?.name?.toLowerCase() || 'entertainment';
@@ -84,6 +88,7 @@ export class TicketmasterService {
         venue,
         category,
         categoryLabel,
+        isLiveApi: isLive,
         date: evt.dates?.start?.localDate || 'Upcoming',
         priceEstimate: `$${Math.round(priceMin)} - $${Math.round(priceMax)}`,
         description: evt.info || `${evt.name} live event in ${venue}. High demand expected.`,
