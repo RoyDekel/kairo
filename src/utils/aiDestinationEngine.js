@@ -23,24 +23,8 @@ const AIRPORT_LOCATION_MAP = {
 const TICKETMASTER_API_KEY = 'AxuhwJlhtAlB5PQuhSgtzsoTq4w8Ddof';
 
 /**
- * Formats a raw local time string "14:30:00" into a human-readable local time "2:30 PM"
- */
-export function formatLocalTimeFrame(timeStr) {
-  if (!timeStr) return null;
-  const parts = timeStr.split(':');
-  if (parts.length < 2) return null;
-  let hours = parseInt(parts[0], 10);
-  const minutes = parts[1];
-  if (isNaN(hours)) return null;
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  if (hours === 0) hours = 12;
-  return `${hours}:${minutes} ${ampm}`;
-}
-
-/**
  * Fetches live events directly from Ticketmaster Discovery API for a destination & date range.
- * Preserves separate time slots on the same day while filtering true duplicate records.
+ * Strictly returns 1 result per unique event title, containing only the event title, category, venue/location, and price estimate.
  */
 export async function fetchTicketmasterEventsForDestination(airportCode, startDateStr, endDateStr) {
   const locInfo = AIRPORT_LOCATION_MAP[airportCode?.toUpperCase()];
@@ -67,24 +51,20 @@ export async function fetchTicketmasterEventsForDestination(airportCode, startDa
     const data = await res.json();
     const rawEvents = data?._embedded?.events || [];
 
-    // Deduplicate by (Title + Venue + Date + LocalStartTimeslot) to keep separate time slots
-    const seenKeys = new Set();
+    // Strictly deduplicate by Event Title so each event title is UNIQUE per destination
+    const seenTitles = new Set();
     const uniqueEvents = [];
 
     for (const evt of rawEvents) {
       if (!evt.name) continue;
 
       const title = evt.name.trim();
+      const normalizedTitle = title.toLowerCase();
+
+      if (seenTitles.has(normalizedTitle)) continue;
+      seenTitles.add(normalizedTitle);
+
       const venue = evt._embedded?.venues?.[0]?.name || `${locInfo.city} Venue`;
-      const localDate = evt.dates?.start?.localDate || startDateStr;
-      const localTimeRaw = evt.dates?.start?.localTime || '';
-      const formattedTime = formatLocalTimeFrame(localTimeRaw);
-
-      // Key differentiates events by title, venue, date, AND local start time slot
-      const dedupKey = `${title.toLowerCase()}|${venue.toLowerCase()}|${localDate}|${localTimeRaw || 'all-day'}`;
-      if (seenKeys.has(dedupKey)) continue;
-      seenKeys.add(dedupKey);
-
       const segmentName = evt.classifications?.[0]?.segment?.name?.toLowerCase() || 'culture';
       let category = 'culture';
       let categoryLabel = 'Culture 🏛️';
@@ -111,12 +91,8 @@ export async function fetchTicketmasterEventsForDestination(airportCode, startDa
         category,
         categoryLabel,
         isLiveApi: true,
-        date: localDate,
-        localTime: localTimeRaw,
-        timeFrame: formattedTime, // e.g. "10:00 AM" or "6:15 PM"
-        timezone: evt.dates?.timezone || locInfo.countryCode,
+        date: evt.dates?.start?.localDate || startDateStr,
         priceEstimate: `$${Math.round(priceMin)} - $${Math.round(priceMax)}`,
-        description: evt.info || `${title} live event at ${venue}.`,
         url: evt.url
       });
     }
@@ -185,8 +161,7 @@ export async function searchAIDestinations({
 
     // Construct Natural Language AI Insight Statement
     const topEvent = matchedEvents[0];
-    const timeDetail = topEvent.timeFrame ? ` at ${topEvent.timeFrame} local time` : '';
-    const aiInsight = `${destinationInfo.city} has verified live events on Ticketmaster! Flight is ${savingsPercent}% below historical average ($${totalRoundtripPrice} roundtrip). Catch "${topEvent.title}" at ${topEvent.venue}${timeDetail} during your trip.`;
+    const aiInsight = `${destinationInfo.city} has verified live events on Ticketmaster! Flight is ${savingsPercent}% below historical average ($${totalRoundtripPrice} roundtrip). Catch "${topEvent.title}" at ${topEvent.venue} during your trip.`;
 
     results.push({
       id: `ai-dest-${destCode}`,
