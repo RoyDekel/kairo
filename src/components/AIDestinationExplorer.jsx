@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Sparkles, Calendar, Compass, DollarSign, Ticket, ArrowRight, Bookmark, Flame, CheckCircle, ExternalLink, MapPin } from 'lucide-react';
+import { Sparkles, Calendar, Compass, DollarSign, Ticket, ArrowRight, Bookmark, Flame, CheckCircle, ExternalLink, MapPin, Clock } from 'lucide-react';
 import { AIRPORTS } from '../utils/flightSimulator';
 import { searchAIDestinations } from '../utils/aiDestinationEngine';
 
@@ -325,10 +325,28 @@ export default function AIDestinationExplorer({
                           gap: '6px'
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>
-                            {evt.categoryLabel}
-                          </span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>
+                              {evt.categoryLabel}
+                            </span>
+                            {evt.timeFrame && (
+                              <span className="num" style={{
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                background: 'var(--primary-glow-weak)',
+                                border: '1px solid var(--primary-glow)',
+                                color: 'var(--primary)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}>
+                                <Clock size={11} /> {evt.timeFrame} (Local Time)
+                              </span>
+                            )}
+                          </div>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                             Est. {evt.priceEstimate}
                           </span>

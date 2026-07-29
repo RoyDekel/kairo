@@ -84,17 +84,36 @@ export class TicketmasterService {
    * Format raw Ticketmaster API response into standardized KAIRO event objects
    */
   formatTicketmasterEvents(rawEvents, airportCode, isLive = false) {
-    const seenTitles = new Set();
+    const seenKeys = new Set();
     const uniqueEvents = [];
 
     for (const evt of rawEvents) {
       if (!evt.name) continue;
-      const normalizedTitle = evt.name.trim().toLowerCase();
-      if (seenTitles.has(normalizedTitle)) continue;
-      seenTitles.add(normalizedTitle);
+      const title = evt.name.trim();
+      const venue = evt._embedded?.venues?.[0]?.name || 'Major Stadium / Arena';
+      const localDate = evt.dates?.start?.localDate || 'Upcoming';
+      const localTimeRaw = evt.dates?.start?.localTime || '';
+
+      const dedupKey = `${title.toLowerCase()}|${venue.toLowerCase()}|${localDate}|${localTimeRaw || 'all-day'}`;
+      if (seenKeys.has(dedupKey)) continue;
+      seenKeys.add(dedupKey);
+
+      let formattedTime = null;
+      if (localTimeRaw) {
+        const parts = localTimeRaw.split(':');
+        if (parts.length >= 2) {
+          let hours = parseInt(parts[0], 10);
+          const minutes = parts[1];
+          if (!isNaN(hours)) {
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            if (hours === 0) hours = 12;
+            formattedTime = `${hours}:${minutes} ${ampm}`;
+          }
+        }
+      }
 
       const idx = uniqueEvents.length;
-      const venue = evt._embedded?.venues?.[0]?.name || 'Major Stadium / Arena';
       const category = evt.classifications?.[0]?.segment?.name?.toLowerCase() || 'entertainment';
       const categoryLabel = category.includes('music') ? 'Music 🎵' : category.includes('sports') ? 'Sports ⚽' : 'Event 🎟️';
       const priceMin = evt.priceRanges?.[0]?.min || 55;
@@ -114,7 +133,9 @@ export class TicketmasterService {
         category,
         categoryLabel,
         isLiveApi: isLive,
-        date: evt.dates?.start?.localDate || 'Upcoming',
+        date: localDate,
+        localTime: localTimeRaw,
+        timeFrame: formattedTime,
         priceEstimate: `$${Math.round(priceMin)} - $${Math.round(priceMax)}`,
         description: evt.info || `${evt.name} live event in ${venue}. High demand expected.`,
         eventImpactScore: impactScore,
