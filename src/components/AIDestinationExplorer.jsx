@@ -50,6 +50,7 @@ export default function AIDestinationExplorer({
   };
 
   const [aiRecommendations, setAiRecommendations] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isBackendUnavailable, setIsBackendUnavailable] = useState(false);
   // Destination currently being upgraded from estimate to live quote (null when idle).
@@ -76,6 +77,7 @@ export default function AIDestinationExplorer({
         .then((results) => {
           if (!isMounted) return;
           setAiRecommendations(results);
+          setCurrentPage(1);
           setIsBackendUnavailable(false);
           setIsLoading(false);
         })
@@ -91,6 +93,7 @@ export default function AIDestinationExplorer({
             setIsBackendUnavailable(false);
           }
           setAiRecommendations([]);
+          setCurrentPage(1);
           setIsLoading(false);
         });
     }, 400);
@@ -156,6 +159,13 @@ export default function AIDestinationExplorer({
     setTrackingDestCode(null);
     setActiveTab('dashboard');
   };
+
+  const ITEMS_PER_PAGE = 10;
+  const totalPages = Math.ceil(aiRecommendations.length / ITEMS_PER_PAGE);
+  const paginatedRecommendations = aiRecommendations.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -319,17 +329,81 @@ export default function AIDestinationExplorer({
             </p>
           </div>
         ) : (
-          aiRecommendations.map((rec) => (
-            <DestinationCard
-              key={rec.id}
-              recommendation={rec}
-              isWatched={watchlist.some((w) => w.id === rec.outboundFlight.id)}
-              isTracking={trackingDestCode === rec.destCode}
-              isAnyTracking={trackingDestCode !== null}
-              onTrack={handleTrackRoute}
-              onToggleWatchlist={onToggleWatchlist}
-            />
-          ))
+          <>
+            {paginatedRecommendations.map((rec) => (
+              <DestinationCard
+                key={rec.id}
+                recommendation={rec}
+                isWatched={watchlist.some((w) => w.id === rec.outboundFlight.id)}
+                isTracking={trackingDestCode === rec.destCode}
+                isAnyTracking={trackingDestCode !== null}
+                onTrack={handleTrackRoute}
+                onToggleWatchlist={onToggleWatchlist}
+              />
+            ))}
+
+            {/* PAGINATION CONTROLS */}
+            {totalPages > 1 && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '8px',
+                marginTop: '24px',
+                paddingTop: '16px',
+                borderTop: '1px solid var(--border-glass)'
+              }}>
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.8rem',
+                    opacity: currentPage === 1 ? 0.5 : 1,
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Previous
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    type="button"
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className="btn"
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '0.8rem',
+                      backgroundColor: currentPage === page ? 'var(--primary)' : 'var(--bg-tertiary)',
+                      color: currentPage === page ? '#0b0f19' : 'var(--text-secondary)',
+                      border: currentPage === page ? '1px solid var(--primary)' : '1px solid var(--border-glass)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontWeight: currentPage === page ? '600' : 'normal',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.8rem',
+                    opacity: currentPage === totalPages ? 0.5 : 1,
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
