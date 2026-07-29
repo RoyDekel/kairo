@@ -243,7 +243,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             borderRadius: 'var(--radius-sm)',
             padding: '14px 18px',
             display: 'flex',
-            justify: 'space-between',
+            justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
             gap: '12px',
@@ -363,7 +363,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             textAlign: 'left',
             display: 'flex',
             flexDirection: 'column',
-            justify: 'space-between'
+            justifyContent: 'space-between'
           }}>
             <div>
               <div style={{ textAlign: 'center' }}>
@@ -393,7 +393,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             textAlign: 'left',
             display: 'flex',
             flexDirection: 'column',
-            justify: 'space-between',
+            justifyContent: 'space-between',
             position: 'relative',
             boxShadow: 'var(--shadow-glow)'
           }}>
@@ -472,7 +472,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
                   fontWeight: 700,
                   fontSize: '0.95rem',
                   display: 'flex',
-                  justify: 'space-between',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
                   cursor: 'pointer',
                   textAlign: 'left'
