@@ -443,13 +443,32 @@ export default function FlightDetails({
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           
           {/* Play / Pause */}
-          <button 
-            onClick={() => setIsSimulating(!isSimulating)}
+          <button
+            onClick={() => {
+              if (isSimulating) {
+                setIsSimulating(false);
+                return;
+              }
+              // Already landed: replay from the departure gate rather than looking dead,
+              // which is what happened before (the stop effect halted it immediately).
+              if (simulationProgress >= 1) {
+                setSimulationProgress(0);
+              }
+              setIsSimulating(true);
+            }}
             className="btn btn-primary"
             style={{ flexGrow: 1, height: '40px', padding: '0' }}
           >
             {isSimulating ? <Pause size={16} /> : <Play size={16} />}
-            <span>{isSimulating ? 'Pause Simulation' : 'Start Simulation'}</span>
+            <span>
+              {isSimulating
+                ? 'Pause Simulation'
+                : simulationProgress >= 1
+                ? 'Replay Simulation'
+                : simulationProgress > 0
+                ? 'Resume Simulation'
+                : 'Start Simulation'}
+            </span>
           </button>
 
           {/* Reset */}

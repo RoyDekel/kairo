@@ -240,26 +240,14 @@ export default function App() {
     };
   }, [userId]);
 
-  // Handle active leg switching
-  const handleLegSwitch = (targetLeg) => {
-    if (targetLeg === direction) return;
+  /*
+    NOTE: `direction` currently only ever holds 'outbound' — nothing in the UI calls
+    setDirection, so the return leg cannot be viewed on this page. The state and the
+    sync effect below are already wired for it; only a leg toggle in the UI is missing.
+  */
 
-    setDirection(targetLeg);
-    setIsSimulating(false);
-    setSimulationProgress(0);
-
-    if (targetLeg === 'outbound') {
-      setSelectedDate(searchParams.departureDate);
-      setActiveFlight(activeRoundtrip.outbound);
-    } else {
-      setSelectedDate(searchParams.returnDate);
-      setActiveFlight(activeRoundtrip.return);
-    }
-    
-    prevStatusRef.current = 'Scheduled';
-  };
-
-  // Sync active tracked flight when bundle changes
+  // Keep the tracked leg in sync with the bundle. This must keep running on every
+  // activeRoundtrip change so live price ticks from the market engine reach the UI.
   useEffect(() => {
     if (direction === 'outbound') {
       setActiveFlight(activeRoundtrip.outbound);
@@ -268,32 +256,51 @@ export default function App() {
       setActiveFlight(activeRoundtrip.return);
       setSelectedDate(activeRoundtrip.returnDate);
     }
+  }, [activeRoundtrip, direction]);
+
+  /*
+    Identity of the route being tracked.
+
+    Deliberately derived from the flight IDs and dates rather than the activeRoundtrip
+    object: the market engine replaces that object every 8 seconds to tick a price, but
+    the route itself is unchanged. Resetting the simulation on the object reference meant
+    a run at the default 5x speed (10s to complete) was always destroyed at ~80%, and a
+    1x run never got past ~16%.
+  */
+  const routeSignature = [
+    activeRoundtrip?.outbound?.id,
+    activeRoundtrip?.return?.id,
+    activeRoundtrip?.departureDate,
+    activeRoundtrip?.returnDate,
+    direction
+  ].join('|');
+
+  // Reset the simulation only when the actual route (or tracked leg) changes.
+  useEffect(() => {
     setIsSimulating(false);
     setSimulationProgress(0);
     prevStatusRef.current = 'Scheduled';
-  }, [activeRoundtrip]);
+  }, [routeSignature]);
 
-  // Telemetry simulation loop
+  // Telemetry simulation loop. The updater stays pure — stopping at the end is handled
+  // by the effect below, because calling setState inside another setState's updater is
+  // not safe (updaters can be invoked more than once).
   useEffect(() => {
-    let intervalId = null;
+    if (!isSimulating) return undefined;
 
-    if (isSimulating) {
-      intervalId = setInterval(() => {
-        setSimulationProgress((prev) => {
-          const next = prev + 0.001 * simulationSpeed;
-          if (next >= 1.0) {
-            setIsSimulating(false);
-            return 1.0;
-          }
-          return next;
-        });
-      }, 50);
-    }
+    const intervalId = setInterval(() => {
+      setSimulationProgress((prev) => Math.min(1, prev + 0.001 * simulationSpeed));
+    }, 50);
 
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
+    return () => clearInterval(intervalId);
   }, [isSimulating, simulationSpeed]);
+
+  // Halt the run once the aircraft has arrived.
+  useEffect(() => {
+    if (isSimulating && simulationProgress >= 1) {
+      setIsSimulating(false);
+    }
+  }, [isSimulating, simulationProgress]);
 
   // Monitor flight status updates to trigger notifications
   useEffect(() => {
@@ -322,14 +329,34 @@ export default function App() {
     }
   }, [telemetry.status, alerts, activeFlight.flightNumber]);
 
-  // Market Engine: Fluctuate active bundle prices periodically
+  /*
+    Market Engine: fluctuate active bundle prices periodically.
+
+    Reads state through refs so the interval is created once rather than being torn down
+    and recreated on every price tick, alert edit, or leg switch. The old dependency list
+    ([activeRoundtrip, activeFlight.id, alerts]) restarted the 8s timer constantly.
+  */
+  const activeRoundtripRef = useRef(activeRoundtrip);
+  const alertsRef = useRef(alerts);
+
+  useEffect(() => {
+    activeRoundtripRef.current = activeRoundtrip;
+  }, [activeRoundtrip]);
+
+  useEffect(() => {
+    alertsRef.current = alerts;
+  }, [alerts]);
+
   useEffect(() => {
     const priceInterval = setInterval(() => {
+      const activeRoundtrip = activeRoundtripRef.current;
+      const alerts = alertsRef.current;
       if (!activeRoundtrip) return;
 
       const isOutboundLeg = Math.random() > 0.5;
       const targetLeg = isOutboundLeg ? 'outbound' : 'return';
       const flight = activeRoundtrip[targetLeg];
+      if (!flight) return;
 
       const change = Math.random() > 0.55 ? 5 : -5;
       const nextPrice = Math.max(50, flight.price + change);
@@ -370,7 +397,7 @@ export default function App() {
     }, 8000);
 
     return () => clearInterval(priceInterval);
-  }, [activeRoundtrip, activeFlight.id, alerts]);
+  }, []);
 
   // Watchlist Actions
   const handleToggleWatchlist = async (flight) => {
