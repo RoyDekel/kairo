@@ -19,7 +19,7 @@ const renderApp = () => {
       <App />
     </AuthProvider>
   );
-  const dashTab = screen.getByText('Live Radar');
+  const dashTab = screen.getByText('Should I Book?');
   fireEvent.click(dashTab);
   return result;
 };
@@ -31,12 +31,12 @@ describe('Booking Flow Integration Tests', () => {
     // 1. Initially on Price Radar HUD
     expect(screen.getByText('Active Route')).toBeInTheDocument();
     
-    // 2. Navigate to "Compare Fares" tab via Top Header Navigation
-    const findFlightsTab = screen.getByText('Compare Fares');
+    // 2. Navigate to "Search & Compare" tab via Top Header Navigation
+    const findFlightsTab = screen.getByText('Search & Compare');
     fireEvent.click(findFlightsTab);
     
     // Verify search panel is loaded
-    expect(screen.getByText('Flight Search & Telemetry')).toBeInTheDocument();
+    expect(screen.getByText('Search & Compare Fares')).toBeInTheDocument();
 
     // Select Arrival Airport as 'KRK'
     const arrivalSelect = screen.getByLabelText('Arrival Airport');
@@ -82,8 +82,8 @@ describe('Booking Flow Integration Tests', () => {
   test('supports One-way trip selection and flow', async () => {
     renderApp();
 
-    // Navigate to "Compare Fares"
-    fireEvent.click(screen.getByText('Compare Fares'));
+    // Navigate to "Search & Compare"
+    fireEvent.click(screen.getByText('Search & Compare'));
 
     // Select One-way trip type
     const tripTypeSelect = screen.getByLabelText('Trip Type');
@@ -119,8 +119,8 @@ describe('Booking Flow Integration Tests', () => {
   test('validates origin and destination cannot be identical', async () => {
     renderApp();
 
-    // Navigate to "Compare Fares"
-    fireEvent.click(screen.getByText('Compare Fares'));
+    // Navigate to "Search & Compare"
+    fireEvent.click(screen.getByText('Search & Compare'));
 
     // We can select the Departure Airport dropdown and change it to match Arrival
     const departureSelect = screen.getByLabelText('Departure Airport');

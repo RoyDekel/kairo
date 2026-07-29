@@ -19,7 +19,7 @@ const renderApp = () => {
       <App />
     </AuthProvider>
   );
-  const dashTab = screen.getByText('Live Radar');
+  const dashTab = screen.getByText('Should I Book?');
   fireEvent.click(dashTab);
   return result;
 };

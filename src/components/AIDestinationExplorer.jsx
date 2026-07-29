@@ -1,7 +1,14 @@
-import React, { useState, useMemo } from 'react';
-import { Sparkles, Calendar, Compass, DollarSign, Ticket, ArrowRight, Bookmark, Flame, CheckCircle, ExternalLink, MapPin, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { Sparkles, Calendar, Compass, ArrowRight, Bookmark, Flame, MapPin, WifiOff } from 'lucide-react';
 import { AIRPORTS } from '../utils/flightSimulator';
-import { searchAIDestinations } from '../utils/aiDestinationEngine';
+import { searchAIDestinations, DiscoveryUnavailableError } from '../utils/aiDestinationEngine';
+import { useAuth } from '../contexts/AuthProvider';
+import {
+  DEFAULT_ORIGIN,
+  DEFAULT_DEPARTURE_DATE,
+  DEFAULT_RETURN_DATE,
+  createDefaultPassengers
+} from '../utils/searchDefaults';
 
 export default function AIDestinationExplorer({
   searchParams,
@@ -11,9 +18,22 @@ export default function AIDestinationExplorer({
   onToggleWatchlist,
   watchlist = []
 }) {
-  const [origin, setOrigin] = useState(searchParams.origin || 'TLV');
-  const [departureDate, setDepartureDate] = useState(searchParams.departureDate || '2026-08-11');
-  const [returnDate, setReturnDate] = useState(searchParams.returnDate || '2026-08-16');
+  const { session } = useAuth();
+
+  // Origin and dates live in the app-wide `searchParams` rather than in local state.
+  // Previously this component kept its own copy and only wrote back on "Track Route",
+  // so changing dates here left "Search & Compare" showing stale values.
+  const origin = searchParams.origin || DEFAULT_ORIGIN;
+  const departureDate = searchParams.departureDate || DEFAULT_DEPARTURE_DATE;
+  const returnDate = searchParams.returnDate || DEFAULT_RETURN_DATE;
+
+  const patchSearchParams = (patch) => setSearchParams((prev) => ({ ...prev, ...patch }));
+
+  const setOrigin = (value) => patchSearchParams({ origin: value });
+  const setDepartureDate = (value) => patchSearchParams({ departureDate: value });
+  const setReturnDate = (value) => patchSearchParams({ returnDate: value });
+
+  // Budget and interests are discovery-only concerns, so they stay local.
   const [maxBudget, setMaxBudget] = useState(1200);
   const [selectedInterests, setSelectedInterests] = useState(['music', 'sports', 'festivals', 'culture']);
 
@@ -42,59 +62,78 @@ export default function AIDestinationExplorer({
 
   const [aiRecommendations, setAiRecommendations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isBackendUnavailable, setIsBackendUnavailable] = useState(false);
 
-  // Compute AI destination recommendations dynamically via live Ticketmaster API
+  const accessToken = session?.access_token;
+
+  // Compute AI destination recommendations via the backend event intelligence endpoint.
+  // Debounced because `maxBudget` is a range slider — without this, every pixel of drag
+  // fired a fresh round of network requests.
   React.useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
 
-    searchAIDestinations({
-      origin,
-      departureDate,
-      returnDate,
-      maxBudget,
-      interests: selectedInterests
-    })
-      .then((results) => {
-        if (isMounted) {
-          setAiRecommendations(results);
-          setIsLoading(false);
-        }
+    const debounceId = setTimeout(() => {
+      searchAIDestinations({
+        origin,
+        departureDate,
+        returnDate,
+        maxBudget,
+        interests: selectedInterests,
+        accessToken
       })
-      .catch((err) => {
-        console.error('Error searching AI destinations:', err);
-        if (isMounted) {
+        .then((results) => {
+          if (!isMounted) return;
+          setAiRecommendations(results);
+          setIsBackendUnavailable(false);
+          setIsLoading(false);
+        })
+        .catch((err) => {
+          if (!isMounted) return;
+          // Distinguish "backend unreachable" from "genuinely no events", otherwise a
+          // cold Render instance looks identical to an empty result set.
+          if (err instanceof DiscoveryUnavailableError) {
+            console.warn('Event intelligence service unavailable:', err.message);
+            setIsBackendUnavailable(true);
+          } else {
+            console.error('Error searching AI destinations:', err);
+            setIsBackendUnavailable(false);
+          }
           setAiRecommendations([]);
           setIsLoading(false);
-        }
-      });
+        });
+    }, 400);
 
     return () => {
       isMounted = false;
+      clearTimeout(debounceId);
     };
-  }, [origin, departureDate, returnDate, maxBudget, selectedInterests]);
+  }, [origin, departureDate, returnDate, maxBudget, selectedInterests, accessToken]);
 
-  // Handle tracking a recommended destination route on the Dashboard HUD
+  // Hand the chosen destination off to the "Should I Book?" verdict view.
   const handleTrackRoute = (recommendation) => {
     const bundle = {
       outbound: recommendation.outboundFlight,
       return: recommendation.returnFlight,
-      passengers: { adults: 1, children: 0, infants: 0 },
+      passengers: createDefaultPassengers(),
       origin: recommendation.originCode,
       destination: recommendation.destCode,
       departureDate: recommendation.departureDate,
       returnDate: recommendation.returnDate
     };
 
-    setSearchParams({
+    // Writes the discovered destination back into shared state, so "Search & Compare"
+    // opens pre-filled with exactly the route the user just picked.
+    setSearchParams((prev) => ({
+      ...prev,
       tripType: 'round-trip',
       origin: recommendation.originCode,
       destination: recommendation.destCode,
       departureDate: recommendation.departureDate,
       returnDate: recommendation.returnDate,
-      passengers: { adults: 1, children: 0, infants: 0 },
+      passengers: createDefaultPassengers(),
       stops: '0'
-    });
+    }));
 
     setActiveRoundtrip(bundle);
     setActiveTab('dashboard');
@@ -108,11 +147,11 @@ export default function AIDestinationExplorer({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Sparkles size={22} style={{ color: 'var(--primary)' }} />
-              AI Event & Destination Explorer
+              <Compass size={22} style={{ color: 'var(--primary)' }} />
+              Where to Go
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              Have specific travel dates? AI analyzes flight pricing deals and pairs them with live concerts, matches, and festivals worldwide.
+              Got dates but no destination? KAIRO scans every route from your origin and pairs the cheapest fares with live concerts, matches, and festivals.
             </p>
           </div>
           <div className="badge badge-info" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
@@ -229,11 +268,24 @@ export default function AIDestinationExplorer({
           <div className="glass-panel" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
             <Sparkles size={28} style={{ color: 'var(--primary)' }} />
             <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Querying Ticketmaster Discovery API...
+              Scanning destinations and live events...
             </div>
             <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
               Checking real-time live events and flights for {departureDate} – {returnDate}
             </div>
+          </div>
+        ) : isBackendUnavailable ? (
+          <div className="glass-panel" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+            <WifiOff size={38} style={{ color: 'var(--text-muted)', opacity: 0.6 }} />
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+              Event Intelligence Service Unreachable
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', maxWidth: '540px', margin: 0, lineHeight: 1.6 }}>
+              KAIRO couldn't reach the event intelligence backend, so destination recommendations are paused. The service may still be warming up.
+            </p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+              💡 Give it a few seconds and adjust any filter to retry — or head to <strong>Search & Compare</strong> if you already know your route.
+            </p>
           </div>
         ) : aiRecommendations.length === 0 ? (
           <div className="glass-panel" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>

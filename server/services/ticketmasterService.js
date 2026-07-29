@@ -20,7 +20,11 @@ const AIRPORT_LOCATION_MAP = {
 
 export class TicketmasterService {
   constructor() {
-    this.apiKey = process.env.TICKETMASTER_API_KEY || 'AxuhwJlhtAlB5PQuhSgtzsoTq4w8Ddof';
+    // Credential comes from the environment only. Never hardcode a fallback key here:
+    // this module is imported by tests that also run in the browser toolchain, and a
+    // literal would be one bad import away from the public bundle again.
+    // When unset, getEventsForDestination() degrades to the simulated event engine.
+    this.apiKey = process.env.TICKETMASTER_API_KEY || '';
     this.baseUrl = 'https://app.ticketmaster.com/discovery/v2/events.json';
   }
 

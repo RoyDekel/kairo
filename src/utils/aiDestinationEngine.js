@@ -1,127 +1,136 @@
 import { AIRPORTS, generateFlightsForRoute } from './flightSimulator';
+import { getApiBase, authHeaders, fetchWithTimeout } from '../lib/apiBase';
+import {
+  DEFAULT_ORIGIN,
+  DEFAULT_DEPARTURE_DATE,
+  DEFAULT_RETURN_DATE
+} from './searchDefaults';
 
 /**
- * Airport Code to City & Location Geographic Mapping for Ticketmaster Queries
+ * Raised when the backend event intelligence service can't be reached.
+ *
+ * The UI needs to tell "the service is down" apart from "there genuinely are no events
+ * on these dates" — they are very different messages for the user.
  */
-const AIRPORT_LOCATION_MAP = {
-  BCN: { city: 'Barcelona', countryCode: 'ES' },
-  CDG: { city: 'Paris', countryCode: 'FR' },
-  LHR: { city: 'London', countryCode: 'GB' },
-  JFK: { city: 'New York', countryCode: 'US' },
-  LAX: { city: 'Los Angeles', countryCode: 'US' },
-  KRK: { city: 'Krakow', countryCode: 'PL' },
-  NRT: { city: 'Tokyo', countryCode: 'JP' },
-  HND: { city: 'Tokyo', countryCode: 'JP' },
-  MUC: { city: 'Munich', countryCode: 'DE' },
-  BER: { city: 'Berlin', countryCode: 'DE' },
-  FCO: { city: 'Rome', countryCode: 'IT' },
-  AMS: { city: 'Amsterdam', countryCode: 'NL' },
-  MIA: { city: 'Miami', countryCode: 'US' },
-  ATH: { city: 'Athens', countryCode: 'GR' }
-};
-
-const TICKETMASTER_API_KEY = 'AxuhwJlhtAlB5PQuhSgtzsoTq4w8Ddof';
-
-/**
- * Fetches live events directly from Ticketmaster Discovery API for a destination & date range.
- * Strictly returns 1 result per unique event title, containing only the event title, category, venue/location, and price estimate.
- */
-export async function fetchTicketmasterEventsForDestination(airportCode, startDateStr, endDateStr) {
-  const locInfo = AIRPORT_LOCATION_MAP[airportCode?.toUpperCase()];
-  if (!locInfo) return [];
-
-  try {
-    const startIso = startDateStr ? new Date(startDateStr).toISOString().split('.')[0] + 'Z' : '';
-    const endIso = endDateStr ? new Date(endDateStr).toISOString().split('.')[0] + 'Z' : '';
-
-    const params = new URLSearchParams({
-      apikey: TICKETMASTER_API_KEY,
-      countryCode: locInfo.countryCode,
-      city: locInfo.city,
-      size: '10',
-      sort: 'date,asc'
-    });
-
-    if (startIso) params.append('startDateTime', startIso);
-    if (endIso) params.append('endDateTime', endIso);
-
-    const res = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${params.toString()}`);
-    if (!res.ok) return [];
-
-    const data = await res.json();
-    const rawEvents = data?._embedded?.events || [];
-
-    // Strictly deduplicate by Event Title so each event title is UNIQUE per destination
-    const seenTitles = new Set();
-    const uniqueEvents = [];
-
-    for (const evt of rawEvents) {
-      if (!evt.name) continue;
-
-      const title = evt.name.trim();
-      const normalizedTitle = title.toLowerCase();
-
-      if (seenTitles.has(normalizedTitle)) continue;
-      seenTitles.add(normalizedTitle);
-
-      const venue = evt._embedded?.venues?.[0]?.name || `${locInfo.city} Venue`;
-      const segmentName = evt.classifications?.[0]?.segment?.name?.toLowerCase() || 'culture';
-      let category = 'culture';
-      let categoryLabel = 'Culture 🏛️';
-
-      if (segmentName.includes('music')) {
-        category = 'music';
-        categoryLabel = 'Music 🎵';
-      } else if (segmentName.includes('sport')) {
-        category = 'sports';
-        categoryLabel = 'Sports ⚽';
-      } else if (segmentName.includes('arts') || segmentName.includes('theatre') || segmentName.includes('festival')) {
-        category = 'festivals';
-        categoryLabel = 'Festivals 🎪';
-      }
-
-      const priceMin = evt.priceRanges?.[0]?.min || 45;
-      const priceMax = evt.priceRanges?.[0]?.max || 180;
-
-      uniqueEvents.push({
-        id: evt.id || `tm-${airportCode}-${uniqueEvents.length}`,
-        destination: airportCode,
-        title,
-        venue,
-        category,
-        categoryLabel,
-        isLiveApi: true,
-        date: evt.dates?.start?.localDate || startDateStr,
-        priceEstimate: `$${Math.round(priceMin)} - $${Math.round(priceMax)}`,
-        url: evt.url
-      });
-    }
-
-    return uniqueEvents;
-  } catch (err) {
-    console.warn(`Failed to fetch Ticketmaster events for ${airportCode}:`, err);
-    return [];
+export class DiscoveryUnavailableError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'DiscoveryUnavailableError';
   }
 }
 
 /**
- * Searches global destinations and correlates flight prices ONLY with verified live Ticketmaster events.
- * Strictly returns empty results if no real Ticketmaster events match the search criteria.
+ * Fetches live events for many destinations in ONE backend call.
+ *
+ * The Ticketmaster credential lives only on the server (see
+ * server/services/ticketmasterService.js). This module previously embedded the API key
+ * directly, which shipped it to every visitor inside the public JS bundle.
+ *
+ * Batching also removes the old behaviour of issuing one sequential request per airport
+ * (~30 round trips) every time a filter changed.
+ */
+export async function fetchEventsForDestinations(destinationCodes, startDateStr, endDateStr, accessToken) {
+  if (!destinationCodes?.length) return {};
+
+  const params = new URLSearchParams({
+    destinations: destinationCodes.join(','),
+    startDate: startDateStr || '',
+    endDate: endDateStr || ''
+  });
+
+  let res;
+  try {
+    res = await fetchWithTimeout(`${getApiBase()}/api/events/batch?${params.toString()}`, {
+      timeoutMs: 12000,
+      headers: authHeaders(accessToken)
+    });
+  } catch (err) {
+    throw new DiscoveryUnavailableError(`Could not reach the event intelligence service: ${err.message}`);
+  }
+
+  if (!res.ok) {
+    throw new DiscoveryUnavailableError(`Event intelligence service returned status ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data?.eventsByDestination || {};
+}
+
+/**
+ * Normalises a backend event into the shape the destination cards render.
+ * Keeps only title, category, venue, date and price estimate.
+ */
+function normalizeEvent(evt, destCode, index) {
+  const segmentName = (evt.category || '').toLowerCase();
+
+  let category = 'culture';
+  let categoryLabel = 'Culture 🏛️';
+
+  if (segmentName.includes('music')) {
+    category = 'music';
+    categoryLabel = 'Music 🎵';
+  } else if (segmentName.includes('sport')) {
+    category = 'sports';
+    categoryLabel = 'Sports ⚽';
+  } else if (segmentName.includes('arts') || segmentName.includes('theatre') || segmentName.includes('festival')) {
+    category = 'festivals';
+    categoryLabel = 'Festivals 🎪';
+  }
+
+  return {
+    id: evt.id || `tm-${destCode}-${index}`,
+    destination: destCode,
+    title: evt.title,
+    venue: evt.venue,
+    category,
+    categoryLabel,
+    isLiveApi: Boolean(evt.isLiveApi),
+    date: evt.date,
+    priceEstimate: evt.priceEstimate,
+    url: evt.url
+  };
+}
+
+/** Deduplicates events by title so each destination lists a given title at most once. */
+function dedupeByTitle(events, destCode) {
+  const seenTitles = new Set();
+  const unique = [];
+
+  for (const evt of events) {
+    if (!evt?.title) continue;
+
+    const title = evt.title.trim();
+    const normalizedTitle = title.toLowerCase();
+    if (seenTitles.has(normalizedTitle)) continue;
+    seenTitles.add(normalizedTitle);
+
+    unique.push(normalizeEvent({ ...evt, title }, destCode, unique.length));
+  }
+
+  return unique;
+}
+
+/**
+ * Searches global destinations and correlates flight prices with verified live events.
+ * Returns an empty list when no destination has matching events in range.
+ *
+ * @throws {DiscoveryUnavailableError} when the backend can't be reached.
  */
 export async function searchAIDestinations({
-  origin = 'TLV',
-  departureDate = '2026-08-11',
-  returnDate = '2026-08-16',
+  origin = DEFAULT_ORIGIN,
+  departureDate = DEFAULT_DEPARTURE_DATE,
+  returnDate = DEFAULT_RETURN_DATE,
   maxBudget = 1000,
-  interests = []
+  interests = [],
+  accessToken = null
 }) {
   const destinationCodes = Object.keys(AIRPORTS).filter((code) => code !== origin);
-  const results = [];
+
+  // Price every candidate route first, so we only ask the backend about destinations
+  // the user could actually afford.
+  const pricedRoutes = [];
 
   for (const destCode of destinationCodes) {
-    const destinationInfo = AIRPORTS[destCode];
-
-    // Generate mock roundtrip flights
     const outboundFlights = generateFlightsForRoute(origin, destCode, departureDate, 'outbound', { adults: 1 });
     const returnFlights = generateFlightsForRoute(destCode, origin, returnDate, 'return', { adults: 1 });
 
@@ -129,22 +138,34 @@ export async function searchAIDestinations({
 
     const cheapestOutbound = outboundFlights.reduce((prev, curr) => (curr.price < prev.price ? curr : prev), outboundFlights[0]);
     const cheapestReturn = returnFlights.reduce((prev, curr) => (curr.price < prev.price ? curr : prev), returnFlights[0]);
-
     const totalRoundtripPrice = cheapestOutbound.price + cheapestReturn.price;
 
-    // Filter by budget if provided
     if (maxBudget && totalRoundtripPrice > maxBudget) continue;
 
-    // Fetch REAL events from Ticketmaster API
-    const realEvents = await fetchTicketmasterEventsForDestination(destCode, departureDate, returnDate);
+    pricedRoutes.push({ destCode, cheapestOutbound, cheapestReturn, totalRoundtripPrice });
+  }
 
-    // Filter real events by selected interest categories
-    let matchedEvents = realEvents;
-    if (interests.length > 0) {
-      matchedEvents = realEvents.filter((evt) => interests.includes(evt.category));
-    }
+  if (!pricedRoutes.length) return [];
 
-    // STRICT REQUIREMENT: Only include destination if REAL Ticketmaster events were returned
+  // One batched call covering every affordable destination.
+  const eventsByDestination = await fetchEventsForDestinations(
+    pricedRoutes.map((r) => r.destCode),
+    departureDate,
+    returnDate,
+    accessToken
+  );
+
+  const results = [];
+
+  for (const { destCode, cheapestOutbound, cheapestReturn, totalRoundtripPrice } of pricedRoutes) {
+    const destinationInfo = AIRPORTS[destCode];
+    const realEvents = dedupeByTitle(eventsByDestination[destCode] || [], destCode);
+
+    const matchedEvents = interests.length > 0
+      ? realEvents.filter((evt) => interests.includes(evt.category))
+      : realEvents;
+
+    // Only surface a destination that has verified live events during the trip window.
     if (matchedEvents.length === 0) continue;
 
     // Benchmark comparison price (simulate 25%-45% baseline market savings)
@@ -156,12 +177,11 @@ export async function searchAIDestinations({
     const priceScore = Math.min(50, savingsPercent * 1.2);
     const eventScore = Math.min(30, matchedEvents.length * 15);
     const interestBonus = interests.some((i) => matchedEvents.some((e) => e.category === i)) ? 20 : 5;
-    
+
     const matchScore = Math.min(99, Math.round(priceScore + eventScore + interestBonus));
 
-    // Construct Natural Language AI Insight Statement
     const topEvent = matchedEvents[0];
-    const aiInsight = `${destinationInfo.city} has verified live events on Ticketmaster! Flight is ${savingsPercent}% below historical average ($${totalRoundtripPrice} roundtrip). Catch "${topEvent.title}" at ${topEvent.venue} during your trip.`;
+    const aiInsight = `${destinationInfo.city} has verified live events during your dates! Flight is ${savingsPercent}% below historical average ($${totalRoundtripPrice} roundtrip). Catch "${topEvent.title}" at ${topEvent.venue} during your trip.`;
 
     results.push({
       id: `ai-dest-${destCode}`,

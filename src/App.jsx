@@ -17,6 +17,15 @@ import LandingPage from './components/LandingPage';
 import AIDestinationExplorer from './components/AIDestinationExplorer';
 import { useAuth } from './contexts/AuthProvider';
 import * as dataService from './lib/dataService';
+import { getApiBase, authHeaders, fetchWithTimeout } from './lib/apiBase';
+import {
+  DEFAULT_ORIGIN,
+  DEFAULT_DESTINATION,
+  DEFAULT_DEPARTURE_DATE,
+  DEFAULT_RETURN_DATE,
+  createDefaultPassengers,
+  createDefaultSearchParams
+} from './utils/searchDefaults';
 
 export default function App() {
   // Auth state
@@ -41,40 +50,30 @@ export default function App() {
     dataService.savePreferences(userId, { theme });
   }, [theme, userId]);
 
-  // 1. Search Query Parameters
-  const [searchParams, setSearchParams] = useState({
-    tripType: 'round-trip',
-    origin: 'TLV',
-    destination: '',
-    departureDate: '',
-    returnDate: '',
-    passengers: {
-      adults: 1,
-      children: 0,
-      infants: 0
-    },
-    stops: '0'
-  });
+  // 1. Search Query Parameters — the single source of truth for origin/destination/dates.
+  //    Both "Where to Go" and "Search & Compare" read and write this object so the two
+  //    pages can never show different routes or dates for the same session.
+  const [searchParams, setSearchParams] = useState(createDefaultSearchParams);
 
   // 2. Active Roundtrip Bundle State
   const [activeRoundtrip, setActiveRoundtrip] = useState(() => {
-    const defaultOutbound = generateFlightsForRoute('TLV', 'KRK', '2026-08-11', 'outbound', { adults: 1 })[0];
-    const defaultReturn = generateFlightsForRoute('KRK', 'TLV', '2026-08-16', 'return', { adults: 1 })[0];
-    
+    const defaultOutbound = generateFlightsForRoute(DEFAULT_ORIGIN, DEFAULT_DESTINATION, DEFAULT_DEPARTURE_DATE, 'outbound', { adults: 1 })[0];
+    const defaultReturn = generateFlightsForRoute(DEFAULT_DESTINATION, DEFAULT_ORIGIN, DEFAULT_RETURN_DATE, 'return', { adults: 1 })[0];
+
     return {
       outbound: defaultOutbound,
       return: defaultReturn,
-      passengers: { adults: 1, children: 0, infants: 0 },
-      origin: 'TLV',
-      destination: 'KRK',
-      departureDate: '2026-08-11',
-      returnDate: '2026-08-16'
+      passengers: createDefaultPassengers(),
+      origin: DEFAULT_ORIGIN,
+      destination: DEFAULT_DESTINATION,
+      departureDate: DEFAULT_DEPARTURE_DATE,
+      returnDate: DEFAULT_RETURN_DATE
     };
   });
 
   // 3. Active Tracked Leg (Defaults to Outbound)
   const [activeFlight, setActiveFlight] = useState(() => activeRoundtrip.outbound);
-  const [selectedDate, setSelectedDate] = useState('2026-08-11');
+  const [selectedDate, setSelectedDate] = useState(DEFAULT_DEPARTURE_DATE);
   const [direction, setDirection] = useState('outbound'); // 'outbound' or 'return'
 
   // 4. Simulation State
@@ -118,7 +117,7 @@ export default function App() {
         time: '12:00 PM',
         flightNumber: 'W6 5122',
         type: 'system',
-        message: 'KAIRO AI engine initialized. Select "AI Event Explorer" or "Find Flights" to discover destinations.'
+        message: 'KAIRO AI engine initialized. Start at "Where to Go" to discover destinations, or "Search & Compare" if you already know your route.'
       }
     ];
   });
@@ -151,16 +150,13 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     let active = true;
-    const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'http://localhost:3001');
+    const apiBase = getApiBase();
 
     // Background ping to wake up free tier backend service on Render
     const pingBackend = async () => {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
-        await fetch(`${apiBase}/api/health`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-      } catch (err) {
+        await fetchWithTimeout(`${apiBase}/api/health`, { timeoutMs: 4000 });
+      } catch {
         // Silent catch for background ping
       }
     };
@@ -169,23 +165,19 @@ export default function App() {
     const fetchDefaultFlights = async () => {
       try {
         const queryParams = new URLSearchParams({
-          origin: 'TLV',
-          destination: 'KRK',
-          departureDate: '2026-08-11',
-          returnDate: '2026-08-16',
+          origin: DEFAULT_ORIGIN,
+          destination: DEFAULT_DESTINATION,
+          departureDate: DEFAULT_DEPARTURE_DATE,
+          returnDate: DEFAULT_RETURN_DATE,
           adults: '1',
           children: '0',
           infants: '0',
           stops: '0'
         });
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
-        const headers = {};
-        if (session?.access_token) {
-          headers['Authorization'] = `Bearer ${session.access_token}`;
-        }
-        const res = await fetch(`${apiBase}/api/flights?${queryParams.toString()}`, { signal: controller.signal, headers });
-        clearTimeout(timeoutId);
+        const res = await fetchWithTimeout(`${apiBase}/api/flights?${queryParams.toString()}`, {
+          timeoutMs: 4000,
+          headers: authHeaders(session?.access_token)
+        });
 
         if (res.ok) {
           const data = await res.json();
@@ -193,11 +185,11 @@ export default function App() {
             setActiveRoundtrip({
               outbound: data.outbound[0],
               return: data.return[0],
-              passengers: { adults: 1, children: 0, infants: 0 },
-              origin: 'TLV',
-              destination: 'KRK',
-              departureDate: '2026-08-11',
-              returnDate: '2026-08-16'
+              passengers: createDefaultPassengers(),
+              origin: DEFAULT_ORIGIN,
+              destination: DEFAULT_DESTINATION,
+              departureDate: DEFAULT_DEPARTURE_DATE,
+              returnDate: DEFAULT_RETURN_DATE
             });
           }
         }
@@ -402,21 +394,25 @@ export default function App() {
     const newMockBundle = {
       outbound: flight,
       return: { ...flight, id: flight.id + '-ret', direction: 'return', origin: flight.destination, destination: flight.origin, departureTime: '18:00', arrivalTime: '21:50' },
-      passengers: { adults: 1, children: 0, infants: 0 },
+      passengers: createDefaultPassengers(),
       origin: flight.origin,
       destination: flight.destination,
       departureDate: dateStr,
       returnDate: dateStr
     };
-    
-    setSearchParams({
+
+    // Keep the full searchParams shape so the other pages don't fall back to defaults.
+    setSearchParams((prev) => ({
+      ...prev,
+      tripType: 'round-trip',
       origin: flight.origin,
       destination: flight.destination,
       departureDate: dateStr,
       returnDate: dateStr,
-      passengers: { adults: 1, children: 0, infants: 0 }
-    });
-    
+      passengers: createDefaultPassengers()
+    }));
+
+
     setDirection('outbound');
     setActiveRoundtrip(newMockBundle);
     setActiveTab('dashboard');
@@ -468,10 +464,16 @@ export default function App() {
           justifyContent: 'center',
           overflowX: 'auto'
         }}>
+          {/*
+            Ordered as the actual user funnel: discover a destination -> pick a flight ->
+            get the buy/wait verdict -> save it -> get notified.
+            "Should I Book?" points at the dashboard because that is where the buy-timing
+            engine (priceConfidenceEngine) actually renders its BUY NOW / WAIT verdict.
+          */}
           {[
-            { id: 'ai-explorer', label: 'Should I Book?' },
-            { id: 'dashboard', label: 'Live Radar' },
-            { id: 'alternative', label: 'Compare Fares' },
+            { id: 'ai-explorer', label: 'Where to Go' },
+            { id: 'alternative', label: 'Search & Compare' },
+            { id: 'dashboard', label: 'Should I Book?' },
             { id: 'watchlist', label: 'Watchlist' },
             { id: 'alerts', label: 'Alerts' }
           ].map((item) => {
@@ -672,7 +674,7 @@ export default function App() {
           />
         )}
 
-        {/* VIEW 0.5: AI EVENT & DESTINATION EXPLORER */}
+        {/* VIEW 1: "WHERE TO GO" — DESTINATION DISCOVERY (destination is the OUTPUT) */}
         {activeTab === 'ai-explorer' && (
           <AIDestinationExplorer
             searchParams={searchParams}
@@ -684,7 +686,7 @@ export default function App() {
           />
         )}
 
-        {/* VIEW 1: DASHBOARD HUD */}
+        {/* VIEW 3: "SHOULD I BOOK?" — BUY/WAIT VERDICT + LIVE TELEMETRY HUD */}
         {activeTab === 'dashboard' && (
           <div className="dashboard-grid">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -719,7 +721,7 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 2: DYNAMIC SEARCH & LISTINGS */}
+        {/* VIEW 2: "SEARCH & COMPARE" — FARE SHOPPING ON A KNOWN ROUTE (destination is an INPUT) */}
         {activeTab === 'alternative' && (
           <AlternativeFlights
             selectedDate={selectedDate}

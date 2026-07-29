@@ -74,6 +74,49 @@ app.get('/api/events', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * Batched Event Intelligence Endpoint (Protected)
+ *
+ * Backs the "Where to Go" discovery page. The client used to hold the Ticketmaster key
+ * and issue one request per airport; it now sends the whole destination list here and
+ * the server fans out in parallel, keeping the credential server-side.
+ */
+app.get('/api/events/batch', requireAuth, async (req, res) => {
+  const { destinations = '', startDate, endDate } = req.query;
+
+  const codes = destinations
+    .split(',')
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean)
+    .slice(0, 40); // Bound the fan-out so one request can't stampede the upstream API.
+
+  if (codes.length === 0) {
+    return res.status(400).json({ error: 'Missing required query parameter: destinations' });
+  }
+
+  try {
+    const settled = await Promise.allSettled(
+      codes.map((code) => ticketmasterService.getEventsForDestination(code, startDate, endDate))
+    );
+
+    const eventsByDestination = {};
+    settled.forEach((result, idx) => {
+      const code = codes[idx];
+      if (result.status === 'fulfilled') {
+        eventsByDestination[code] = result.value || [];
+      } else {
+        console.warn(`[events/batch] Lookup failed for ${code}:`, result.reason?.message || result.reason);
+        eventsByDestination[code] = [];
+      }
+    });
+
+    res.json({ count: codes.length, eventsByDestination });
+  } catch (error) {
+    console.error('Batched events endpoint failed:', error);
+    res.status(500).json({ error: 'Failed to fetch batched destination event intelligence.' });
+  }
+});
+
 // Unified search endpoint (Protected by JWT Authentication)
 app.get('/api/flights', requireAuth, async (req, res) => {
   const {

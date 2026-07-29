@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { AIRPORTS, AIRLINES, generateFlightsForRoute, getSkyscannerUrl } from '../utils/flightSimulator';
 import { useAuth } from '../contexts/AuthProvider';
+import { getApiBase, authHeaders, fetchWithTimeout } from '../lib/apiBase';
 
 const AirlineLogo = ({ flight, fallbackLogo, size = 32 }) => {
   const iata = flight.airlineCode ? flight.airlineCode.toUpperCase() : '';
@@ -163,6 +164,22 @@ export default function AlternativeFlights({
     setCurrentPage(1);
   }, [bookingStep, searchParams, filterCarrier, sortKey]);
 
+  // Re-hydrate the search form whenever shared state changes underneath it (for example
+  // after "Where to Go" hands off a destination). The form intentionally keeps local
+  // draft state so edits aren't committed until Search is pressed — this effect is what
+  // stops that draft from going stale relative to the rest of the app.
+  useEffect(() => {
+    setTripType(searchParams.tripType || 'round-trip');
+    setLocalOrigin(searchParams.origin || '');
+    setLocalDestination(searchParams.destination || '');
+    setLocalDepDate(searchParams.departureDate || '');
+    setLocalRetDate(searchParams.returnDate || '');
+    setLocalStops(searchParams.stops || '0');
+    setLocalAdults(searchParams.passengers?.adults ?? 1);
+    setLocalChildren(searchParams.passengers?.children ?? 0);
+    setLocalInfants(searchParams.passengers?.infants ?? 0);
+  }, [searchParams]);
+
   // Fetch flights when search parameters change
   useEffect(() => {
     let active = true;
@@ -186,15 +203,10 @@ export default function AlternativeFlights({
           infants: searchParams.passengers.infants,
           stops: searchParams.stops || '0'
         });
-        const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'http://localhost:3001');
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
-        const headers = {};
-        if (session?.access_token) {
-          headers['Authorization'] = `Bearer ${session.access_token}`;
-        }
-        const res = await fetch(`${apiBase}/api/flights?${queryParams.toString()}`, { signal: controller.signal, headers });
-        clearTimeout(timeoutId);
+        const res = await fetchWithTimeout(`${getApiBase()}/api/flights?${queryParams.toString()}`, {
+          timeoutMs: 4000,
+          headers: authHeaders(session?.access_token)
+        });
 
         if (!res.ok) {
           throw new Error(`Server returned status ${res.status}`);
@@ -416,10 +428,10 @@ export default function AlternativeFlights({
           <div>
             <h3 style={{ fontSize: '1.25rem', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Globe size={20} style={{ color: 'var(--primary)' }} />
-              Flight Search & Telemetry
+              Search & Compare Fares
             </h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-              Find and build premium flight connections between key global terminals
+              Already know your route? Compare carriers, times and fares, then build your bundle.
             </p>
           </div>
         </div>
