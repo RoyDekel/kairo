@@ -112,9 +112,9 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
           <line x1={padLeft} y1={padTop + plotHeight} x2={padLeft + plotWidth} y2={padTop + plotHeight} stroke="rgba(15, 23, 42, 0.08)" strokeDasharray="3 3" />
 
           {/* Y-Axis Price Labels */}
-          <text x={padLeft - 8} y={padTop + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="600">${maxPrice}</text>
-          <text x={padLeft - 8} y={padTop + plotHeight / 2 + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="600">${midPrice}</text>
-          <text x={padLeft - 8} y={padTop + plotHeight + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="600">${minPrice}</text>
+          <text className="num" x={padLeft - 8} y={padTop + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="500">${maxPrice}</text>
+          <text className="num" x={padLeft - 8} y={padTop + plotHeight / 2 + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="500">${midPrice}</text>
+          <text className="num" x={padLeft - 8} y={padTop + plotHeight + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="500">${minPrice}</text>
 
           {/* Area Fill */}
           <path d={areaD} fill="url(#kairo-chart-grad-light)" />
@@ -165,12 +165,13 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
                       strokeWidth="1.5"
                     />
                     <text
+                      className="num"
                       x={pt.x}
                       y={pt.y - 10}
                       textAnchor="middle"
                       fill="#059669"
                       fontSize="11"
-                      fontWeight="800"
+                      fontWeight="600"
                     >
                       ${pt.price}
                     </text>
@@ -191,12 +192,13 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
                       strokeWidth="1.5"
                     />
                     <text
+                      className="num"
                       x={pt.x}
                       y={pt.y - 10}
                       textAnchor="middle"
                       fill="#b45309"
                       fontSize="11"
-                      fontWeight="800"
+                      fontWeight="600"
                     >
                       ${pt.price}
                     </text>
@@ -231,24 +233,25 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
       }}>
         <div>
           <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Peak</div>
-          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>${maxPrice}</div>
+          <div className="num" style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>${maxPrice}</div>
         </div>
 
         <div>
           <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>90-Day Low</div>
-          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#059669', marginTop: '2px' }}>${minPrice}</div>
+          <div className="num" style={{ fontSize: '1rem', fontWeight: 600, color: '#059669', marginTop: '2px' }}>${minPrice}</div>
         </div>
 
         <div>
           <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Today</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', flexWrap: 'nowrap' }}>
-            <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>${todayPrice}</span>
-            <span style={{
+            <span className="num" style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>${todayPrice}</span>
+            <span className="num" style={{
               fontSize: '0.72rem',
               fontWeight: 700,
               padding: '2px 8px',
               borderRadius: '12px',
               backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
               color: '#059669',
               whiteSpace: 'nowrap'
             }}>

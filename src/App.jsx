@@ -491,17 +491,17 @@ export default function App() {
                 }}
                 title={isSignedOut ? 'Sign in to continue' : undefined}
                 style={{
-                  padding: '8px 11px',
+                  padding: '8px 10px',
                   borderRadius: '8px',
-                  border: '1px solid',
-                  borderColor: isActive ? 'var(--border-glass-bright)' : 'var(--border-glass)',
-                  background: isSignedOut ? 'rgba(248, 250, 252, 0.6)' : 'var(--bg-tertiary)',
+                  border: '1px solid transparent',
+                  background: 'transparent',
                   color: isSignedOut ? '#64748b' : isActive ? 'var(--primary)' : 'var(--text-primary)',
+                  fontFamily: 'inherit',
                   fontSize: '0.85rem',
                   fontWeight: 600,
                   whiteSpace: 'nowrap',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease'
+                  transition: 'color 0.2s ease'
                 }}
               >
                 {item.label}
@@ -591,8 +591,20 @@ export default function App() {
           ) : (
             <button
               onClick={() => setIsAuthModalOpen(true)}
-              className="btn btn-secondary"
-              style={{ padding: '8px 14px', fontSize: '0.8rem', gap: '6px', whiteSpace: 'nowrap' }}
+              style={{
+                padding: '8px 12px',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                background: 'transparent',
+                border: '1px solid transparent',
+                borderRadius: '8px',
+                color: 'var(--text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
               title="Sign in to sync watchlists and alerts to the cloud"
             >
               <LogIn size={16} />
@@ -605,6 +617,8 @@ export default function App() {
             className="btn-icon"
             title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
             style={{
+              background: 'transparent',
+              border: '1px solid transparent',
               transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}
             onMouseEnter={(e) => e.currentTarget.style.transform = 'rotate(15deg)'}
@@ -616,7 +630,11 @@ export default function App() {
           <button 
             onClick={handleOpenNotifications}
             className="btn-icon" 
-            style={{ position: 'relative' }}
+            style={{
+              position: 'relative',
+              background: 'transparent',
+              border: '1px solid transparent'
+            }}
             title="Notification logs"
           >
             <Bell size={18} />

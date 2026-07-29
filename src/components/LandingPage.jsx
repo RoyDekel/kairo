@@ -82,7 +82,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
 
         <h1 style={{
           fontSize: '3.2rem',
-          fontWeight: 900,
+          fontWeight: 800,
           lineHeight: 1.1,
           maxWidth: '920px',
           margin: '0 auto 20px',
@@ -216,21 +216,21 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
 
             <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>CURRENT FARE</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--warning)', marginTop: '2px', transition: 'all 0.4s ease' }}>
+              <div className="num" style={{ fontSize: '1.35rem', fontWeight: 600, color: '#b45309', marginTop: '2px', transition: 'all 0.4s ease' }}>
                 ${demoData.animatedSteps[animatedStepIdx]}
               </div>
             </div>
 
             <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>90-DAY LOWEST</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--success)', marginTop: '2px' }}>
+              <div className="num" style={{ fontSize: '1.35rem', fontWeight: 600, color: '#059669', marginTop: '2px' }}>
                 ${demoData.low90Day}
               </div>
             </div>
 
             <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>AI RECOMMENDATION</div>
-              <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--warning)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#b45309', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Clock size={16} /> {demoData.actionHeadline}
               </div>
             </div>
@@ -254,7 +254,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
                 🔮 Prediction: Prices likely to drop by ~${demoData.expectedSavings} within {demoData.expectedDropDays}
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Historical analysis indicates an <strong>{demoData.confidenceScore}% probability</strong> of lower fares before departure.
+                Historical analysis indicates an <strong className="num">{demoData.confidenceScore}% probability</strong> of lower fares before departure.
               </div>
             </div>
 
@@ -263,7 +263,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
                 {demoData.confidenceStars}
               </div>
               <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>
-                {demoData.confidenceScore}% Confidence
+                <span className="num">{demoData.confidenceScore}%</span> Confidence
               </div>
             </div>
           </div>
@@ -277,7 +277,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
       {/* HOW KAIRO WORKS (3 SIMPLE STEPS) */}
       <section className="glass-panel" style={{ padding: '40px 32px' }}>
         <div style={{ textAlign: 'center', marginBottom: '36px' }}>
-          <h2 style={{ fontSize: '1.8rem', fontWeight: 800 }}>How KAIRO Helps You Buy at the Perfect Moment</h2>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 700 }}>How KAIRO Helps You Buy at the Perfect Moment</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Automated price intelligence from decision to touchdown</p>
         </div>
 
@@ -299,7 +299,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           </div>
 
           <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '16px 24px 24px' }}>
-            <div style={{ color: 'var(--success)', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 3</div>
+            <div style={{ color: '#059669', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 3</div>
             <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Instant Price Drop Alerts</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
               Save routes to your cloud watchlist. KAIRO notifies you the second fares drop to your target threshold.
@@ -310,10 +310,10 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
 
       {/* WHY CHOOSE KAIRO */}
       <section className="glass-panel" style={{ padding: '36px 32px' }}>
-        <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '20px', textAlign: 'center' }}>Why Choose KAIRO?</h3>
+        <h3 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '20px', textAlign: 'center' }}>Why Choose KAIRO?</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '16px' }}>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
-            <CheckCircle size={20} style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
+            <CheckCircle size={20} style={{ color: '#059669', flexShrink: 0, marginTop: '2px' }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>AI Predicts Price Trends</div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Know whether to buy now or wait for expected price drops.</div>
@@ -321,7 +321,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           </div>
 
           <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
-            <CheckCircle size={20} style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
+            <CheckCircle size={20} style={{ color: '#059669', flexShrink: 0, marginTop: '2px' }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Real-Time Fare Monitoring</div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Scans 32 global destination hubs continuously.</div>
@@ -329,7 +329,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           </div>
 
           <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
-            <CheckCircle size={20} style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
+            <CheckCircle size={20} style={{ color: '#059669', flexShrink: 0, marginTop: '2px' }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Event Intelligence</div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Pairs cheap flight deals with live concerts & sports matches.</div>
@@ -337,7 +337,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           </div>
 
           <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
-            <CheckCircle size={20} style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
+            <CheckCircle size={20} style={{ color: '#059669', flexShrink: 0, marginTop: '2px' }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>100% Free Pilot Tier</div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Zero spam, no credit card required to get started.</div>
@@ -349,7 +349,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
       {/* SAAS PRICING TIERS */}
       <section className="glass-panel" style={{ padding: '48px 32px', textAlign: 'center' }}>
         <div style={{ marginBottom: '36px' }}>
-          <h2 style={{ fontSize: '1.8rem', fontWeight: 800 }}>Simple, Transparent Pricing</h2>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 700 }}>Simple, Transparent Pricing</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Start for free and upgrade as your travel needs grow</p>
         </div>
 
@@ -366,14 +366,16 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             justify: 'space-between'
           }}>
             <div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Free</div>
-              <div style={{ fontSize: '2.2rem', fontWeight: 900, margin: '12px 0 6px' }}>$0 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 400 }}>/ forever</span></div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>Essential tools to track flights and browse basic recommendations.</p>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Free</div>
+                <div className="num" style={{ fontSize: '2rem', fontWeight: 600, margin: '12px 0 6px' }}>$0 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 400 }}>/ forever</span></div>
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px', textAlign: 'center' }}>Essential tools to track flights and browse basic recommendations.</p>
               
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.88rem' }}>
-                <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: 'var(--success)' }} /> AI Buy Timing predictions</li>
-                <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: 'var(--success)' }} /> Live Flight Radar & Telemetry</li>
-                <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: 'var(--success)' }} /> Up to 5 Cloud Watchlist items</li>
+                <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: '#059669' }} /> AI Buy Timing predictions</li>
+                <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: '#059669' }} /> Live Flight Radar & Telemetry</li>
+                <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: '#059669' }} /> Up to 5 Cloud Watchlist items</li>
               </ul>
             </div>
 
@@ -411,9 +413,11 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             </div>
 
             <div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pro</div>
-              <div style={{ fontSize: '2.2rem', fontWeight: 900, margin: '12px 0 6px' }}>$9 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 400 }}>/ month</span></div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>Unlimited AI event matching, priority price alerts & cloud sync.</p>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pro</div>
+                <div className="num" style={{ fontSize: '2rem', fontWeight: 600, margin: '12px 0 6px' }}>$9 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 400 }}>/ month</span></div>
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px', textAlign: 'center' }}>Unlimited AI event matching, priority price alerts & cloud sync.</p>
               
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.88rem' }}>
                 <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: 'var(--primary)' }} /> <strong>Unlimited</strong> AI Destination queries</li>
