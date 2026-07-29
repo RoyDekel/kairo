@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { createClient } from '@supabase/supabase-js';
 import { FlightSearchService } from './server/services/flightSearchService.js';
 
 dotenv.config();
@@ -11,22 +12,55 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Initialize Supabase client for backend JWT verification
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://xcqtmvmomdbepjuyqnog.supabase.co';
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'sb_publishable_X_AbTFp1cIyEuu0guIhK0w__c72c3sD';
+
+const supabaseServer = (supabaseUrl && supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
+
 // Log incoming API calls for transparent developer experience
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
+// Authentication middleware enforcing valid Supabase JWT Bearer token
+const requireAuth = async (req, res, next) => {
+  if (!supabaseServer) {
+    console.warn("Supabase client unavailable on server backend; passing through.");
+    return next();
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid Authorization header' });
+  }
+
+  const token = authHeader.substring(7);
+  try {
+    const { data: { user }, error } = await supabaseServer.auth.getUser(token);
+    if (error || !user) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid or expired access token' });
+    }
+    req.user = user;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized: Token validation failed' });
+  }
+};
+
 // Initialize the Strategy Orchestrator
 const flightSearchService = new FlightSearchService();
 
-// Health check endpoint for zero-downtime & cold-start warming
+// Health check endpoint for zero-downtime & cold-start warming (Public)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'kairo-backend', timestamp: new Date().toISOString() });
 });
 
-// Unified search endpoint
-app.get('/api/flights', async (req, res) => {
+// Unified search endpoint (Protected by JWT Authentication)
+app.get('/api/flights', requireAuth, async (req, res) => {
   const {
     origin,
     destination,

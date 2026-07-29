@@ -20,7 +20,7 @@ import * as dataService from './lib/dataService';
 
 export default function App() {
   // Auth state
-  const { user, isAuthenticated, signOut } = useAuth();
+  const { user, session, isAuthenticated, signOut } = useAuth();
   const userId = user?.id;
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -180,7 +180,11 @@ export default function App() {
         });
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 4000);
-        const res = await fetch(`${apiBase}/api/flights?${queryParams.toString()}`, { signal: controller.signal });
+        const headers = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        const res = await fetch(`${apiBase}/api/flights?${queryParams.toString()}`, { signal: controller.signal, headers });
         clearTimeout(timeoutId);
 
         if (res.ok) {
@@ -806,12 +810,6 @@ export default function App() {
         {activeTab === 'landing' && (
           <LandingPage
             user={user}
-            onExploreAI={(params) => {
-              if (params) {
-                setSearchParams((prev) => ({ ...prev, ...params }));
-              }
-              setActiveTab('ai-explorer');
-            }}
             onOpenAuth={() => setIsAuthModalOpen(true)}
             setActiveTab={setActiveTab}
           />

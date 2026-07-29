@@ -5,7 +5,7 @@ import { getZeroClickDemoData } from '../utils/priceConfidenceEngine';
 import { useAuth } from '../contexts/AuthProvider';
 import PriceHistoryGraph from './PriceHistoryGraph';
 
-export default function LandingPage({ onExploreAI, onOpenAuth, setActiveTab }) {
+export default function LandingPage({ onOpenAuth, setActiveTab }) {
   const { user } = useAuth();
   const demoData = getZeroClickDemoData();
   const [animatedStepIdx, setAnimatedStepIdx] = useState(0);

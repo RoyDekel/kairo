@@ -4,6 +4,7 @@ import {
   Users, ChevronDown, User, ShieldAlert, ArrowLeftRight
 } from 'lucide-react';
 import { AIRPORTS, AIRLINES, generateFlightsForRoute, getSkyscannerUrl } from '../utils/flightSimulator';
+import { useAuth } from '../contexts/AuthProvider';
 
 const AirlineLogo = ({ flight, fallbackLogo, size = 32 }) => {
   const iata = flight.airlineCode ? flight.airlineCode.toUpperCase() : '';
@@ -53,6 +54,7 @@ export default function AlternativeFlights({
   setActiveRoundtrip,
   setActiveTab
 }) {
+  const { session } = useAuth();
   const getLocalDateString = () => {
     const d = new Date();
     const year = d.getFullYear();
@@ -187,7 +189,11 @@ export default function AlternativeFlights({
         const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'http://localhost:3001');
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 4000);
-        const res = await fetch(`${apiBase}/api/flights?${queryParams.toString()}`, { signal: controller.signal });
+        const headers = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        const res = await fetch(`${apiBase}/api/flights?${queryParams.toString()}`, { signal: controller.signal, headers });
         clearTimeout(timeoutId);
 
         if (!res.ok) {
