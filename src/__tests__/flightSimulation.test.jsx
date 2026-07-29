@@ -20,6 +20,8 @@ const renderDashboard = () => {
     </AuthProvider>
   );
   fireEvent.click(screen.getByText('Should I Book?'));
+  // The simulator is collapsed by default now that it lives under the map.
+  fireEvent.click(screen.getByRole('button', { name: /Simulate this flight/i }));
   return result;
 };
 

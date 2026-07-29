@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Plane, Calendar, Bookmark, Bell, Compass, Activity, Sun, Moon, LogIn, LogOut, Sparkles, Globe, ArrowRight, Zap, Menu, X, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Bell, Sun, Moon, LogIn, LogOut, Zap } from 'lucide-react';
 import { 
   AIRPORTS, 
   generateFlightsForRoute,
@@ -15,6 +15,8 @@ import AlertsManager from './components/AlertsManager';
 import AuthModal from './components/AuthModal';
 import LandingPage from './components/LandingPage';
 import AIDestinationExplorer from './components/AIDestinationExplorer';
+import BuyVerdict from './components/BuyVerdict';
+import SimulatorPanel from './components/SimulatorPanel';
 import { useAuth } from './contexts/AuthProvider';
 import * as dataService from './lib/dataService';
 import { getApiBase, authHeaders, fetchWithTimeout } from './lib/apiBase';
@@ -34,7 +36,6 @@ export default function App() {
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isNavDrawerOpen, setIsNavDrawerOpen] = useState(false);
 
   // 0. Theme State
   const [theme, setTheme] = useState(() => {
@@ -78,6 +79,7 @@ export default function App() {
 
   // 4. Simulation State
   const [isSimulating, setIsSimulating] = useState(false);
+  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState(0); // 0.0 to 1.0
   const [simulationSpeed, setSimulationSpeed] = useState(5); // 1x, 5x, 20x
 
@@ -125,7 +127,6 @@ export default function App() {
   // 6. Navigation Tabs (Default page: SaaS Landing Page)
   const [activeTab, setActiveTab] = useState('landing');
   const [showNotifBadge, setShowNotifBadge] = useState(false);
-  const hasAutoRedirectedRef = useRef(false);
 
   // Auto-redirect authenticated user on login to AI Event Explorer workspace
   useEffect(() => {
@@ -713,37 +714,54 @@ export default function App() {
           />
         )}
 
-        {/* VIEW 3: "SHOULD I BOOK?" — BUY/WAIT VERDICT + LIVE TELEMETRY HUD */}
+        {/* VIEW 3: "SHOULD I BOOK?" — VERDICT FIRST, THEN SUPPORTING EVIDENCE */}
         {activeTab === 'dashboard' && (
-          <div className="dashboard-grid">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <FlightMap 
-                telemetry={telemetry} 
-                activeFlight={activeFlight} 
-                theme={theme}
-              />
-              <PriceChart 
-                activeFlight={activeFlight} 
-                theme={theme}
-              />
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* The page's namesake answer leads, full width. */}
+            <BuyVerdict
+              activeFlight={activeFlight}
+              activeRoundtrip={activeRoundtrip}
+            />
 
-            <div>
-              <FlightDetails 
-                activeFlight={activeFlight}
-                telemetry={telemetry}
-                isSimulating={isSimulating}
-                simulationProgress={simulationProgress}
-                setSimulationProgress={setSimulationProgress}
-                setIsSimulating={setIsSimulating}
-                simulationSpeed={simulationSpeed}
-                setSimulationSpeed={setSimulationSpeed}
-                onToggleWatchlist={handleToggleWatchlist}
-                isWatched={(watchlist || []).some(w => w?.id === activeFlight?.id)}
-                selectedDate={selectedDate}
-                onOpenAlertModal={() => setActiveTab('alerts')}
-                activeRoundtrip={activeRoundtrip}
-              />
+            <div className="dashboard-grid">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <FlightMap
+                    telemetry={telemetry}
+                    activeFlight={activeFlight}
+                    theme={theme}
+                  />
+                  {/* Sits with the map because the map is all it controls. */}
+                  <SimulatorPanel
+                    isOpen={isSimulatorOpen}
+                    onToggleOpen={() => setIsSimulatorOpen((prev) => !prev)}
+                    activeFlight={activeFlight}
+                    isSimulating={isSimulating}
+                    setIsSimulating={setIsSimulating}
+                    simulationProgress={simulationProgress}
+                    setSimulationProgress={setSimulationProgress}
+                    simulationSpeed={simulationSpeed}
+                    setSimulationSpeed={setSimulationSpeed}
+                  />
+                </div>
+                <PriceChart
+                  activeFlight={activeFlight}
+                  theme={theme}
+                />
+              </div>
+
+              <div>
+                <FlightDetails
+                  activeFlight={activeFlight}
+                  onToggleWatchlist={handleToggleWatchlist}
+                  isWatched={(watchlist || []).some(w => w?.id === activeFlight?.id)}
+                  selectedDate={selectedDate}
+                  onOpenAlertModal={() => setActiveTab('alerts')}
+                  activeRoundtrip={activeRoundtrip}
+                  direction={direction}
+                  onSwitchLeg={setDirection}
+                />
+              </div>
             </div>
           </div>
         )}

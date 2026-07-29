@@ -28,6 +28,9 @@ describe('Telemetry HUD and Watchlist/Alerts UI Tests', () => {
   test('controls the simulator HUD (Play/Pause, speed selection, reset)', () => {
     renderApp();
 
+    // The simulator now lives under the map, collapsed by default.
+    fireEvent.click(screen.getByRole('button', { name: /Simulate this flight/i }));
+
     // 1. Initial simulation state (paused)
     const playButton = screen.getByRole('button', { name: /Start Simulation/i });
     expect(playButton).toBeInTheDocument();
