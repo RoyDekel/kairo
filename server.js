@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { FlightSearchService } from './server/services/flightSearchService.js';
+import { TicketmasterService } from './server/services/ticketmasterService.js';
+import { computeEventDrivenInsights } from './server/services/insightsEngine.js';
 
 dotenv.config();
 
@@ -51,12 +53,25 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
-// Initialize the Strategy Orchestrator
+// Initialize Services
 const flightSearchService = new FlightSearchService();
+const ticketmasterService = new TicketmasterService();
 
 // Health check endpoint for zero-downtime & cold-start warming (Public)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'kairo-backend', timestamp: new Date().toISOString() });
+});
+
+// Ticketmaster Event Intelligence Endpoint (Protected)
+app.get('/api/events', requireAuth, async (req, res) => {
+  const { destination = 'BCN', startDate, endDate } = req.query;
+  try {
+    const events = await ticketmasterService.getEventsForDestination(destination, startDate, endDate);
+    res.json({ destination, count: events.length, events });
+  } catch (error) {
+    console.error("Ticketmaster events endpoint failed:", error);
+    res.status(500).json({ error: "Failed to fetch destination event intelligence." });
+  }
 });
 
 // Unified search endpoint (Protected by JWT Authentication)
@@ -91,7 +106,25 @@ app.get('/api/flights', requireAuth, async (req, res) => {
 
   try {
     const results = await flightSearchService.searchFlights(request);
-    res.json(results);
+    const events = await ticketmasterService.getEventsForDestination(destination, departureDate, returnDate);
+
+    // Enriched outbound and return flights with Event-Driven Insights
+    const outboundWithInsights = (results.outbound || []).map(flight => ({
+      ...flight,
+      insights: computeEventDrivenInsights(flight, request, events)
+    }));
+
+    const returnWithInsights = (results.return || []).map(flight => ({
+      ...flight,
+      insights: computeEventDrivenInsights(flight, request, events)
+    }));
+
+    res.json({
+      ...results,
+      outbound: outboundWithInsights,
+      return: returnWithInsights,
+      events
+    });
   } catch (error) {
     console.error("Endpoint search failed:", error.message || error);
     res.status(500).json({ error: "An error occurred while fetching flight details." });

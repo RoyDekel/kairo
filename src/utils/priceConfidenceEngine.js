@@ -5,6 +5,10 @@
  */
 
 export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
+  if (flight?.insights && !basePriceOverride) {
+    return flight.insights;
+  }
+
   const currentPrice = basePriceOverride || flight?.price || 450;
   
   // Deterministic seed based on flight ID or price for consistent output across renders
