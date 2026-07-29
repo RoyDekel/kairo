@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { vi, beforeEach } from 'vitest';
+import { vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import React from 'react';
 
 // Clear localStorage between runs
@@ -76,3 +76,38 @@ vi.mock('react-chartjs-2', () => ({
     );
   },
 }));
+
+// Filter out expected offline network fallback console logs in unit tests
+const originalWarn = console.warn;
+const originalError = console.error;
+
+console.warn = (...args) => {
+  const fullText = args.map((a) => (typeof a === 'string' ? a : a?.stack || a?.message || String(a))).join(' ');
+  if (
+    fullText.includes('Failed to fetch') ||
+    fullText.includes('Event intelligence service unavailable') ||
+    fullText.includes('Could not upgrade estimate') ||
+    fullText.includes('sticking with local simulation defaults') ||
+    fullText.includes('ECONNREFUSED') ||
+    fullText.includes('fetch failed')
+  ) {
+    return;
+  }
+  originalWarn(...args);
+};
+
+console.error = (...args) => {
+  const fullText = args.map((a) => (typeof a === 'string' ? a : a?.stack || a?.message || String(a))).join(' ');
+  if (
+    fullText.includes('Failed to load') ||
+    fullText.includes('Failed to save') ||
+    fullText.includes('invalid input syntax for type uuid') ||
+    fullText.includes('ECONNREFUSED') ||
+    fullText.includes('fetch failed')
+  ) {
+    return;
+  }
+  originalError(...args);
+};
+
+
