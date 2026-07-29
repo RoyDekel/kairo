@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Sparkles, Calendar, Compass, ArrowRight, Bookmark, Flame, MapPin, WifiOff, CheckCircle } from 'lucide-react';
+import { Sparkles, Compass, WifiOff } from 'lucide-react';
 import { AIRPORTS } from '../utils/flightSimulator';
 import { searchAIDestinations, fetchAuthoritativeQuote, DiscoveryUnavailableError } from '../utils/aiDestinationEngine';
+import DestinationCard from './DestinationCard';
 import { useAuth } from '../contexts/AuthProvider';
 import {
   DEFAULT_ORIGIN,
@@ -36,18 +37,6 @@ export default function AIDestinationExplorer({
   // Budget and interests are discovery-only concerns, so they stay local.
   const [maxBudget, setMaxBudget] = useState(1200);
   const [selectedInterests, setSelectedInterests] = useState(['music', 'sports', 'festivals', 'culture']);
-
-  // Helper to format ISO date string "2026-08-12" to "Aug 12, 2026"
-  const formatEventDate = (dateStr) => {
-    if (!dateStr) return null;
-    try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr;
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch (e) {
-      return dateStr;
-    }
-  };
 
   // Toggle interest tags
   const toggleInterest = (category) => {
@@ -330,192 +319,17 @@ export default function AIDestinationExplorer({
             </p>
           </div>
         ) : (
-          aiRecommendations.map((rec) => {
-            const isWatched = watchlist.some((w) => w.id === rec.outboundFlight.id);
-
-            return (
-              <div
-                key={rec.id}
-                className="glass-panel"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px',
-                  borderLeft: '4px solid var(--primary)',
-                  boxShadow: 'var(--shadow-md)'
-                }}
-              >
-                {/* CARD HEADER */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-primary)' }}>
-                        {rec.destination.city} ({rec.destCode})
-                      </span>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        — {rec.destination.country}
-                      </span>
-                    </div>
-
-                    {/* PRICE SAVINGS BADGE */}
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
-                      <span className="badge badge-success" style={{ display: 'inline-flex', gap: '4px' }}>
-                        <Flame size={14} /> {rec.savingsPercent}% Below Average
-                      </span>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        Save ~${rec.savingsAmount} compared to avg ${rec.averageMarketPrice}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* PRICE & AI SCORE */}
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--primary)' }}>
-                      {rec.priceSource === 'estimate' && (
-                        <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 600 }}>est. </span>
-                      )}
-                      ${rec.roundtripPrice}
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400 }}> / roundtrip</span>
-                    </div>
-
-                    {/*
-                      Price provenance. 'live' means this exact number came from the same
-                      real provider quote the Search & Compare page shows; 'estimate' means
-                      it's modelled, because pricing every destination against the paid
-                      provider on each scan isn't affordable.
-                    */}
-                    <div
-                      style={{
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        color: rec.priceSource === 'live' ? 'var(--success)' : 'var(--text-muted)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        justifyContent: 'flex-end',
-                        marginTop: '2px'
-                      }}
-                      title={
-                        rec.priceSource === 'live'
-                          ? 'Confirmed live fare — matches Search & Compare exactly'
-                          : 'Modelled estimate. Track this route to fetch the live fare.'
-                      }
-                    >
-                      {rec.priceSource === 'live' ? <CheckCircle size={11} /> : null}
-                      {rec.priceSource === 'live' ? 'Live fare' : 'Estimate'}
-                    </div>
-
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--success)', marginTop: '2px' }}>
-                      ★ {rec.matchScore}% AI Match Score
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI INSIGHT BANNER */}
-                <div style={{
-                  background: 'var(--primary-glow-weak)',
-                  border: '1px solid var(--primary-glow)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '12px 16px',
-                  fontSize: '0.88rem',
-                  color: 'var(--text-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px'
-                }}>
-                  <Sparkles size={18} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                  <div>
-                    <strong>AI Travel Insight:</strong> {rec.aiInsight}
-                  </div>
-                </div>
-
-                {/* MATCHED EVENTS SECTION */}
-                <div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                    Events Happening During Your Trip ({departureDate} – {returnDate}):
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-                    {rec.matchedEvents.map((evt) => (
-                      <div
-                        key={evt.id}
-                        style={{
-                          background: 'var(--bg-tertiary)',
-                          border: '1px solid var(--border-glass)',
-                          borderRadius: 'var(--radius-sm)',
-                          padding: '12px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '6px'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>
-                              {evt.categoryLabel}
-                            </span>
-                            {evt.date && (
-                              <span className="num" style={{
-                                fontSize: '0.72rem',
-                                color: 'var(--text-secondary)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                fontWeight: 600
-                              }}>
-                                <Calendar size={12} style={{ color: 'var(--primary)' }} />
-                                {formatEventDate(evt.date)}
-                              </span>
-                            )}
-                          </div>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            Est. {evt.priceEstimate}
-                          </span>
-                        </div>
-
-                        <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-                          {evt.title}
-                        </div>
-
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <MapPin size={13} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                          <span>{evt.venue}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* CARD ACTIONS */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border-glass)' }}>
-                  <button
-                    onClick={() => onToggleWatchlist(rec.outboundFlight)}
-                    className="btn btn-secondary"
-                    style={{ padding: '8px 14px', fontSize: '0.8rem', gap: '6px' }}
-                  >
-                    <Bookmark size={16} style={{ color: isWatched ? 'var(--primary)' : 'inherit' }} />
-                    {isWatched ? 'Saved in Watchlist' : 'Add to Watchlist'}
-                  </button>
-
-                  <button
-                    onClick={() => handleTrackRoute(rec)}
-                    disabled={trackingDestCode !== null}
-                    className="btn btn-primary"
-                    style={{
-                      padding: '8px 18px',
-                      fontSize: '0.85rem',
-                      opacity: trackingDestCode !== null && trackingDestCode !== rec.destCode ? 0.5 : 1,
-                      cursor: trackingDestCode !== null ? 'wait' : 'pointer'
-                    }}
-                  >
-                    {trackingDestCode === rec.destCode ? 'Fetching live fare...' : 'Track Route & Telemetry'}
-                    <ArrowRight size={16} />
-                  </button>
-                </div>
-
-              </div>
-            );
-          })
+          aiRecommendations.map((rec) => (
+            <DestinationCard
+              key={rec.id}
+              recommendation={rec}
+              isWatched={watchlist.some((w) => w.id === rec.outboundFlight.id)}
+              isTracking={trackingDestCode === rec.destCode}
+              isAnyTracking={trackingDestCode !== null}
+              onTrack={handleTrackRoute}
+              onToggleWatchlist={onToggleWatchlist}
+            />
+          ))
         )}
       </div>
 

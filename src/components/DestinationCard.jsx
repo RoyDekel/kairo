@@ -1,0 +1,178 @@
+import { ArrowRight, Bookmark, CheckCircle } from 'lucide-react';
+import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
+
+/** Max events shown inline. Beyond this we summarise, to keep the card scannable. */
+const MAX_VISIBLE_EVENTS = 3;
+
+/** "2026-08-13" -> "13 Aug". Compact by design; the year is implied by the search dates. */
+function formatEventDate(dateStr) {
+  if (!dateStr) return null;
+  const parsed = new Date(dateStr);
+  if (Number.isNaN(parsed.getTime())) return dateStr;
+  return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+/**
+ * A single "Where to Go" result.
+ *
+ * Structured around the two questions a user actually has — "is this fare good?" on the
+ * left, "what's on while I'm there?" on the right. The previous layout stacked a verbose
+ * AI insight banner above a grid of boxed event cards, which made every destination tall
+ * enough to push the next one off screen.
+ */
+export default function DestinationCard({
+  recommendation,
+  isWatched,
+  isTracking,
+  isAnyTracking,
+  onTrack,
+  onToggleWatchlist
+}) {
+  const rec = recommendation;
+  const isEstimate = rec.priceSource === 'estimate';
+
+  // Buy/wait verdict for the roundtrip total. Deterministic on rec.id, so the verdict
+  // stays stable across re-renders rather than flickering between scans.
+  const insight = getPriceConfidenceInsight({ id: rec.id, price: rec.roundtripPrice }, rec.roundtripPrice);
+  const isWait = insight.recommendation === 'WAIT';
+
+  const verdictDetail = isWait
+    ? `drop of ~$${insight.expectedSavings} expected in ${insight.expectedDropDays}`
+    : `near the 90-day low of $${insight.low90Day}`;
+
+  const visibleEvents = rec.matchedEvents.slice(0, MAX_VISIBLE_EVENTS);
+  const hiddenEventCount = rec.matchedEvents.length - visibleEvents.length;
+
+  return (
+    <div className="glass-panel dest-card">
+      {/* LEFT: THE FARE DECISION */}
+      <div>
+        <div className="dest-card-headline">
+          <div className="dest-card-avatar" aria-hidden="true">
+            {rec.destination.city.charAt(0)}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <h3 className="dest-card-city">{rec.destination.city}</h3>
+            <div className="dest-card-sub">
+              <span style={{ fontFamily: 'var(--font-mono)' }}>{rec.destCode}</span>
+              <span aria-hidden="true">·</span>
+              <span>{rec.destination.country}</span>
+              <span aria-hidden="true">·</span>
+              <span title={`KAIRO match score: ${rec.matchScore} out of 100`}>★ {rec.matchScore}% match</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="dest-card-price-row">
+          <div className="dest-card-price">
+            {isEstimate && <span className="dest-card-price-est">est. </span>}
+            ${rec.roundtripPrice}
+          </div>
+          {rec.savingsPercent > 0 && (
+            <span className="badge badge-success" style={{ textTransform: 'none', letterSpacing: 0 }}>
+              {rec.savingsPercent}% below usual
+            </span>
+          )}
+        </div>
+
+        <div className="dest-card-price-meta">
+          <span>roundtrip</span>
+          <span aria-hidden="true">·</span>
+          <span>usually ${rec.averageMarketPrice}</span>
+          <span aria-hidden="true">·</span>
+          {/*
+            Price provenance: 'live' is the same real provider quote Search & Compare
+            shows; 'estimate' is modelled, because pricing every destination against the
+            paid provider on each scan isn't affordable.
+          */}
+          <span
+            style={{
+              color: isEstimate ? 'var(--text-muted)' : 'var(--success)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
+              fontWeight: 600
+            }}
+            title={
+              isEstimate
+                ? 'Modelled estimate. Track this fare to fetch the live quote.'
+                : 'Confirmed live fare — matches Search & Compare exactly.'
+            }
+          >
+            {!isEstimate && <CheckCircle size={10} />}
+            {isEstimate ? 'estimate' : 'live fare'}
+          </span>
+        </div>
+
+        <div className="dest-card-verdict">
+          <span
+            className={`dest-card-verdict-pill ${isWait ? 'dest-card-verdict-wait' : 'dest-card-verdict-buy'}`}
+            title={
+              isEstimate
+                ? 'Based on the estimated fare. Track this fare for a verdict on the live price.'
+                : `KAIRO confidence: ${insight.confidenceScore}%`
+            }
+          >
+            {isWait ? 'Wait' : 'Buy now'}
+          </span>
+          <span className="dest-card-verdict-text">{verdictDetail}</span>
+        </div>
+      </div>
+
+      {/* RIGHT: WHAT'S ON WHILE YOU'RE THERE */}
+      <div className="dest-card-events">
+        <div className="dest-card-events-label">While you're there</div>
+
+        {visibleEvents.map((evt) => (
+          <div key={evt.id} className="dest-card-event">
+            <div style={{ minWidth: 0 }}>
+              <div className="dest-card-event-title">{evt.title}</div>
+              <div className="dest-card-event-meta">
+                {evt.venue}
+                {evt.date ? ` · ${formatEventDate(evt.date)}` : ''}
+              </div>
+            </div>
+            {evt.priceEstimate && <div className="dest-card-event-price">{evt.priceEstimate}</div>}
+          </div>
+        ))}
+
+        {hiddenEventCount > 0 && (
+          <div className="dest-card-more">
+            +{hiddenEventCount} more event{hiddenEventCount > 1 ? 's' : ''} during your trip
+          </div>
+        )}
+
+        <div className="dest-card-actions">
+          <button
+            onClick={() => onTrack(rec)}
+            disabled={isAnyTracking}
+            className="btn btn-primary"
+            style={{
+              padding: '9px 18px',
+              fontSize: '0.85rem',
+              opacity: isAnyTracking && !isTracking ? 0.5 : 1,
+              cursor: isAnyTracking ? 'wait' : 'pointer'
+            }}
+          >
+            {isTracking ? 'Fetching live fare...' : 'Track this fare'}
+            {!isTracking && <ArrowRight size={15} />}
+          </button>
+
+          <button
+            onClick={() => onToggleWatchlist(rec.outboundFlight)}
+            className="btn btn-secondary"
+            style={{ padding: '9px 16px', fontSize: '0.85rem' }}
+            title={isWatched ? 'Remove from watchlist' : 'Save to watchlist'}
+          >
+            <Bookmark
+              size={15}
+              style={{ color: isWatched ? 'var(--primary)' : 'inherit' }}
+              fill={isWatched ? 'currentColor' : 'none'}
+            />
+            {isWatched ? 'Saved' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

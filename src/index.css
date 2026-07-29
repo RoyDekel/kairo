@@ -773,3 +773,206 @@ h1, h2, h3, h4, h5, h6 {
 .animate-slide-right {
   animation: slideRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ============================================================
+   DESTINATION CARD ("Where to Go" results)
+   Compact two-column layout: the decision (left) and what's on
+   while you're there (right). Uses CSS classes rather than inline
+   styles because the column collapse needs a media query.
+   ============================================================ */
+.dest-card {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.85fr) 1fr;
+  gap: 28px;
+  padding: 20px 24px;
+  border-left: 4px solid var(--primary);
+  align-items: start;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.dest-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Single column on narrow viewports; the events list drops below the fare. */
+@media (max-width: 780px) {
+  .dest-card {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .dest-card-events {
+    border-top: 1px solid var(--border-glass);
+    padding-top: 16px;
+  }
+}
+
+.dest-card-headline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.dest-card-avatar {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--primary-glow-weak);
+  border: 1px solid var(--primary-glow);
+  color: var(--primary);
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dest-card-city {
+  font-family: var(--font-heading);
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.15;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.dest-card-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dest-card-price-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dest-card-price {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.dest-card-price-est {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
+
+.dest-card-price-meta {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Buy/wait verdict strip */
+.dest-card-verdict {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.dest-card-verdict-pill {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.dest-card-verdict-wait {
+  background: var(--warning-glow);
+  color: var(--warning);
+  border: 1px solid var(--warning-glow);
+}
+
+.dest-card-verdict-buy {
+  background: var(--success-glow);
+  color: var(--success);
+  border: 1px solid var(--success-glow);
+}
+
+.dest-card-verdict-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Right column: events */
+.dest-card-events-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.dest-card-event {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.dest-card-event:last-of-type {
+  border-bottom: none;
+}
+
+.dest-card-event-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.dest-card-event-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.dest-card-event-price {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dest-card-more {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  padding-top: 9px;
+}
+
+.dest-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
