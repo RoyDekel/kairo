@@ -20,7 +20,7 @@ const AIRPORT_LOCATION_MAP = {
 
 export class TicketmasterService {
   constructor() {
-    this.apiKey = process.env.TICKETMASTER_API_KEY || '';
+    this.apiKey = process.env.TICKETMASTER_API_KEY || 'AxuhwJlhtAlB5PQuhSgtzsoTq4w8Ddof';
     this.baseUrl = 'https://app.ticketmaster.com/discovery/v2/events.json';
   }
 
