@@ -435,65 +435,83 @@ export default function App() {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        flexWrap: 'wrap',
+        flexWrap: 'nowrap',
         gap: '16px',
         paddingBottom: '16px',
         borderBottom: '1px solid var(--border-glass)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <button
-            onClick={() => setIsNavDrawerOpen(prev => !prev)}
-            className="btn-icon hamburger-btn"
-            title={isNavDrawerOpen ? "Close Menu" : "Open Navigation Menu"}
-            style={{
-              padding: '8px',
-              borderRadius: '8px',
-              background: isNavDrawerOpen ? 'rgba(56, 189, 248, 0.2)' : 'var(--bg-secondary)',
-              border: '1px solid var(--border-glass-bright)',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            {isNavDrawerOpen ? <X size={22} /> : <Menu size={22} />}
-          </button>
-
-          <div 
-            onClick={() => setActiveTab('landing')} 
-            style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
-            title="Back to KAIRO Home"
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: 'var(--shadow-glow)'
-              }}>
-                <Plane size={18} style={{ color: '#0b0f19', transform: 'rotate(45deg)' }} />
-              </div>
-              <h1 className="brand-gradient-text" style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                KAIRO
-                <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', fontWeight: 600, letterSpacing: '0.5px' }}>
-                  DEMO SIMULATION
-                </span>
-              </h1>
-            </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-              Smart Flight Price & Buy Timing Engine (Real-Time Demo Simulation)
-            </p>
-          </div>
+        {/* LOGO & BRAND MARK */}
+        <div 
+          onClick={() => setActiveTab('landing')} 
+          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}
+          title="Back to KAIRO Home"
+        >
+          <svg viewBox="0 0 512 512" style={{ width: '34px', height: '34px', display: 'block', flexShrink: 0 }} aria-label="Kairo">
+            <rect width="512" height="512" rx="128" fill="#171A21" />
+            <rect x="16" y="16" width="480" height="480" rx="112" fill="none" stroke="#2B4BDB" strokeWidth="12" opacity="0.5" />
+            <path d="M 170 120 L 170 392 M 170 256 L 340 120 M 170 256 L 340 392" fill="none" stroke="#2B4BDB" strokeWidth="48" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M 330 190 L 370 210 L 350 250 Z" fill="#EF5F3C" />
+          </svg>
+          <h1 className="brand-gradient-text" style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
+            KAIRO
+          </h1>
         </div>
 
-        {/* AUTH, NOTIFICATIONS & NAVIGATION HUD */}
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        {/* WORKSPACE NAVIGATION PILLS */}
+        <nav style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          flexWrap: 'nowrap',
+          flex: '1 1 auto',
+          minWidth: 0,
+          justifyContent: 'center',
+          overflowX: 'auto'
+        }}>
+          {[
+            { id: 'ai-explorer', label: 'Should I Book?' },
+            { id: 'dashboard', label: 'Live Radar' },
+            { id: 'alternative', label: 'Compare Fares' },
+            { id: 'watchlist', label: 'Watchlist' },
+            { id: 'alerts', label: 'Alerts' }
+          ].map((item) => {
+            const isActive = activeTab === item.id;
+            const isSignedOut = !user;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  if (isSignedOut) {
+                    setIsAuthModalOpen(true);
+                  } else {
+                    setActiveTab(item.id);
+                  }
+                }}
+                title={isSignedOut ? 'Sign in to continue' : undefined}
+                style={{
+                  padding: '8px 11px',
+                  borderRadius: '8px',
+                  border: '1px solid',
+                  borderColor: isActive ? 'var(--border-glass-bright)' : 'var(--border-glass)',
+                  background: isSignedOut ? 'rgba(248, 250, 252, 0.6)' : 'var(--bg-tertiary)',
+                  color: isSignedOut ? '#64748b' : isActive ? 'var(--primary)' : 'var(--text-primary)',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* AUTH, NOTIFICATIONS & THEME ACTIONS */}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
           {/* Pro Plan / Pricing Quick Link for Logged-In Users */}
           {isAuthenticated && (
             <button
@@ -510,7 +528,8 @@ export default function App() {
                 alignItems: 'center',
                 gap: '6px',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
               }}
               title="View Pro Plans & Pricing"
             >
@@ -573,7 +592,7 @@ export default function App() {
             <button
               onClick={() => setIsAuthModalOpen(true)}
               className="btn btn-secondary"
-              style={{ padding: '8px 14px', fontSize: '0.8rem', gap: '6px' }}
+              style={{ padding: '8px 14px', fontSize: '0.8rem', gap: '6px', whiteSpace: 'nowrap' }}
               title="Sign in to sync watchlists and alerts to the cloud"
             >
               <LogIn size={16} />
@@ -617,191 +636,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* SLIDE-OVER NAVIGATION DRAWER */}
-      {isNavDrawerOpen && (
-        <div 
-          className="nav-drawer-overlay animate-fade-in"
-          onClick={() => setIsNavDrawerOpen(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(11, 15, 25, 0.65)',
-            backdropFilter: 'blur(6px)',
-            zIndex: 9000,
-            display: 'flex'
-          }}
-        >
-          <div 
-            className="nav-drawer-panel animate-slide-right"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '320px',
-              maxWidth: '85vw',
-              height: '100%',
-              backgroundColor: 'var(--bg-secondary)',
-              borderRight: '1px solid var(--border-glass-bright)',
-              boxShadow: 'var(--shadow-lg)',
-              display: 'flex',
-              flexDirection: 'column',
-              padding: '24px 20px',
-              overflowY: 'auto'
-            }}
-          >
-            {/* Drawer Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--border-glass)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: 'var(--shadow-glow)'
-                }}>
-                  <Plane size={20} style={{ color: '#0b0f19', transform: 'rotate(45deg)' }} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--text-primary)', letterSpacing: '0.5px' }}>KAIRO</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Flight Intelligence Workspace</div>
-                </div>
-              </div>
 
-              <button 
-                onClick={() => setIsNavDrawerOpen(false)}
-                className="btn-icon"
-                style={{ padding: '6px' }}
-                title="Close Navigation"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Navigation Items List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', paddingLeft: '8px' }}>
-                Workspace Pages
-              </div>
-
-              {[
-                { id: 'ai-explorer', label: 'Should I Book? (AI Engine)', icon: <Sparkles size={18} />, requiresAuth: true },
-                { id: 'dashboard', label: 'Price Radar HUD', icon: <Activity size={18} />, requiresAuth: true },
-                { id: 'alternative', label: 'Compare Fares & Search', icon: <Compass size={18} />, requiresAuth: true },
-                { id: 'watchlist', label: 'Watchlist Manager', icon: <Bookmark size={18} />, requiresAuth: true, badge: (watchlist || []).length },
-                { id: 'alerts', label: 'Alert Center & Logs', icon: <Bell size={18} />, requiresAuth: true, badge: (alerts || []).length }
-              ].map((item) => {
-                const isActive = activeTab === item.id;
-                const isLocked = item.requiresAuth && !user;
-
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setIsNavDrawerOpen(false);
-                      if (isLocked) {
-                        setIsAuthModalOpen(true);
-                      } else {
-                        setActiveTab(item.id);
-                      }
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '12px 14px',
-                      borderRadius: 'var(--radius-sm)',
-                      border: isActive ? '1px solid var(--border-glass-bright)' : '1px solid transparent',
-                      backgroundColor: isActive ? 'var(--bg-tertiary)' : 'transparent',
-                      color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
-                      fontWeight: isActive ? 700 : 500,
-                      fontSize: '0.9rem',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      textAlign: 'left'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
-                        e.currentTarget.style.color = 'var(--text-primary)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = 'var(--text-secondary)';
-                      }
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ color: isActive ? 'var(--primary)' : 'var(--text-muted)' }}>{item.icon}</span>
-                      <span>{item.label}</span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {item.badge !== undefined && item.badge > 0 && (
-                        <span style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          padding: '2px 7px',
-                          borderRadius: '10px',
-                          backgroundColor: 'var(--primary-glow-weak)',
-                          color: 'var(--primary)',
-                          border: '1px solid var(--border-glass)'
-                        }}>
-                          {item.badge}
-                        </span>
-                      )}
-
-                      {isLocked ? (
-                        <span title="Requires sign in" style={{ fontSize: '0.82rem', opacity: 0.7 }}>🔒</span>
-                      ) : (
-                        <ChevronRight size={14} style={{ opacity: isActive ? 1 : 0.4 }} />
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Drawer Footer / Account Summary */}
-            <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid var(--border-glass)' }}>
-              {isAuthenticated ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Signed in as</div>
-                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)', wordBreak: 'break-all' }}>{user?.email}</div>
-                  <button
-                    onClick={() => {
-                      setIsNavDrawerOpen(false);
-                      signOut();
-                    }}
-                    className="btn btn-secondary"
-                    style={{ width: '100%', marginTop: '6px', justifyContent: 'center', gap: '6px', fontSize: '0.82rem' }}
-                  >
-                    <LogOut size={14} />
-                    Sign Out
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    setIsNavDrawerOpen(false);
-                    setIsAuthModalOpen(true);
-                  }}
-                  className="btn btn-primary"
-                  style={{ width: '100%', justifyContent: 'center', gap: '8px', fontSize: '0.88rem' }}
-                >
-                  <LogIn size={16} />
-                  Sign In / Register
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* TAB VIEWS CONTROLLER */}
       <main className="animate-fade-in" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>

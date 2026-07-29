@@ -19,9 +19,7 @@ const renderApp = () => {
       <App />
     </AuthProvider>
   );
-  const menuBtn = screen.getByTitle('Open Navigation Menu');
-  fireEvent.click(menuBtn);
-  const dashTab = screen.getByText('Price Radar HUD');
+  const dashTab = screen.getByText('Live Radar');
   fireEvent.click(dashTab);
   return result;
 };
@@ -33,10 +31,8 @@ describe('Booking Flow Integration Tests', () => {
     // 1. Initially on Price Radar HUD
     expect(screen.getByText('Active Route')).toBeInTheDocument();
     
-    // 2. Navigate to "Compare Fares" tab via Hamburger Menu
-    const menuBtn = screen.getByTitle('Open Navigation Menu');
-    fireEvent.click(menuBtn);
-    const findFlightsTab = screen.getByText(/Compare Fares/i);
+    // 2. Navigate to "Compare Fares" tab via Top Header Navigation
+    const findFlightsTab = screen.getByText('Compare Fares');
     fireEvent.click(findFlightsTab);
     
     // Verify search panel is loaded
@@ -87,8 +83,7 @@ describe('Booking Flow Integration Tests', () => {
     renderApp();
 
     // Navigate to "Compare Fares"
-    fireEvent.click(screen.getByTitle('Open Navigation Menu'));
-    fireEvent.click(screen.getByText(/Compare Fares/i));
+    fireEvent.click(screen.getByText('Compare Fares'));
 
     // Select One-way trip type
     const tripTypeSelect = screen.getByLabelText('Trip Type');
@@ -125,8 +120,7 @@ describe('Booking Flow Integration Tests', () => {
     renderApp();
 
     // Navigate to "Compare Fares"
-    fireEvent.click(screen.getByTitle('Open Navigation Menu'));
-    fireEvent.click(screen.getByText(/Compare Fares/i));
+    fireEvent.click(screen.getByText('Compare Fares'));
 
     // We can select the Departure Airport dropdown and change it to match Arrival
     const departureSelect = screen.getByLabelText('Departure Airport');

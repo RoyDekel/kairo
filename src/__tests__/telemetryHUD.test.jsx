@@ -19,9 +19,7 @@ const renderApp = () => {
       <App />
     </AuthProvider>
   );
-  const menuBtn = screen.getByTitle('Open Navigation Menu');
-  fireEvent.click(menuBtn);
-  const dashTab = screen.getByText('Price Radar HUD');
+  const dashTab = screen.getByText('Live Radar');
   fireEvent.click(dashTab);
   return result;
 };
@@ -43,7 +41,6 @@ describe('Telemetry HUD and Watchlist/Alerts UI Tests', () => {
     const speed20x = screen.getByRole('button', { name: '20x' });
     expect(speed20x).toBeInTheDocument();
     fireEvent.click(speed20x);
-    // Button styling should update (handled dynamically via state)
     
     // 4. Test slider manual dragging change
     const progressSlider = screen.getByRole('slider');
@@ -73,8 +70,7 @@ describe('Telemetry HUD and Watchlist/Alerts UI Tests', () => {
     expect(screen.getByRole('button', { name: /Watched/i })).toBeInTheDocument();
 
     // 3. Navigate to Watchlist tab
-    fireEvent.click(screen.getByTitle('Open Navigation Menu'));
-    fireEvent.click(screen.getByText(/Watchlist Manager/i));
+    fireEvent.click(screen.getByText('Watchlist'));
     
     // Verify flight is listed in Watchlist View
     expect(screen.getByText(/LOT Polish Airlines/i)).toBeInTheDocument();

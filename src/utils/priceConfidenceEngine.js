@@ -123,12 +123,12 @@ export function getZeroClickDemoData() {
       'Live concert & sports event schedule metrics'
     ],
     priceHistory: [
-      { label: '90d ago', price: 1080 },
-      { label: '60d ago', price: 950 },
-      { label: '45d ago', price: 890 },
-      { label: '30d ago', price: 718, isLowest: true },
-      { label: '14d ago', price: 790 },
-      { label: '7d ago', price: 845 },
+      { label: 'Apr 30', price: 1080 },
+      { label: 'May 30', price: 950 },
+      { label: 'Jun 14', price: 890 },
+      { label: 'Jun 29', price: 718, isLowest: true },
+      { label: 'Jul 15', price: 790 },
+      { label: 'Jul 22', price: 845 },
       { label: 'Today', price: 814 }
     ],
     animatedSteps: [814, 780, 745, 718]

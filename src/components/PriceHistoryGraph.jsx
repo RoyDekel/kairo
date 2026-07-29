@@ -1,30 +1,39 @@
 import React, { useState } from 'react';
-import { TrendingDown, Award } from 'lucide-react';
 
 export default function PriceHistoryGraph({ priceHistory = [] }) {
   const [hoveredNode, setHoveredNode] = useState(null);
 
   if (!priceHistory || priceHistory.length === 0) return null;
 
-  // Graph Dimensions
+  // Graph Dimensions & Layout Padding
   const svgWidth = 600;
   const svgHeight = 180;
-  const padding = 35;
+  
+  const padLeft = 52;
+  const padRight = 16;
+  const padTop = 24;
+  const padBottom = 32;
+
+  const plotWidth = svgWidth - padLeft - padRight;
+  const plotHeight = svgHeight - padTop - padBottom;
 
   const prices = priceHistory.map((d) => d.price);
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
+  const midPrice = Math.round((minPrice + maxPrice) / 2);
   const priceRange = maxPrice - minPrice || 1;
+
+  const todayPrice = prices[prices.length - 1];
+  const savingsBelowPeakPct = Math.round(((maxPrice - todayPrice) / maxPrice) * 100);
 
   // Map data points to SVG coordinates
   const points = priceHistory.map((item, index) => {
-    const x = padding + (index / (priceHistory.length - 1)) * (svgWidth - padding * 2);
-    // Invert Y axis for SVG (higher price = lower Y value)
-    const y = svgHeight - padding - ((item.price - minPrice) / priceRange) * (svgHeight - padding * 2);
+    const x = padLeft + (index / (priceHistory.length - 1)) * plotWidth;
+    const y = (padTop + plotHeight) - ((item.price - minPrice) / priceRange) * plotHeight;
     return { ...item, x, y };
   });
 
-  // Create SVG path string for smooth line
+  // Create SVG path string for smooth cubic curve
   const pathD = points.reduce((acc, pt, idx) => {
     if (idx === 0) return `M ${pt.x} ${pt.y}`;
     const prev = points[idx - 1];
@@ -33,25 +42,45 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
   }, '');
 
   // Fill area path under curve
-  const areaD = `${pathD} L ${points[points.length - 1].x} ${svgHeight - 15} L ${points[0].x} ${svgHeight - 15} Z`;
+  const areaD = `${pathD} L ${points[points.length - 1].x} ${padTop + plotHeight} L ${points[0].x} ${padTop + plotHeight} Z`;
+
+  // Good price band: bottom 20% of price range
+  const bandHeight = plotHeight * 0.20;
+  const bandY = (padTop + plotHeight) - bandHeight;
 
   return (
     <div style={{
-      background: 'rgba(11, 15, 25, 0.6)',
-      border: '1px solid var(--border-glass-bright)',
+      background: '#ffffff',
+      border: '1px solid var(--border-glass)',
       borderRadius: 'var(--radius-md)',
-      padding: '20px',
-      position: 'relative'
+      padding: '20px 20px 16px',
+      boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)'
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <TrendingDown size={16} style={{ color: 'var(--success)' }} />
-          <span>90-Day Price Trend History ($)</span>
+      {/* HEADER SECTION */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+        <div>
+          <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+            Price over the last 90 days
+          </div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Tel Aviv → Tokyo, roundtrip
+          </div>
         </div>
 
-        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Award size={14} />
-          90d Low: ${minPrice}
+        {/* LEGEND INDICATORS */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+            <span>90-day low</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}></span>
+            <span>Today</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ width: '12px', height: '8px', borderRadius: '2px', background: 'rgba(16, 185, 129, 0.18)', display: 'inline-block' }}></span>
+            <span>Good price</span>
+          </div>
         </div>
       </div>
 
@@ -62,31 +91,47 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
           style={{ width: '100%', height: 'auto', display: 'block' }}
         >
           <defs>
-            <linearGradient id="kairo-chart-grad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#00f2fe" stopOpacity="0.35" />
-              <stop offset="100%" stopColor="#00f2fe" stopOpacity="0.0" />
+            <linearGradient id="kairo-chart-grad-light" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
             </linearGradient>
-            <filter id="glow-node" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
           </defs>
 
+          {/* Good price band rect */}
+          <rect
+            x={padLeft}
+            y={bandY}
+            width={plotWidth}
+            height={bandHeight}
+            fill="rgba(16, 185, 129, 0.09)"
+          />
+
+          {/* Gridlines */}
+          <line x1={padLeft} y1={padTop} x2={padLeft + plotWidth} y2={padTop} stroke="rgba(15, 23, 42, 0.08)" strokeDasharray="3 3" />
+          <line x1={padLeft} y1={padTop + plotHeight / 2} x2={padLeft + plotWidth} y2={padTop + plotHeight / 2} stroke="rgba(15, 23, 42, 0.08)" strokeDasharray="3 3" />
+          <line x1={padLeft} y1={padTop + plotHeight} x2={padLeft + plotWidth} y2={padTop + plotHeight} stroke="rgba(15, 23, 42, 0.08)" strokeDasharray="3 3" />
+
+          {/* Y-Axis Price Labels */}
+          <text x={padLeft - 8} y={padTop + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="600">${maxPrice}</text>
+          <text x={padLeft - 8} y={padTop + plotHeight / 2 + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="600">${midPrice}</text>
+          <text x={padLeft - 8} y={padTop + plotHeight + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="600">${minPrice}</text>
+
           {/* Area Fill */}
-          <path d={areaD} fill="url(#kairo-chart-grad)" />
+          <path d={areaD} fill="url(#kairo-chart-grad-light)" />
 
           {/* Line Curve */}
           <path
             d={pathD}
             fill="none"
             stroke="var(--primary)"
-            strokeWidth="3.5"
+            strokeWidth="2.5"
             strokeLinecap="round"
           />
 
-          {/* Data Nodes & Markers */}
+          {/* Data Nodes & Value Callout Badges */}
           {points.map((pt, idx) => {
-            const isLowest = pt.price === minPrice;
+            const isLowest = pt.isLowest || pt.price === minPrice;
+            const isToday = idx === points.length - 1;
             const isHovered = hoveredNode === idx;
 
             return (
@@ -96,37 +141,76 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
                 onMouseLeave={() => setHoveredNode(null)}
                 style={{ cursor: 'pointer' }}
               >
-                {/* Node Outer Ring */}
+                {/* Node Circle */}
                 <circle
                   cx={pt.x}
                   cy={pt.y}
-                  r={isHovered ? 9 : isLowest ? 7 : 5}
-                  fill={isLowest ? 'var(--success)' : isHovered ? 'var(--primary)' : '#0b0f19'}
-                  stroke={isLowest ? '#34d399' : 'var(--primary)'}
-                  strokeWidth="3"
-                  filter={isHovered || isLowest ? 'url(#glow-node)' : 'none'}
+                  r={isLowest || isToday ? 6 : (isHovered ? 5 : 3.5)}
+                  fill={isLowest ? '#10b981' : isToday ? '#f59e0b' : '#ffffff'}
+                  stroke={isLowest ? '#10b981' : isToday ? '#f59e0b' : 'var(--primary)'}
+                  strokeWidth="2.5"
                 />
 
-                {/* Price Label above point */}
-                <text
-                  x={pt.x}
-                  y={pt.y - 12}
-                  textAnchor="middle"
-                  fill={isLowest ? 'var(--success)' : 'var(--text-secondary)'}
-                  fontSize={isLowest ? '12' : '10'}
-                  fontWeight={isLowest ? '800' : '600'}
-                >
-                  ${pt.price}
-                </text>
+                {/* Callout Badge for Lowest Node ($718) */}
+                {isLowest && (
+                  <g>
+                    <rect
+                      x={pt.x - 22}
+                      y={pt.y - 23}
+                      width="44"
+                      height="18"
+                      rx="5"
+                      fill="#ffffff"
+                      stroke="#059669"
+                      strokeWidth="1.5"
+                    />
+                    <text
+                      x={pt.x}
+                      y={pt.y - 10}
+                      textAnchor="middle"
+                      fill="#059669"
+                      fontSize="11"
+                      fontWeight="800"
+                    >
+                      ${pt.price}
+                    </text>
+                  </g>
+                )}
 
-                {/* X-Axis Month Label below point */}
+                {/* Callout Badge for Today Node ($814) */}
+                {isToday && (
+                  <g>
+                    <rect
+                      x={pt.x - 22}
+                      y={pt.y - 23}
+                      width="44"
+                      height="18"
+                      rx="5"
+                      fill="#ffffff"
+                      stroke="#b45309"
+                      strokeWidth="1.5"
+                    />
+                    <text
+                      x={pt.x}
+                      y={pt.y - 10}
+                      textAnchor="middle"
+                      fill="#b45309"
+                      fontSize="11"
+                      fontWeight="800"
+                    >
+                      ${pt.price}
+                    </text>
+                  </g>
+                )}
+
+                {/* X-Axis Date Label below node */}
                 <text
                   x={pt.x}
-                  y={svgHeight - 2}
+                  y={172}
                   textAnchor="middle"
-                  fill="var(--text-muted)"
+                  fill={isLowest || isToday ? 'var(--text-secondary)' : 'var(--text-muted)'}
                   fontSize="10"
-                  fontWeight="600"
+                  fontWeight={isLowest || isToday ? '700' : '500'}
                 >
                   {pt.label}
                 </text>
@@ -136,24 +220,42 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
         </svg>
       </div>
 
-      {/* BENCHMARK FOOTER */}
+      {/* FOOTER METRIC BREAKDOWN (3 COLUMNS) */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '8px',
-        fontSize: '0.75rem',
-        color: 'var(--text-muted)',
-        marginTop: '10px',
-        paddingTop: '8px',
-        borderTop: '1px dashed var(--border-glass)'
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '12px',
+        marginTop: '16px',
+        paddingTop: '14px',
+        borderTop: '1px solid var(--border-glass)'
       }}>
-        <span>High Peak: <strong style={{ color: 'var(--text-primary)' }}>${maxPrice}</strong></span>
-        <span style={{ color: 'var(--success)', fontWeight: 700, padding: '2px 8px', background: 'rgba(5, 150, 105, 0.1)', borderRadius: '12px', border: '1px solid rgba(5, 150, 105, 0.2)' }}>
-          Current Fare is {Math.round(((maxPrice - points[points.length - 1].price) / maxPrice) * 100)}% below peak
-        </span>
-        <span>Low Benchmark: <strong style={{ color: 'var(--text-primary)' }}>${minPrice}</strong></span>
+        <div>
+          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Peak</div>
+          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>${maxPrice}</div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>90-Day Low</div>
+          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#059669', marginTop: '2px' }}>${minPrice}</div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Today</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', flexWrap: 'nowrap' }}>
+            <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>${todayPrice}</span>
+            <span style={{
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              padding: '2px 8px',
+              borderRadius: '12px',
+              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              color: '#059669',
+              whiteSpace: 'nowrap'
+            }}>
+              {savingsBelowPeakPct}% below peak
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

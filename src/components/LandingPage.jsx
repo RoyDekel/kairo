@@ -271,23 +271,6 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           {/* INTERACTIVE 90-DAY SVG PRICE HISTORY GRAPH */}
           <PriceHistoryGraph priceHistory={demoData.priceHistory} />
 
-          {/* WHY TRUST KAIRO RECOMMENDATIONS? DATA RATIONALE CHECKLIST */}
-          <div style={{ marginTop: '20px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', padding: '16px' }}>
-            <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <ShieldCheck size={16} style={{ color: 'var(--primary)' }} />
-              <span>Why Trust This Recommendation? (Data Rationale)</span>
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              {demoData.rationalePillars.map((pillar, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <CheckCircle size={14} style={{ color: 'var(--success)', flexShrink: 0 }} />
-                  <span>{pillar}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
         </div>
       </section>
 
@@ -298,9 +281,8 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Automated price intelligence from decision to touchdown</p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px' }}>
-          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '24px', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '2rem', fontWeight: 900, color: 'var(--primary-glow)', opacity: 0.5 }}>01</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '20px' }}>
+          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '16px 24px 24px' }}>
             <div style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 1</div>
             <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Search or Pick Dates</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
@@ -308,8 +290,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             </p>
           </div>
 
-          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '24px', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '2rem', fontWeight: 900, color: 'var(--accent-glow)', opacity: 0.5 }}>02</div>
+          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '16px 24px 24px' }}>
             <div style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 2</div>
             <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Get AI Price Confidence</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
@@ -317,8 +298,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             </p>
           </div>
 
-          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '24px', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '2rem', fontWeight: 900, color: 'var(--success-glow)', opacity: 0.5 }}>03</div>
+          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '16px 24px 24px' }}>
             <div style={{ color: 'var(--success)', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 3</div>
             <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Instant Price Drop Alerts</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
@@ -331,7 +311,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
       {/* WHY CHOOSE KAIRO */}
       <section className="glass-panel" style={{ padding: '36px 32px' }}>
         <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '20px', textAlign: 'center' }}>Why Choose KAIRO?</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '16px' }}>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
             <CheckCircle size={20} style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
             <div>
@@ -386,7 +366,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             justify: 'space-between'
           }}>
             <div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Free Pilot</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Free</div>
               <div style={{ fontSize: '2.2rem', fontWeight: 900, margin: '12px 0 6px' }}>$0 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 400 }}>/ forever</span></div>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>Essential tools to track flights and browse basic recommendations.</p>
               
@@ -431,7 +411,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             </div>
 
             <div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pro Traveler</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pro</div>
               <div style={{ fontSize: '2.2rem', fontWeight: 900, margin: '12px 0 6px' }}>$9 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 400 }}>/ month</span></div>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>Unlimited AI event matching, priority price alerts & cloud sync.</p>
               
