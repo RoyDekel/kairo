@@ -31,7 +31,8 @@
   
   --font-sans: 'Public Sans', system-ui, -apple-system, sans-serif;
   --font-heading: 'Outfit', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --font-num: var(--font-mono);
   
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -88,7 +89,7 @@
 
 body {
   font-family: var(--font-sans);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
@@ -97,14 +98,27 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+input, select, button, textarea {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
+  font-variant-numeric: tabular-nums lining-nums;
   letter-spacing: -0.03em;
 }
 
-.num {
+/* Unified font family for numbers, symbols, currencies, codes & timestamps */
+.num,
+.font-mono,
+.mono-data,
+.flight-code,
+.price-tag,
+code,
+kbd,
+pre {
   font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
   letter-spacing: -0.02em;
 }
 
