@@ -1,77 +1,29 @@
-// Catalog of supported airports with coordinates, names, cities, and countries
-export const AIRPORTS = {
-  TLV: { code: 'TLV', name: 'Ben Gurion Airport', city: 'Tel Aviv', country: 'Israel', coords: [32.0114, 34.8867] },
-  KRK: { code: 'KRK', name: 'John Paul II Airport', city: 'Krakow', country: 'Poland', coords: [50.0777, 19.7848] },
-  LHR: { code: 'LHR', name: 'London Heathrow Airport', city: 'London', country: 'United Kingdom', coords: [51.4700, -0.4543] },
-  CDG: { code: 'CDG', name: 'Charles de Gaulle Airport', city: 'Paris', country: 'France', coords: [49.0097, 2.5479] },
-  JFK: { code: 'JFK', name: 'John F. Kennedy Intl Airport', city: 'New York', country: 'United States', coords: [40.6413, -73.7781] },
-  DXB: { code: 'DXB', name: 'Dubai International Airport', city: 'Dubai', country: 'United Arab Emirates', coords: [25.2532, 55.3657] },
-  FCO: { code: 'FCO', name: 'Leonardo da Vinci Airport', city: 'Rome', country: 'Italy', coords: [41.8003, 12.2389] },
-  NRT: { code: 'NRT', name: 'Narita International Airport', city: 'Tokyo', country: 'Japan', coords: [35.7720, 140.3929] },
-  ATH: { code: 'ATH', name: 'Eleftherios Venizelos Airport', city: 'Athens', country: 'Greece', coords: [37.9356, 23.9484] },
-  LAX: { code: 'LAX', name: 'Los Angeles International Airport', city: 'Los Angeles', country: 'United States', coords: [33.9416, -118.4085] },
-  SIN: { code: 'SIN', name: 'Singapore Changi Airport', city: 'Singapore', country: 'Singapore', coords: [1.3644, 103.9915] },
-  HND: { code: 'HND', name: 'Tokyo Haneda Airport', city: 'Tokyo', country: 'Japan', coords: [35.5494, 139.7798] },
-  AMS: { code: 'AMS', name: 'Amsterdam Airport Schiphol', city: 'Amsterdam', country: 'Netherlands', coords: [52.3105, 4.7683] },
-  SYD: { code: 'SYD', name: 'Sydney Kingsford Smith Airport', city: 'Sydney', country: 'Australia', coords: [-33.9461, 151.1772] },
-  BCN: { code: 'BCN', name: 'Josep Tarradellas Barcelona-El Prat Airport', city: 'Barcelona', country: 'Spain', coords: [41.2974, 2.0833] },
-  HKG: { code: 'HKG', name: 'Hong Kong International Airport', city: 'Hong Kong', country: 'China', coords: [22.3080, 113.9185] }
-};
+/**
+ * Server-side re-export of the shared KAIRO catalog.
+ *
+ * The airport/airline tables and geo-pricing helpers used to be duplicated here (16
+ * airports) versus the client (32). Destinations missing from this list made
+ * /api/flights return nothing, so the client fell back to its own simulator and quoted
+ * a different price for the same route. Everything now comes from shared/catalog.js.
+ */
+export {
+  AIRPORTS,
+  AIRLINES,
+  getDistance,
+  formatDuration,
+  calculatePassengerCost,
+  getCarriersForDistance,
+  getBaseAdultPrice
+} from '../../shared/catalog.js';
 
-// Airline Directory with colors and codes
-export const AIRLINES = {
-  W6: { code: 'W6', name: 'Wizz Air', logo: '✈️', color: '#e0007b', type: 'lowcost' },
-  FR: { code: 'FR', name: 'Ryanair', logo: '🔵', color: '#0033a0', type: 'lowcost' },
-  LO: { code: 'LO', name: 'LOT Polish Airlines', logo: '🇵🇱', color: '#002663', type: 'national' },
-  LY: { code: 'LY', name: 'EL AL Israel Airlines', logo: '🇮🇱', color: '#133068', type: 'national' },
-  BA: { code: 'BA', name: 'British Airways', logo: '🇬🇧', color: '#00205b', type: 'national' },
-  AF: { code: 'AF', name: 'Air France', logo: '🇫🇷', color: '#00209f', type: 'national' },
-  DL: { code: 'DL', name: 'Delta Air Lines', logo: '🔺', color: '#e01933', type: 'national' },
-  EK: { code: 'EK', name: 'Emirates', logo: '🔺', color: '#d71920', type: 'national' },
-  JL: { code: 'JL', name: 'Japan Airlines', logo: '🇯🇵', color: '#d90011', type: 'national' }
-};
-
-// Shared helper: Haversine formula to compute great circle distance in kilometers
-export const getDistance = (coords1, coords2) => {
-  const [lat1, lon1] = coords1;
-  const [lat2, lon2] = coords2;
-  const R = 6371; // Earth radius in km
-  
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-      
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c);
-};
-
-// Shared helper: Format duration from hours to "Xh Ym"
-export const formatDuration = (hours) => {
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  return `${h}h ${m}m`;
-};
-
-// Shared helper: Calculate cost structure for passenger count
-export const calculatePassengerCost = (basePrice, passengers) => {
-  const { adults = 1, children = 0, infants = 0 } = passengers;
-  const adultCost = adults * basePrice;
-  const childCost = children * (basePrice * 0.75);
-  const infantCost = infants * (basePrice * 0.10);
-  
-  return {
-    adults: Math.round(adultCost),
-    children: Math.round(childCost),
-    infants: Math.round(infantCost),
-    total: Math.round(adultCost + childCost + infantCost)
-  };
-};
+import {
+  AIRPORTS,
+  AIRLINES,
+  getDistance,
+  formatDuration,
+  calculatePassengerCost,
+  getCarriersForDistance
+} from '../../shared/catalog.js';
 
 // Shared helper: Generate flight slots using a specific base price
 export const generateFlightsWithBasePrice = (originCode, destinationCode, dateStr, direction, passengers, basePrice) => {
@@ -83,16 +35,7 @@ export const generateFlightsWithBasePrice = (originCode, destinationCode, dateSt
   const durationHours = (distance / 760) + 0.5;
   const durationStr = formatDuration(durationHours);
   
-  let carrierOptions = [];
-  if (distance < 1500) {
-    carrierOptions = ['W6', 'FR', 'LO', 'LY'];
-  } else if (distance >= 1500 && distance < 4500) {
-    carrierOptions = ['LO', 'LY', 'BA', 'AF'];
-  } else {
-    carrierOptions = ['LY', 'BA', 'AF', 'DL', 'EK', 'JL'];
-  }
-  
-  const availableCarriers = carrierOptions
+  const availableCarriers = getCarriersForDistance(distance)
     .map(code => AIRLINES[code] || AIRLINES.LO)
     .slice(0, 4);
     

@@ -1,10 +1,12 @@
 import { FlightProvider } from './flightProvider.js';
-import { 
-  AIRPORTS, 
-  AIRLINES, 
-  getDistance, 
-  formatDuration, 
-  calculatePassengerCost 
+import {
+  AIRPORTS,
+  AIRLINES,
+  getDistance,
+  formatDuration,
+  calculatePassengerCost,
+  getCarriersForDistance,
+  getBaseAdultPrice
 } from './constants.js';
 
 export class SimulatedProvider extends FlightProvider {
@@ -32,14 +34,8 @@ export class SimulatedProvider extends FlightProvider {
     
     if (!origin || !destination) return [];
     
-    const distance = getDistance(origin.coords, destination.coords);
-    const durationHours = (distance / 760) + 0.5;
-    const durationStr = formatDuration(durationHours);
-    const basePricePerAdult = Math.round(40 + distance * 0.075);
-    const dayOfWeek = new Date(dateStr).getDay();
-    const dateFactor = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6 ? 1.2 : 1.0;
-    
-    const basePrice = basePricePerAdult * dateFactor;
+    // Fare model lives in shared/catalog.js so the client fallback simulator agrees.
+    const basePrice = getBaseAdultPrice(getDistance(origin.coords, destination.coords), dateStr);
 
     return this.generateFlightsWithBasePrice(originCode, destinationCode, dateStr, direction, passengers, basePrice);
   }
@@ -53,16 +49,7 @@ export class SimulatedProvider extends FlightProvider {
     const durationHours = (distance / 760) + 0.5;
     const durationStr = formatDuration(durationHours);
     
-    let carrierOptions = [];
-    if (distance < 1500) {
-      carrierOptions = ['W6', 'FR', 'LO', 'LY'];
-    } else if (distance >= 1500 && distance < 4500) {
-      carrierOptions = ['LO', 'LY', 'BA', 'AF'];
-    } else {
-      carrierOptions = ['LY', 'BA', 'AF', 'DL', 'EK', 'JL'];
-    }
-    
-    const availableCarriers = carrierOptions
+    const availableCarriers = getCarriersForDistance(distance)
       .map(code => AIRLINES[code] || AIRLINES.LO)
       .slice(0, 4);
       

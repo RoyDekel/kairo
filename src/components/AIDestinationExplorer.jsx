@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Sparkles, Calendar, Compass, ArrowRight, Bookmark, Flame, MapPin, WifiOff } from 'lucide-react';
+import { Sparkles, Calendar, Compass, ArrowRight, Bookmark, Flame, MapPin, WifiOff, CheckCircle } from 'lucide-react';
 import { AIRPORTS } from '../utils/flightSimulator';
-import { searchAIDestinations, DiscoveryUnavailableError } from '../utils/aiDestinationEngine';
+import { searchAIDestinations, fetchAuthoritativeQuote, DiscoveryUnavailableError } from '../utils/aiDestinationEngine';
 import { useAuth } from '../contexts/AuthProvider';
 import {
   DEFAULT_ORIGIN,
@@ -63,6 +63,8 @@ export default function AIDestinationExplorer({
   const [aiRecommendations, setAiRecommendations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isBackendUnavailable, setIsBackendUnavailable] = useState(false);
+  // Destination currently being upgraded from estimate to live quote (null when idle).
+  const [trackingDestCode, setTrackingDestCode] = useState(null);
 
   const accessToken = session?.access_token;
 
@@ -111,16 +113,8 @@ export default function AIDestinationExplorer({
   }, [origin, departureDate, returnDate, maxBudget, selectedInterests, accessToken]);
 
   // Hand the chosen destination off to the "Should I Book?" verdict view.
-  const handleTrackRoute = (recommendation) => {
-    const bundle = {
-      outbound: recommendation.outboundFlight,
-      return: recommendation.returnFlight,
-      passengers: createDefaultPassengers(),
-      origin: recommendation.originCode,
-      destination: recommendation.destCode,
-      departureDate: recommendation.departureDate,
-      returnDate: recommendation.returnDate
-    };
+  const handleTrackRoute = async (recommendation) => {
+    setTrackingDestCode(recommendation.destCode);
 
     // Writes the discovered destination back into shared state, so "Search & Compare"
     // opens pre-filled with exactly the route the user just picked.
@@ -135,7 +129,42 @@ export default function AIDestinationExplorer({
       stops: '0'
     }));
 
-    setActiveRoundtrip(bundle);
+    // Upgrade the card's estimate to a real quote before showing the buy/wait verdict.
+    // Recommending BUY NOW against a modelled price would be misleading, and this call
+    // also warms the server cache so the card itself switches to "live fare" on the
+    // next scan. Falls back to the estimate if the real search is unavailable.
+    let outbound = recommendation.outboundFlight;
+    let returnFlight = recommendation.returnFlight;
+
+    try {
+      const quote = await fetchAuthoritativeQuote({
+        origin: recommendation.originCode,
+        destination: recommendation.destCode,
+        departureDate: recommendation.departureDate,
+        returnDate: recommendation.returnDate,
+        passengers: createDefaultPassengers(),
+        accessToken
+      });
+
+      if (quote?.outbound) {
+        outbound = quote.outbound;
+        returnFlight = quote.return || returnFlight;
+      }
+    } catch (err) {
+      console.warn('Could not upgrade estimate to a live quote; tracking the estimate instead:', err);
+    }
+
+    setActiveRoundtrip({
+      outbound,
+      return: returnFlight,
+      passengers: createDefaultPassengers(),
+      origin: recommendation.originCode,
+      destination: recommendation.destCode,
+      departureDate: recommendation.departureDate,
+      returnDate: recommendation.returnDate
+    });
+
+    setTrackingDestCode(null);
     setActiveTab('dashboard');
   };
 
@@ -342,10 +371,41 @@ export default function AIDestinationExplorer({
                   {/* PRICE & AI SCORE */}
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--primary)' }}>
+                      {rec.priceSource === 'estimate' && (
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 600 }}>est. </span>
+                      )}
                       ${rec.roundtripPrice}
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400 }}> / roundtrip</span>
                     </div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--success)' }}>
+
+                    {/*
+                      Price provenance. 'live' means this exact number came from the same
+                      real provider quote the Search & Compare page shows; 'estimate' means
+                      it's modelled, because pricing every destination against the paid
+                      provider on each scan isn't affordable.
+                    */}
+                    <div
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        color: rec.priceSource === 'live' ? 'var(--success)' : 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        justifyContent: 'flex-end',
+                        marginTop: '2px'
+                      }}
+                      title={
+                        rec.priceSource === 'live'
+                          ? 'Confirmed live fare — matches Search & Compare exactly'
+                          : 'Modelled estimate. Track this route to fetch the live fare.'
+                      }
+                    >
+                      {rec.priceSource === 'live' ? <CheckCircle size={11} /> : null}
+                      {rec.priceSource === 'live' ? 'Live fare' : 'Estimate'}
+                    </div>
+
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--success)', marginTop: '2px' }}>
                       ★ {rec.matchScore}% AI Match Score
                     </div>
                   </div>
@@ -439,10 +499,16 @@ export default function AIDestinationExplorer({
 
                   <button
                     onClick={() => handleTrackRoute(rec)}
+                    disabled={trackingDestCode !== null}
                     className="btn btn-primary"
-                    style={{ padding: '8px 18px', fontSize: '0.85rem' }}
+                    style={{
+                      padding: '8px 18px',
+                      fontSize: '0.85rem',
+                      opacity: trackingDestCode !== null && trackingDestCode !== rec.destCode ? 0.5 : 1,
+                      cursor: trackingDestCode !== null ? 'wait' : 'pointer'
+                    }}
                   >
-                    Track Route & Telemetry
+                    {trackingDestCode === rec.destCode ? 'Fetching live fare...' : 'Track Route & Telemetry'}
                     <ArrowRight size={16} />
                   </button>
                 </div>

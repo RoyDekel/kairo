@@ -458,7 +458,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             { q: 'Where do flight prices come from?', a: 'KAIRO aggregates flight pricing metrics and schedules across global carrier APIs and market baseline engine data.' },
             { q: 'How accurate are KAIRO AI price predictions?', a: 'KAIRO calculates 90-day historical trend indicators to estimate buy timing with an average 85%+ confidence rating.' },
             { q: 'Do you sell flight tickets directly?', a: 'No, KAIRO is an independent price timing and telemetry intelligence tool. We show you the exact best time to buy.' },
-            { q: 'Is KAIRO free to use?', a: 'Yes! The Free Pilot tier provides full access to live flight radar, price timing predictions, and watchlist tracking.' }
+            { q: 'Is KAIRO free to use?', a: 'Yes! The Free tier provides full access to live flight radar, price timing predictions, and watchlist tracking.' }
           ].map((item, idx) => (
             <div key={idx} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
               <button

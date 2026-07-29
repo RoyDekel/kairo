@@ -46,6 +46,22 @@ export class FlightSearchService {
     return 'simulated';
   }
 
+  /** Name of the provider currently serving real searches (e.g. 'serpapi', 'simulated'). */
+  get providerName() {
+    return this.activeProviderName;
+  }
+
+  /**
+   * Cheap breadth-first pricing for the discovery page.
+   *
+   * Always uses the simulated provider: "Where to Go" scans ~31 destinations at once and
+   * the paid providers bill per search. Results are explicitly estimates — callers must
+   * label them as such, and prefer a cached real quote whenever one exists.
+   */
+  async estimateFlights(searchRequest) {
+    return await this.providers.simulated.searchAsync(searchRequest);
+  }
+
   async searchFlights(searchRequest) {
     try {
       console.log(`[FlightSearchService] Delegating search to provider: ${this.activeProviderName.toUpperCase()}`);

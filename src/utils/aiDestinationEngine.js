@@ -1,4 +1,4 @@
-import { AIRPORTS, generateFlightsForRoute } from './flightSimulator';
+import { AIRPORTS } from './flightSimulator';
 import { getApiBase, authHeaders, fetchWithTimeout } from '../lib/apiBase';
 import {
   DEFAULT_ORIGIN,
@@ -111,6 +111,98 @@ function dedupeByTitle(events, destCode) {
 }
 
 /**
+ * Fetches cheapest-roundtrip pricing for many destinations from the backend.
+ *
+ * The client deliberately does NOT price routes itself any more. It used to call
+ * generateFlightsForRoute() locally while "Search & Compare" hit /api/flights, so the
+ * same route could be advertised at one price on the discovery page and sold at another
+ * on the comparison page. All fares now originate from one server-side service.
+ *
+ * Each entry carries `source`: 'live' (a real provider quote, identical to what Search &
+ * Compare shows) or 'estimate' (modelled, because scanning every destination against a
+ * paid provider isn't affordable).
+ */
+export async function fetchFareEstimates({ origin, departureDate, returnDate, passengers, accessToken }) {
+  const { adults = 1, children = 0, infants = 0 } = passengers || {};
+
+  const params = new URLSearchParams({
+    origin,
+    departureDate: departureDate || '',
+    returnDate: returnDate || '',
+    adults: String(adults),
+    children: String(children),
+    infants: String(infants)
+  });
+
+  let res;
+  try {
+    res = await fetchWithTimeout(`${getApiBase()}/api/flights/estimates?${params.toString()}`, {
+      timeoutMs: 12000,
+      headers: authHeaders(accessToken)
+    });
+  } catch (err) {
+    throw new DiscoveryUnavailableError(`Could not reach the fare pricing service: ${err.message}`);
+  }
+
+  if (!res.ok) {
+    throw new DiscoveryUnavailableError(`Fare pricing service returned status ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data?.estimates || {};
+}
+
+/**
+ * Fetches the authoritative fare for ONE route via the real provider.
+ *
+ * Used when the user commits to a destination: the buy/wait verdict must never be
+ * computed against a modelled price. Also warms the server-side quote cache, so the
+ * discovery card for this route flips from "est." to "live fare" afterwards.
+ *
+ * Returns null when the backend is unavailable — callers should keep the estimate.
+ */
+export async function fetchAuthoritativeQuote({
+  origin,
+  destination,
+  departureDate,
+  returnDate,
+  passengers,
+  accessToken
+}) {
+  const { adults = 1, children = 0, infants = 0 } = passengers || {};
+
+  const params = new URLSearchParams({
+    origin,
+    destination,
+    departureDate: departureDate || '',
+    returnDate: returnDate || '',
+    adults: String(adults),
+    children: String(children),
+    infants: String(infants),
+    stops: '0'
+  });
+
+  const res = await fetchWithTimeout(`${getApiBase()}/api/flights?${params.toString()}`, {
+    timeoutMs: 12000,
+    headers: authHeaders(accessToken)
+  });
+
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  const outbound = pickCheapest(data.outbound);
+  if (!outbound) return null;
+
+  return { outbound, return: pickCheapest(data.return) };
+}
+
+/** Lowest-priced flight in a list, or null. */
+function pickCheapest(flights) {
+  if (!Array.isArray(flights) || flights.length === 0) return null;
+  return flights.reduce((prev, curr) => (curr.price < prev.price ? curr : prev), flights[0]);
+}
+
+/**
  * Searches global destinations and correlates flight prices with verified live events.
  * Returns an empty list when no destination has matching events in range.
  *
@@ -124,30 +216,30 @@ export async function searchAIDestinations({
   interests = [],
   accessToken = null
 }) {
-  const destinationCodes = Object.keys(AIRPORTS).filter((code) => code !== origin);
+  // Step 1: one call for server-authoritative pricing across all destinations.
+  const estimates = await fetchFareEstimates({
+    origin,
+    departureDate,
+    returnDate,
+    passengers: { adults: 1, children: 0, infants: 0 },
+    accessToken
+  });
 
-  // Price every candidate route first, so we only ask the backend about destinations
-  // the user could actually afford.
-  const pricedRoutes = [];
-
-  for (const destCode of destinationCodes) {
-    const outboundFlights = generateFlightsForRoute(origin, destCode, departureDate, 'outbound', { adults: 1 });
-    const returnFlights = generateFlightsForRoute(destCode, origin, returnDate, 'return', { adults: 1 });
-
-    if (!outboundFlights.length || !returnFlights.length) continue;
-
-    const cheapestOutbound = outboundFlights.reduce((prev, curr) => (curr.price < prev.price ? curr : prev), outboundFlights[0]);
-    const cheapestReturn = returnFlights.reduce((prev, curr) => (curr.price < prev.price ? curr : prev), returnFlights[0]);
-    const totalRoundtripPrice = cheapestOutbound.price + cheapestReturn.price;
-
-    if (maxBudget && totalRoundtripPrice > maxBudget) continue;
-
-    pricedRoutes.push({ destCode, cheapestOutbound, cheapestReturn, totalRoundtripPrice });
-  }
+  const pricedRoutes = Object.values(estimates)
+    .filter((entry) => entry && entry.outbound && AIRPORTS[entry.destination])
+    .filter((entry) => !maxBudget || entry.roundtripPrice <= maxBudget)
+    .map((entry) => ({
+      destCode: entry.destination,
+      cheapestOutbound: entry.outbound,
+      cheapestReturn: entry.return,
+      totalRoundtripPrice: entry.roundtripPrice,
+      priceSource: entry.source,
+      quotedAt: entry.quotedAt
+    }));
 
   if (!pricedRoutes.length) return [];
 
-  // One batched call covering every affordable destination.
+  // Step 2: one batched call for events, covering only affordable destinations.
   const eventsByDestination = await fetchEventsForDestinations(
     pricedRoutes.map((r) => r.destCode),
     departureDate,
@@ -157,7 +249,7 @@ export async function searchAIDestinations({
 
   const results = [];
 
-  for (const { destCode, cheapestOutbound, cheapestReturn, totalRoundtripPrice } of pricedRoutes) {
+  for (const { destCode, cheapestOutbound, cheapestReturn, totalRoundtripPrice, priceSource, quotedAt } of pricedRoutes) {
     const destinationInfo = AIRPORTS[destCode];
     const realEvents = dedupeByTitle(eventsByDestination[destCode] || [], destCode);
 
@@ -181,7 +273,8 @@ export async function searchAIDestinations({
     const matchScore = Math.min(99, Math.round(priceScore + eventScore + interestBonus));
 
     const topEvent = matchedEvents[0];
-    const aiInsight = `${destinationInfo.city} has verified live events during your dates! Flight is ${savingsPercent}% below historical average ($${totalRoundtripPrice} roundtrip). Catch "${topEvent.title}" at ${topEvent.venue} during your trip.`;
+    const fareWording = priceSource === 'live' ? 'Live fare' : 'Estimated fare';
+    const aiInsight = `${destinationInfo.city} has verified live events during your dates! ${fareWording} is ${savingsPercent}% below historical average ($${totalRoundtripPrice} roundtrip). Catch "${topEvent.title}" at ${topEvent.venue} during your trip.`;
 
     results.push({
       id: `ai-dest-${destCode}`,
@@ -189,6 +282,8 @@ export async function searchAIDestinations({
       originCode: origin,
       destCode,
       roundtripPrice: totalRoundtripPrice,
+      priceSource,
+      quotedAt,
       averageMarketPrice,
       savingsPercent,
       savingsAmount,

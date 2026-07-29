@@ -5,6 +5,8 @@ import { createClient } from '@supabase/supabase-js';
 import { FlightSearchService } from './server/services/flightSearchService.js';
 import { TicketmasterService } from './server/services/ticketmasterService.js';
 import { computeEventDrivenInsights } from './server/services/insightsEngine.js';
+import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
+import { AIRPORTS } from './shared/catalog.js';
 
 dotenv.config();
 
@@ -117,6 +119,118 @@ app.get('/api/events/batch', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * Broad Fare Estimates Endpoint (Protected)
+ *
+ * Prices many destinations at once for the "Where to Go" discovery page, through the
+ * SAME FlightSearchService that /api/flights uses — the client no longer runs a pricing
+ * algorithm of its own.
+ *
+ * Each destination resolves in one of two ways:
+ *   source: 'live'     — a real provider quote previously fetched by /api/flights and
+ *                        still inside the cache TTL. Guaranteed identical to what the
+ *                        Search & Compare page shows.
+ *   source: 'estimate' — the simulated provider, because scanning ~31 destinations
+ *                        against a paid provider on every keystroke isn't viable.
+ */
+app.get('/api/flights/estimates', requireAuth, async (req, res) => {
+  const {
+    origin,
+    departureDate,
+    returnDate,
+    destinations = '',
+    adults = '1',
+    children = '0',
+    infants = '0',
+    stops = '0'
+  } = req.query;
+
+  if (!origin || !departureDate) {
+    return res.status(400).json({ error: 'Missing required query parameters: origin, departureDate' });
+  }
+
+  const passengers = {
+    adults: parseInt(adults, 10),
+    children: parseInt(children, 10),
+    infants: parseInt(infants, 10)
+  };
+
+  const originCode = String(origin).toUpperCase();
+
+  // Default to every known airport except the origin.
+  const requested = destinations
+    .split(',')
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean);
+
+  const destinationCodes = (requested.length > 0 ? requested : Object.keys(AIRPORTS))
+    .filter((code) => code !== originCode && AIRPORTS[code])
+    .slice(0, 60);
+
+  if (destinationCodes.length === 0) {
+    return res.status(400).json({ error: 'No valid destinations to price.' });
+  }
+
+  try {
+    const settled = await Promise.allSettled(
+      destinationCodes.map(async (destination) => {
+        const keyParts = { origin: originCode, destination, departureDate, returnDate, passengers, stops };
+
+        // Prefer a real quote we already paid for.
+        const cached = quoteCache.get(keyParts);
+        if (cached) {
+          return {
+            destination,
+            roundtripPrice: cached.roundtripPrice,
+            outbound: cached.outbound,
+            return: cached.return,
+            source: 'live',
+            provider: cached.source,
+            quotedAt: cached.quotedAt
+          };
+        }
+
+        const results = await flightSearchService.estimateFlights({
+          origin: originCode,
+          destination,
+          departureDate,
+          returnDate,
+          passengers,
+          stops
+        });
+
+        const outbound = cheapestFlight(results.outbound);
+        const returnFlight = cheapestFlight(results.return);
+        if (!outbound) return null;
+
+        return {
+          destination,
+          roundtripPrice: outbound.price + (returnFlight ? returnFlight.price : 0),
+          outbound,
+          return: returnFlight,
+          source: 'estimate',
+          provider: 'simulated',
+          quotedAt: null
+        };
+      })
+    );
+
+    const estimates = {};
+    settled.forEach((result, idx) => {
+      if (result.status === 'fulfilled' && result.value) {
+        estimates[result.value.destination] = result.value;
+      } else if (result.status === 'rejected') {
+        console.warn(`[flights/estimates] Pricing failed for ${destinationCodes[idx]}:`, result.reason?.message || result.reason);
+      }
+    });
+
+    res.json({ origin: originCode, departureDate, returnDate, count: Object.keys(estimates).length, estimates });
+  } catch (error) {
+    console.error('Estimates endpoint failed:', error);
+    res.status(500).json({ error: 'Failed to compute destination fare estimates.' });
+  }
+});
+
 // Unified search endpoint (Protected by JWT Authentication)
 app.get('/api/flights', requireAuth, async (req, res) => {
   const {
@@ -161,6 +275,23 @@ app.get('/api/flights', requireAuth, async (req, res) => {
       ...flight,
       insights: computeEventDrivenInsights(flight, request, events)
     }));
+
+    // Record the cheapest fare so /api/flights/estimates can serve this exact number to
+    // the discovery page instead of a simulated one. This is what keeps "Where to Go"
+    // and "Search & Compare" in agreement for any route the user has actually opened.
+    const cheapestOutbound = cheapestFlight(outboundWithInsights);
+    if (cheapestOutbound) {
+      const cheapestReturn = cheapestFlight(returnWithInsights);
+      quoteCache.set(
+        { origin, destination, departureDate, returnDate, passengers: request.passengers, stops },
+        {
+          roundtripPrice: cheapestOutbound.price + (cheapestReturn ? cheapestReturn.price : 0),
+          outbound: cheapestOutbound,
+          return: cheapestReturn,
+          source: results.warning ? 'simulated' : flightSearchService.providerName
+        }
+      );
+    }
 
     res.json({
       ...results,
