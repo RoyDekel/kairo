@@ -72,7 +72,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           marginBottom: '24px',
           letterSpacing: '0.05em'
         }}>
-          <Sparkles size={16} /> KAIRO — SMART AI FLIGHT PRICE TIMING
+          <Sparkles size={16} /> FLIGHT PRICE TIMING
         </div>
 
         {/* OUTCOME-FOCUSED HERO HEADLINE & BRAND POSITIONING */}
@@ -188,23 +188,6 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             </div>
           )}
 
-          {/* HUMANIZED AI PERSONALITY CALLOUT BADGE */}
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.12), rgba(124, 58, 237, 0.12))',
-            border: '1px solid var(--border-glass-bright)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '12px 16px',
-            marginBottom: '20px',
-            fontSize: '0.92rem',
-            fontWeight: 700,
-            color: 'var(--text-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            {demoData.personalityBadge}
-          </div>
-
           {/* DEMO METRICS GRID */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '20px' }}>
             <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
@@ -251,7 +234,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           }}>
             <div>
               <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                🔮 Prediction: Prices likely to drop by ~${demoData.expectedSavings} within {demoData.expectedDropDays}
+                🔮 KAIRO Prediction: Prices likely to drop by ~${demoData.expectedSavings} within {demoData.expectedDropDays}
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 Historical analysis indicates an <strong className="num">{demoData.confidenceScore}% probability</strong> of lower fares before departure.
