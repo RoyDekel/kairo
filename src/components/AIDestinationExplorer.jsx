@@ -28,15 +28,38 @@ export default function AIDestinationExplorer({
     }
   };
 
-  // Compute AI destination recommendations dynamically
-  const aiRecommendations = useMemo(() => {
-    return searchAIDestinations({
+  const [aiRecommendations, setAiRecommendations] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Compute AI destination recommendations dynamically via live Ticketmaster API
+  React.useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+
+    searchAIDestinations({
       origin,
       departureDate,
       returnDate,
       maxBudget,
       interests: selectedInterests
-    });
+    })
+      .then((results) => {
+        if (isMounted) {
+          setAiRecommendations(results);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error('Error searching AI destinations:', err);
+        if (isMounted) {
+          setAiRecommendations([]);
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [origin, departureDate, returnDate, maxBudget, selectedInterests]);
 
   // Handle tracking a recommended destination route on the Dashboard HUD
@@ -190,10 +213,27 @@ export default function AIDestinationExplorer({
 
       {/* AI RECOMMENDATION RESULTS LIST */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {aiRecommendations.length === 0 ? (
-          <div className="glass-panel" style={{ textAlign: 'center', padding: '40px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-              No destinations found matching your budget limit of <strong>${maxBudget}</strong>. Try increasing the budget slider!
+        {isLoading ? (
+          <div className="glass-panel" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+            <Sparkles size={28} style={{ color: 'var(--primary)' }} />
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Querying Ticketmaster Discovery API...
+            </div>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Checking real-time live events and flights for {departureDate} – {returnDate}
+            </div>
+          </div>
+        ) : aiRecommendations.length === 0 ? (
+          <div className="glass-panel" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+            <Compass size={38} style={{ color: 'var(--text-muted)', opacity: 0.6 }} />
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+              No Verified Ticketmaster Events Found
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', maxWidth: '540px', margin: 0, lineHeight: 1.6 }}>
+              There are currently no verified live Ticketmaster events listed for these travel dates (<strong>{departureDate}</strong> – <strong>{returnDate}</strong>) within your budget of <strong>${maxBudget}</strong>.
+            </p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+              💡 Tip: Try picking dates closer to upcoming months or adjusting your budget filter!
             </p>
           </div>
         ) : (

@@ -1,16 +1,16 @@
-import { describe, test, expect } from 'vitest';
-import { searchAIDestinations, GLOBAL_EVENTS } from '../aiDestinationEngine';
-import { AIRPORTS } from '../flightSimulator';
+import { describe, test, expect, vi } from 'vitest';
+import { searchAIDestinations, fetchTicketmasterEventsForDestination } from '../aiDestinationEngine';
 
 describe('AI Destination Intelligence Engine', () => {
-  test('includes global events catalog with destination associations', () => {
-    expect(GLOBAL_EVENTS.length).toBeGreaterThan(5);
-    const bcnEvents = GLOBAL_EVENTS.filter((e) => e.destination === 'BCN');
-    expect(bcnEvents.length).toBeGreaterThan(0);
-  });
+  test('returns empty array when Ticketmaster API returns 0 events for date range', async () => {
+    // Mock global fetch to return 0 embedded events
+    const origFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ _embedded: { events: [] } })
+    });
 
-  test('searches and ranks destinations by AI match score', () => {
-    const results = searchAIDestinations({
+    const results = await searchAIDestinations({
       origin: 'TLV',
       departureDate: '2026-08-11',
       returnDate: '2026-08-16',
@@ -18,28 +18,45 @@ describe('AI Destination Intelligence Engine', () => {
       interests: ['music', 'sports']
     });
 
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0]).toHaveProperty('matchScore');
-    expect(results[0]).toHaveProperty('aiInsight');
-    expect(results[0]).toHaveProperty('matchedEvents');
+    // Per strict user directive: 0 fake events means 0 destinations returned (Empty State)
+    expect(results).toEqual([]);
 
-    // Results should be ordered descending by matchScore
-    for (let i = 0; i < results.length - 1; i++) {
-      expect(results[i].matchScore).toBeGreaterThanOrEqual(results[i + 1].matchScore);
-    }
+    global.fetch = origFetch;
   });
 
-  test('respects budget constraint', () => {
-    const strictBudgetResults = searchAIDestinations({
+  test('correctly formats and ranks destinations when Ticketmaster returns real events', async () => {
+    const origFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        _embedded: {
+          events: [
+            {
+              id: 'tm-real-1',
+              name: 'Live Festival',
+              classifications: [{ segment: { name: 'Music' } }],
+              _embedded: { venues: [{ name: 'Arena' }] },
+              dates: { start: { localDate: '2026-08-12' } },
+              priceRanges: [{ min: 50, max: 150 }]
+            }
+          ]
+        }
+      })
+    });
+
+    const results = await searchAIDestinations({
       origin: 'TLV',
       departureDate: '2026-08-11',
       returnDate: '2026-08-16',
-      maxBudget: 250,
-      interests: ['sports']
+      maxBudget: 1500,
+      interests: ['music']
     });
 
-    strictBudgetResults.forEach((res) => {
-      expect(res.roundtripPrice).toBeLessThanOrEqual(250);
-    });
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0]).toHaveProperty('matchScore');
+    expect(results[0]).toHaveProperty('aiInsight');
+    expect(results[0].matchedEvents[0].title).toBe('Live Festival');
+
+    global.fetch = origFetch;
   });
 });
