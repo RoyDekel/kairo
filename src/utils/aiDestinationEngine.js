@@ -9,13 +9,13 @@ export const GLOBAL_EVENTS = [
   {
     id: 'evt-bcn-1',
     destination: 'BCN',
-    title: 'SHAKIRA - LAS MUJERES YA NO LLORAN European Tour',
-    venue: 'Iberdrola Music / Shakira Stadium',
+    title: 'Barcelona European Summer Concert Series',
+    venue: 'Estadi Olímpic Lluís Companys',
     category: 'music',
     categoryLabel: 'Music 🎵',
     dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 10, dateEndDay: 30,
     priceEstimate: '$95 - $280',
-    description: 'Ticketmaster Live: Shakira European Stadium Tour residency performance.'
+    description: 'Annual summer stadium concerts and live international tours in Barcelona.'
   },
   {
     id: 'evt-bcn-2',
@@ -26,20 +26,20 @@ export const GLOBAL_EVENTS = [
     categoryLabel: 'Festivals 🎪',
     dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 8, dateEndDay: 31,
     priceEstimate: '$65 - $180',
-    description: 'Ticketmaster Live: Outdoor music festival along the Mediterranean coast.'
+    description: 'Famous summer outdoor electronic & indie music festival along the Mediterranean.'
   },
 
   // Paris (CDG)
   {
     id: 'evt-cdg-1',
     destination: 'CDG',
-    title: 'Jacob Collier Live in Paris',
+    title: 'Paris Summer Jazz & Acoustic Sessions',
     venue: 'Salle Pleyel Paris',
     category: 'music',
     categoryLabel: 'Music 🎵',
     dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 9, dateEndDay: 30,
     priceEstimate: '$65 - $180',
-    description: 'Ticketmaster Live API: Grammy-winning multi-instrumentalist concert performance at Salle Pleyel.'
+    description: 'Acclaimed international jazz ensemble and acoustic performances at Salle Pleyel.'
   },
   {
     id: 'evt-cdg-2',
@@ -50,31 +50,31 @@ export const GLOBAL_EVENTS = [
     categoryLabel: 'Culture 🏛️',
     dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 8, dateEndDay: 31,
     priceEstimate: '$30 - $90',
-    description: 'Ticketmaster Live: Contemporary art exhibitions, live performances, and gastronomy.'
+    description: 'Contemporary art exhibitions, live performances, and French gastronomy showcase.'
   },
 
   // London (LHR)
   {
     id: 'evt-lhr-1',
     destination: 'LHR',
-    title: 'PITBULL - Official Premium Ticket & Hotel Experience',
+    title: 'British Summer Time Open-Air Festival',
     venue: 'Hyde Park London',
     category: 'music',
     categoryLabel: 'Music 🎵',
     dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 8, dateEndDay: 31,
     priceEstimate: '$110 - $350',
-    description: 'Ticketmaster Live API: Pitbull live headliner concert experience at Hyde Park.'
+    description: 'Major summer festival and headliner outdoor concert series in Central London.'
   },
   {
     id: 'evt-lhr-2',
     destination: 'LHR',
-    title: 'FRAMELESS 2026 Immersive Art Experience',
+    title: 'FRAMELESS Immersive Art Experience',
     venue: 'Marble Arch Place London',
     category: 'culture',
     categoryLabel: 'Culture 🏛️',
     dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 8, dateEndDay: 31,
     priceEstimate: '$35 - $90',
-    description: 'Ticketmaster Live API: Multi-sensory digital art exhibition in Central London.'
+    description: 'Multi-sensory digital art exhibition in Central London.'
   },
 
   // Madrid (MAD)
