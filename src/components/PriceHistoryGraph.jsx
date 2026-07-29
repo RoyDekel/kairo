@@ -10,7 +10,7 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
   const svgHeight = 180;
   
   const padLeft = 52;
-  const padRight = 16;
+  const padRight = 32;
   const padTop = 24;
   const padBottom = 32;
 
@@ -134,6 +134,12 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
             const isToday = idx === points.length - 1;
             const isHovered = hoveredNode === idx;
 
+            // Prevent right edge clipping for callout badge
+            const badgeW = 44;
+            const badgeH = 18;
+            const badgeX = Math.min(pt.x - badgeW / 2, svgWidth - badgeW - 6);
+            const badgeTextX = badgeX + badgeW / 2;
+
             return (
               <g
                 key={idx}
@@ -155,10 +161,10 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
                 {isLowest && (
                   <g>
                     <rect
-                      x={pt.x - 22}
+                      x={badgeX}
                       y={pt.y - 23}
-                      width="44"
-                      height="18"
+                      width={badgeW}
+                      height={badgeH}
                       rx="5"
                       fill="#ffffff"
                       stroke="#059669"
@@ -166,7 +172,7 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
                     />
                     <text
                       className="num"
-                      x={pt.x}
+                      x={badgeTextX}
                       y={pt.y - 10}
                       textAnchor="middle"
                       fill="#059669"
@@ -182,10 +188,10 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
                 {isToday && (
                   <g>
                     <rect
-                      x={pt.x - 22}
+                      x={badgeX}
                       y={pt.y - 23}
-                      width="44"
-                      height="18"
+                      width={badgeW}
+                      height={badgeH}
                       rx="5"
                       fill="#ffffff"
                       stroke="#b45309"
@@ -193,7 +199,7 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
                     />
                     <text
                       className="num"
-                      x={pt.x}
+                      x={badgeTextX}
                       y={pt.y - 10}
                       textAnchor="middle"
                       fill="#b45309"
@@ -241,9 +247,9 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
           <div className="num" style={{ fontSize: '1rem', fontWeight: 600, color: '#059669', marginTop: '2px' }}>${minPrice}</div>
         </div>
 
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }}>
           <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Today</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', flexWrap: 'nowrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', flexWrap: 'nowrap', justifyContent: 'flex-end' }}>
             <span className="num" style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>${todayPrice}</span>
             <span className="num" style={{
               fontSize: '0.72rem',

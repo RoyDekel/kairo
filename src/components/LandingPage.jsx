@@ -47,7 +47,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           <span>{toastMsg}</span>
         </div>
       )}
-      
+
       {/* HERO SECTION */}
       <section className="glass-panel" style={{
         padding: '60px 36px 48px',
@@ -349,7 +349,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
       {/* SAAS PRICING TIERS */}
       <section className="glass-panel" style={{ padding: '48px 32px', textAlign: 'center' }}>
         <div style={{ marginBottom: '36px' }}>
-          <h2 style={{ fontSize: '1.8rem', fontWeight: 700 }}>Simple, Transparent Pricing</h2>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 700 }}>Pricing</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Start for free and upgrade as your travel needs grow</p>
         </div>
 
@@ -371,7 +371,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
                 <div className="num" style={{ fontSize: '2rem', fontWeight: 600, margin: '12px 0 6px' }}>$0 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 400 }}>/ forever</span></div>
               </div>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px', textAlign: 'center' }}>Essential tools to track flights and browse basic recommendations.</p>
-              
+
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.88rem' }}>
                 <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: '#059669' }} /> AI Buy Timing predictions</li>
                 <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: '#059669' }} /> Live Flight Radar & Telemetry</li>
@@ -418,7 +418,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
                 <div className="num" style={{ fontSize: '2rem', fontWeight: 600, margin: '12px 0 6px' }}>$9 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 400 }}>/ month</span></div>
               </div>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px', textAlign: 'center' }}>Unlimited AI event matching, priority price alerts & cloud sync.</p>
-              
+
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.88rem' }}>
                 <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: 'var(--primary)' }} /> <strong>Unlimited</strong> AI Destination queries</li>
                 <li style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ color: 'var(--primary)' }} /> Live Concert & Football event matching</li>
@@ -426,7 +426,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
               </ul>
             </div>
 
-            <button 
+            <button
               onClick={() => {
                 if (user) {
                   setToastMsg('⚡ Pro Membership Activated! Unlimited AI Queries & Priority Sync Enabled.');
@@ -434,8 +434,8 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
                 } else {
                   onOpenAuth();
                 }
-              }} 
-              className="btn btn-primary" 
+              }}
+              className="btn btn-primary"
               style={{ width: '100%', marginTop: '32px' }}
             >
               <Zap size={18} /> {user ? 'Activate Pro Membership' : 'Upgrade to Pro'}
