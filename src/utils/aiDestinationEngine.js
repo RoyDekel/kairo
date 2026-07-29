@@ -50,7 +50,16 @@ export async function fetchTicketmasterEventsForDestination(airportCode, startDa
     const data = await res.json();
     const rawEvents = data?._embedded?.events || [];
 
-    return rawEvents.map((evt, idx) => {
+    // Deduplicate events by title / name
+    const seenTitles = new Set();
+    const uniqueEvents = [];
+
+    for (const evt of rawEvents) {
+      if (!evt.name) continue;
+      const normalizedTitle = evt.name.trim().toLowerCase();
+      if (seenTitles.has(normalizedTitle)) continue;
+      seenTitles.add(normalizedTitle);
+
       const venue = evt._embedded?.venues?.[0]?.name || `${locInfo.city} Venue`;
       const segmentName = evt.classifications?.[0]?.segment?.name?.toLowerCase() || 'culture';
       let category = 'culture';
@@ -70,8 +79,8 @@ export async function fetchTicketmasterEventsForDestination(airportCode, startDa
       const priceMin = evt.priceRanges?.[0]?.min || 45;
       const priceMax = evt.priceRanges?.[0]?.max || 180;
 
-      return {
-        id: evt.id || `tm-${airportCode}-${idx}`,
+      uniqueEvents.push({
+        id: evt.id || `tm-${airportCode}-${uniqueEvents.length}`,
         destination: airportCode,
         title: evt.name,
         venue,
@@ -82,8 +91,10 @@ export async function fetchTicketmasterEventsForDestination(airportCode, startDa
         priceEstimate: `$${Math.round(priceMin)} - $${Math.round(priceMax)}`,
         description: evt.info || `${evt.name} live event at ${venue}.`,
         url: evt.url
-      };
-    });
+      });
+    }
+
+    return uniqueEvents;
   } catch (err) {
     console.warn(`Failed to fetch Ticketmaster events for ${airportCode}:`, err);
     return [];

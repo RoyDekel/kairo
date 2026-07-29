@@ -84,7 +84,16 @@ export class TicketmasterService {
    * Format raw Ticketmaster API response into standardized KAIRO event objects
    */
   formatTicketmasterEvents(rawEvents, airportCode, isLive = false) {
-    return rawEvents.map((evt, idx) => {
+    const seenTitles = new Set();
+    const uniqueEvents = [];
+
+    for (const evt of rawEvents) {
+      if (!evt.name) continue;
+      const normalizedTitle = evt.name.trim().toLowerCase();
+      if (seenTitles.has(normalizedTitle)) continue;
+      seenTitles.add(normalizedTitle);
+
+      const idx = uniqueEvents.length;
       const venue = evt._embedded?.venues?.[0]?.name || 'Major Stadium / Arena';
       const category = evt.classifications?.[0]?.segment?.name?.toLowerCase() || 'entertainment';
       const categoryLabel = category.includes('music') ? 'Music 🎵' : category.includes('sports') ? 'Sports ⚽' : 'Event 🎟️';
@@ -97,7 +106,7 @@ export class TicketmasterService {
         impactScore = 96;
       }
 
-      return {
+      uniqueEvents.push({
         id: evt.id || `tm-${airportCode}-${idx}`,
         destination: airportCode,
         title: evt.name,
@@ -110,8 +119,10 @@ export class TicketmasterService {
         description: evt.info || `${evt.name} live event in ${venue}. High demand expected.`,
         eventImpactScore: impactScore,
         isSoldOut: evt.dates?.status?.code === 'soldout' || impactScore > 90
-      };
-    });
+      });
+    }
+
+    return uniqueEvents;
   }
 
   /**
