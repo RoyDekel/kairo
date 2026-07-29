@@ -4,7 +4,23 @@
  * provides data rationale pillars, and generates humanized AI recommendations.
  */
 
+/**
+ * Fields the backend derives from data the browser doesn't have: live Ticketmaster
+ * events for the destination, and the days-to-departure curve. These are the ingredients
+ * for route-specific evidence, so they are carried over even when the price-derived
+ * numbers are recomputed locally.
+ */
+const SERVER_EVIDENCE_FIELDS = [
+  'topEvent',
+  'eventImpactScore',
+  'isHighImpactEvent',
+  'daysToDeparture',
+  'pricePercentile',
+  'riskLevel'
+];
+
 export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
+  // With no local override, the server's analysis is authoritative.
   if (flight?.insights && !basePriceOverride) {
     return flight.insights;
   }
@@ -73,7 +89,7 @@ export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
     'Global event & concert schedule price pressure'
   ];
 
-  return {
+  const local = {
     currentPrice,
     low90Day,
     high90Day,
@@ -96,6 +112,25 @@ export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
       low90Day
     ]
   };
+
+  /*
+    Overlay the backend's evidence.
+
+    The price-derived numbers above are recomputed locally so the readout keeps up with
+    the live price ticker, but the event and departure-window intelligence can only come
+    from the server. Previously the entire server payload was dropped whenever an
+    override was passed — which both UI callers do — so the real evidence never reached
+    the screen at all.
+  */
+  if (flight?.insights) {
+    for (const field of SERVER_EVIDENCE_FIELDS) {
+      if (flight.insights[field] !== undefined) {
+        local[field] = flight.insights[field];
+      }
+    }
+  }
+
+  return local;
 }
 
 /**

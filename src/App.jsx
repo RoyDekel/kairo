@@ -721,6 +721,7 @@ export default function App() {
             <BuyVerdict
               activeFlight={activeFlight}
               activeRoundtrip={activeRoundtrip}
+              selectedDate={selectedDate}
             />
 
             <div className="dashboard-grid">

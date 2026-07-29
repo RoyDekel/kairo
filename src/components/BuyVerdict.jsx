@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Sparkles, ChevronDown, ChevronUp, TrendingDown, TrendingUp } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
+import { buildVerdictEvidence, summariseEvidence } from '../utils/verdictEvidence';
 
 /**
  * The page's headline answer: buy now, or wait.
@@ -9,14 +10,25 @@ import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
  * sheet — on a page literally named "Should I Book?". It now leads the view full width.
  * The supporting rationale is collapsed by default so the verdict itself stays legible.
  */
-export default function BuyVerdict({ activeFlight, activeRoundtrip }) {
+export default function BuyVerdict({ activeFlight, activeRoundtrip, selectedDate }) {
   const [showRationale, setShowRationale] = useState(false);
 
   const insight = getPriceConfidenceInsight(activeFlight, activeFlight.price);
   const isBuy = insight.recommendation === 'BUY_NOW';
 
+  const evidence = buildVerdictEvidence({
+    flight: activeFlight,
+    insight,
+    departureDate: selectedDate
+  });
+  const { forBuy, forWait } = summariseEvidence(evidence);
+
   const accent = isBuy ? 'var(--success)' : 'var(--warning)';
   const accentGlow = isBuy ? 'var(--success-glow)' : 'var(--warning-glow)';
+
+  // The server payload has no expectedDropDays, so fall back to a plain phrasing rather
+  // than rendering "waiting undefined" if the local override is ever bypassed.
+  const waitWindow = insight.expectedDropDays || 'a few more days';
 
   const roundtripTotal = activeRoundtrip?.outbound && activeRoundtrip?.return
     ? activeRoundtrip.outbound.passengerCosts.total + activeRoundtrip.return.passengerCosts.total
@@ -27,12 +39,15 @@ export default function BuyVerdict({ activeFlight, activeRoundtrip }) {
       <div className="verdict-main">
         <div className="verdict-label">
           <Sparkles size={14} style={{ color: 'var(--primary)' }} />
-          KAIRO buy timing
+          {activeFlight.origin} → {activeFlight.destination}
         </div>
 
         <div className="verdict-headline" style={{ color: accent }}>
           {isBuy ? <TrendingDown size={26} /> : <TrendingUp size={26} />}
-          {insight.actionHeadline}
+          {/* Lead with the outcome, not the feature: what this decision is worth. */}
+          {isBuy
+            ? 'Book now — this is the price'
+            : `Save ~$${insight.expectedSavings} by waiting ${waitWindow}`}
         </div>
 
         <p className="verdict-summary">{insight.summary}</p>
@@ -73,7 +88,7 @@ export default function BuyVerdict({ activeFlight, activeRoundtrip }) {
           className="verdict-rationale-toggle"
           aria-expanded={showRationale}
         >
-          Why KAIRO thinks this
+          Why — {forBuy} reason{forBuy === 1 ? '' : 's'} to book, {forWait} to wait
           {showRationale ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
 
@@ -87,18 +102,36 @@ export default function BuyVerdict({ activeFlight, activeRoundtrip }) {
                 padding: '8px 12px',
                 borderRadius: 'var(--radius-sm)',
                 background: accentGlow,
-                marginBottom: '10px'
+                marginBottom: '12px'
               }}
             >
               {insight.personalityBadge}
             </div>
-            <div className="verdict-pillars">
-              {insight.rationalePillars.map((pillar) => (
-                <div key={pillar} className="verdict-pillar">
-                  <span style={{ color: 'var(--success)' }}>✓</span> {pillar}
+
+            <div className="evidence-list">
+              {evidence.map((item) => (
+                <div key={item.id} className={`evidence evidence-${item.direction}`}>
+                  <span className="evidence-icon" aria-hidden="true">
+                    {item.direction === 'buy' ? (
+                      <TrendingDown size={14} />
+                    ) : item.direction === 'wait' ? (
+                      <TrendingUp size={14} />
+                    ) : (
+                      <Minus size={14} />
+                    )}
+                  </span>
+                  <div>
+                    <div className="evidence-headline">{item.headline}</div>
+                    <div className="evidence-detail">{item.detail}</div>
+                  </div>
                 </div>
               ))}
             </div>
+
+            <p className="evidence-footnote">
+              Signals are weighed together — a single reason pointing the other way doesn't
+              overturn the recommendation.
+            </p>
           </div>
         )}
       </div>
