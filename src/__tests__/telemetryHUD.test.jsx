@@ -83,4 +83,16 @@ describe('Telemetry HUD and Watchlist/Alerts UI Tests', () => {
     // Verify watchlist becomes empty
     expect(screen.getByText(/Your Watchlist is empty/i)).toBeInTheDocument();
   });
+
+  test('notification bell button navigates to Alerts screen when user is logged in', () => {
+    renderApp();
+
+    const bellButton = screen.getByTitle('Notification alerts');
+    expect(bellButton).toBeEnabled();
+
+    fireEvent.click(bellButton);
+
+    // Verify view navigated to Alerts screen
+    expect(screen.getByText('Smart Alerts & Notification Feed')).toBeInTheDocument();
+  });
 });

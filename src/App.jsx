@@ -628,17 +628,21 @@ export default function App() {
           </button>
 
           <button 
-            onClick={handleOpenNotifications}
+            onClick={user ? handleOpenNotifications : undefined}
+            disabled={!user}
             className="btn-icon" 
             style={{
               position: 'relative',
               background: 'transparent',
-              border: '1px solid transparent'
+              border: '1px solid transparent',
+              opacity: user ? 1 : 0.4,
+              cursor: user ? 'pointer' : 'not-allowed',
+              color: user ? 'var(--text-primary)' : 'var(--text-muted)'
             }}
-            title="Notification logs"
+            title={user ? "Notification alerts" : "Sign in to view notification alerts"}
           >
             <Bell size={18} />
-            {showNotifBadge && (
+            {user && showNotifBadge && (
               <span className="pulse-target" style={{
                 position: 'absolute',
                 top: '2px',
