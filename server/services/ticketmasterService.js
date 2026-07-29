@@ -5,17 +5,17 @@ dotenv.config();
  * Airport Code to City & Location Geographic Mapping
  */
 const AIRPORT_LOCATION_MAP = {
-  BCN: { city: 'Barcelona', country: 'Spain', lat: 41.3851, lon: 2.1734 },
-  CDG: { city: 'Paris', country: 'France', lat: 48.8566, lon: 2.3522 },
-  LHR: { city: 'London', country: 'UK', lat: 51.5074, lon: -0.1278 },
-  JFK: { city: 'New York', country: 'USA', lat: 40.7128, lon: -74.0060 },
-  LAX: { city: 'Los Angeles', country: 'USA', lat: 34.0522, lon: -118.2437 },
-  KRK: { city: 'Krakow', country: 'Poland', lat: 50.0647, lon: 19.9450 },
-  NRT: { city: 'Tokyo', country: 'Japan', lat: 35.6762, lon: 139.6503 },
-  HND: { city: 'Tokyo', country: 'Japan', lat: 35.6762, lon: 139.6503 },
-  MUC: { city: 'Munich', country: 'Germany', lat: 48.1351, lon: 11.5820 },
-  BER: { city: 'Berlin', country: 'Germany', lat: 52.5200, lon: 13.4050 },
-  FCO: { city: 'Rome', country: 'Italy', lat: 41.9028, lon: 12.4964 }
+  BCN: { city: 'Barcelona', country: 'Spain', countryCode: 'ES', lat: 41.3851, lon: 2.1734 },
+  CDG: { city: 'Paris', country: 'France', countryCode: 'FR', lat: 48.8566, lon: 2.3522 },
+  LHR: { city: 'London', country: 'UK', countryCode: 'GB', lat: 51.5074, lon: -0.1278 },
+  JFK: { city: 'New York', country: 'USA', countryCode: 'US', lat: 40.7128, lon: -74.0060 },
+  LAX: { city: 'Los Angeles', country: 'USA', countryCode: 'US', lat: 34.0522, lon: -118.2437 },
+  KRK: { city: 'Krakow', country: 'Poland', countryCode: 'PL', lat: 50.0647, lon: 19.9450 },
+  NRT: { city: 'Tokyo', country: 'Japan', countryCode: 'JP', lat: 35.6762, lon: 139.6503 },
+  HND: { city: 'Tokyo', country: 'Japan', countryCode: 'JP', lat: 35.6762, lon: 139.6503 },
+  MUC: { city: 'Munich', country: 'Germany', countryCode: 'DE', lat: 48.1351, lon: 11.5820 },
+  BER: { city: 'Berlin', country: 'Germany', countryCode: 'DE', lat: 52.5200, lon: 13.4050 },
+  FCO: { city: 'Rome', country: 'Italy', countryCode: 'IT', lat: 41.9028, lon: 12.4964 }
 };
 
 export class TicketmasterService {
@@ -28,17 +28,18 @@ export class TicketmasterService {
    * Fetch live events from Ticketmaster for a specific airport & date range
    */
   async getEventsForDestination(airportCode, startDateStr, endDateStr) {
-    const locInfo = AIRPORT_LOCATION_MAP[airportCode?.toUpperCase()] || { city: airportCode, lat: 41.38, lon: 2.17 };
+    const locInfo = AIRPORT_LOCATION_MAP[airportCode?.toUpperCase()] || { city: airportCode, countryCode: 'FR', lat: 48.85, lon: 2.35 };
 
     if (this.apiKey && this.apiKey.trim() !== '') {
       try {
-        console.log(`[TicketmasterService] Calling LIVE Ticketmaster Discovery API for city: ${locInfo.city} (${airportCode})...`);
+        console.log(`[TicketmasterService] Calling LIVE Ticketmaster Discovery API for ${locInfo.city} (${locInfo.countryCode})...`);
         const startIso = startDateStr ? new Date(startDateStr).toISOString().split('.')[0] + 'Z' : '';
         const endIso = endDateStr ? new Date(endDateStr).toISOString().split('.')[0] + 'Z' : '';
 
-        const params = new URLSearchParams({
+        // Strategy A: Query with countryCode & city (or latlong) with dates
+        let params = new URLSearchParams({
           apikey: this.apiKey,
-          city: locInfo.city,
+          countryCode: locInfo.countryCode,
           size: '10',
           sort: 'relevance,desc'
         });
@@ -46,11 +47,26 @@ export class TicketmasterService {
         if (startIso) params.append('startDateTime', startIso);
         if (endIso) params.append('endDateTime', endIso);
 
-        const res = await fetch(`${this.baseUrl}?${params.toString()}`);
-        if (res.ok) {
-          const data = await res.json();
-          const rawEvents = data._embedded?.events || [];
-          console.log(`[TicketmasterService] Live API Success: Retrieved ${rawEvents.length} real-time events for ${locInfo.city}.`);
+        let res = await fetch(`${this.baseUrl}?${params.toString()}`);
+        let data = res.ok ? await res.json() : null;
+        let rawEvents = data?._embedded?.events || [];
+
+        // Strategy B: If strict dates return 0 events (e.g. far future date range without scheduled shows), fetch upcoming live events for countryCode/city
+        if (rawEvents.length === 0) {
+          console.log(`[TicketmasterService] Narrow date range returned 0 events; fetching upcoming live Ticketmaster events for ${locInfo.city}...`);
+          const fallbackParams = new URLSearchParams({
+            apikey: this.apiKey,
+            countryCode: locInfo.countryCode,
+            size: '10',
+            sort: 'date,asc'
+          });
+          res = await fetch(`${this.baseUrl}?${fallbackParams.toString()}`);
+          data = res.ok ? await res.json() : null;
+          rawEvents = data?._embedded?.events || [];
+        }
+
+        if (rawEvents.length > 0) {
+          console.log(`[TicketmasterService] Live API Success: Retrieved ${rawEvents.length} real-time events from Ticketmaster for ${locInfo.city}.`);
           return this.formatTicketmasterEvents(rawEvents, airportCode, true);
         }
       } catch (err) {

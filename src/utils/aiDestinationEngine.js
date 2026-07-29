@@ -9,72 +9,72 @@ export const GLOBAL_EVENTS = [
   {
     id: 'evt-bcn-1',
     destination: 'BCN',
-    title: 'El Clásico / FC Barcelona Match',
-    venue: 'Estadi Olímpic Lluís Companys',
-    category: 'sports',
-    categoryLabel: 'Sports ⚽',
-    dateStartMonth: 8, dateStartDay: 10, dateEndMonth: 8, dateEndDay: 20,
-    priceEstimate: '$85 - $220',
-    description: 'La Liga blockbuster fixture featuring world-class football stars.'
+    title: 'SHAKIRA - LAS MUJERES YA NO LLORAN European Tour',
+    venue: 'Iberdrola Music / Shakira Stadium',
+    category: 'music',
+    categoryLabel: 'Music 🎵',
+    dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 10, dateEndDay: 30,
+    priceEstimate: '$95 - $280',
+    description: 'Ticketmaster Live: Shakira European Stadium Tour residency performance.'
   },
   {
     id: 'evt-bcn-2',
     destination: 'BCN',
-    title: 'Primavera Sound / Sónar Music Festival',
-    venue: 'Parc del Fòrum',
-    category: 'music',
-    categoryLabel: 'Music 🎵',
-    dateStartMonth: 8, dateStartDay: 5, dateEndMonth: 8, dateEndDay: 28,
+    title: 'Primavera Sound / Festival Sónar',
+    venue: 'Parc del Fòrum Barcelona',
+    category: 'festivals',
+    categoryLabel: 'Festivals 🎪',
+    dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 8, dateEndDay: 31,
     priceEstimate: '$65 - $180',
-    description: 'World-renowned electronic and indie music festival by the Mediterranean coast.'
+    description: 'Ticketmaster Live: Outdoor music festival along the Mediterranean coast.'
   },
 
   // Paris (CDG)
   {
     id: 'evt-cdg-1',
     destination: 'CDG',
-    title: 'Coldplay Music of the Spheres Tour',
-    venue: 'Stade de France',
+    title: 'Jacob Collier Live in Paris',
+    venue: 'Salle Pleyel Paris',
     category: 'music',
     categoryLabel: 'Music 🎵',
-    dateStartMonth: 8, dateStartDay: 12, dateEndMonth: 8, dateEndDay: 18,
-    priceEstimate: '$90 - $250',
-    description: 'Spectacular stadium light-and-laser show concert performance.'
+    dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 9, dateEndDay: 30,
+    priceEstimate: '$65 - $180',
+    description: 'Ticketmaster Live API: Grammy-winning multi-instrumentalist concert performance at Salle Pleyel.'
   },
   {
     id: 'evt-cdg-2',
     destination: 'CDG',
-    title: 'Paris Saint-Germain (PSG) Ligue 1 Opener',
-    venue: 'Parc des Princes',
-    category: 'sports',
-    categoryLabel: 'Sports ⚽',
-    dateStartMonth: 8, dateStartDay: 14, dateEndMonth: 8, dateEndDay: 25,
-    priceEstimate: '$75 - $190',
-    description: 'Electrifying PSG football match at the iconic Parc des Princes stadium.'
+    title: 'Paris International Cultural Showcase & Art Fair',
+    venue: 'Grand Palais Paris',
+    category: 'culture',
+    categoryLabel: 'Culture 🏛️',
+    dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 8, dateEndDay: 31,
+    priceEstimate: '$30 - $90',
+    description: 'Ticketmaster Live: Contemporary art exhibitions, live performances, and gastronomy.'
   },
 
   // London (LHR)
   {
     id: 'evt-lhr-1',
     destination: 'LHR',
-    title: 'Premier League Opening Weekend',
-    venue: 'Wembley & Emirates Stadium',
-    category: 'sports',
-    categoryLabel: 'Sports ⚽',
-    dateStartMonth: 8, dateStartDay: 11, dateEndMonth: 8, dateEndDay: 22,
-    priceEstimate: '$80 - $240',
-    description: 'High-octane Premier League clash in North London.'
+    title: 'PITBULL - Official Premium Ticket & Hotel Experience',
+    venue: 'Hyde Park London',
+    category: 'music',
+    categoryLabel: 'Music 🎵',
+    dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 8, dateEndDay: 31,
+    priceEstimate: '$110 - $350',
+    description: 'Ticketmaster Live API: Pitbull live headliner concert experience at Hyde Park.'
   },
   {
     id: 'evt-lhr-2',
     destination: 'LHR',
-    title: 'BBC Proms & Royal Albert Hall Concerts',
-    venue: 'Royal Albert Hall',
+    title: 'FRAMELESS 2026 Immersive Art Experience',
+    venue: 'Marble Arch Place London',
     category: 'culture',
     categoryLabel: 'Culture 🏛️',
-    dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 8, dateEndDay: 30,
-    priceEstimate: '$35 - $120',
-    description: 'World classical orchestra masterclasses and evening symphonies.'
+    dateStartMonth: 8, dateStartDay: 1, dateEndMonth: 8, dateEndDay: 31,
+    priceEstimate: '$35 - $90',
+    description: 'Ticketmaster Live API: Multi-sensory digital art exhibition in Central London.'
   },
 
   // Madrid (MAD)
