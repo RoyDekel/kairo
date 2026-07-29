@@ -17,6 +17,18 @@ export default function AIDestinationExplorer({
   const [maxBudget, setMaxBudget] = useState(1200);
   const [selectedInterests, setSelectedInterests] = useState(['music', 'sports', 'festivals', 'culture']);
 
+  // Helper to format ISO date string "2026-08-12" to "Aug 12, 2026"
+  const formatEventDate = (dateStr) => {
+    if (!dateStr) return null;
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   // Toggle interest tags
   const toggleInterest = (category) => {
     if (selectedInterests.includes(category)) {
@@ -325,10 +337,25 @@ export default function AIDestinationExplorer({
                           gap: '6px'
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>
-                            {evt.categoryLabel}
-                          </span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>
+                              {evt.categoryLabel}
+                            </span>
+                            {evt.date && (
+                              <span className="num" style={{
+                                fontSize: '0.72rem',
+                                color: 'var(--text-secondary)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontWeight: 600
+                              }}>
+                                <Calendar size={12} style={{ color: 'var(--primary)' }} />
+                                {formatEventDate(evt.date)}
+                              </span>
+                            )}
+                          </div>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                             Est. {evt.priceEstimate}
                           </span>
