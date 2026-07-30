@@ -267,12 +267,15 @@ describe('EventSearchService with two providers', () => {
   class FakeTicketing extends EventProvider {
     static get key() { return 'ticketmaster'; }
     static get rateLimit() { return { limit: 9, windowMs: 1 }; }
+    // Mirrors the real provider: ticketing is enrichment, not coverage.
+    static get role() { return 'enrichment'; }
     async fetchEvents() { return this.ok([ticketing()]); }
   }
 
   class FakeFixtures extends EventProvider {
     static get key() { return 'apisports'; }
     static get rateLimit() { return { limit: 9, windowMs: 1 }; }
+    static get role() { return 'coverage'; }
     async fetchEvents() { return this.ok([fixture()]); }
   }
 
@@ -294,10 +297,19 @@ describe('EventSearchService with two providers', () => {
     expect(Object.keys(result.sources).sort()).toEqual(['apisports', 'ticketmaster']);
   });
 
-  test('only the enrichment provider is active by default', () => {
-    // No coverage provider is configured yet, which the service warns about.
+  /*
+    Constructed explicitly rather than from the default provider list.
+
+    The default list reads process.env, so this assertion used to pass or fail depending on
+    whether APISPORTS_API_KEY happened to be set on the machine — the same environment
+    dependency that once made the Ticketmaster test green for the wrong reason.
+  */
+  test('warns when only enrichment providers are active', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const service = new EventSearchService({ cache: new EventCache({ ttlMs: 1000 }) });
+    const service = new EventSearchService({
+      providers: [new FakeTicketing({ limiter: instant() })],
+      cache: new EventCache({ ttlMs: 1000 })
+    });
 
     expect(service.providerKeys).toEqual(['ticketmaster']);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('No coverage provider'));

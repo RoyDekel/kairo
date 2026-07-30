@@ -114,8 +114,24 @@ export class ApiSportsProvider extends EventProvider {
       return { error: 'transport-error' };
     }
 
-    if (res.status === 429) return { error: 'rate-limited' };
-    if (!res.ok) return { error: `http-${res.status}` };
+    /*
+      Every failure path logs.
+
+      These returns were silent, and on Render that produced a provider which simply
+      vanished: a 20-destination search printed twenty [ticketmaster] lines and not one
+      [apisports] line, with no way to tell whether it was throttled, out of quota, or
+      never called. Ticketmaster logs its failures; this must too. A diagnostic that goes
+      quiet exactly when something breaks is worse than no diagnostic.
+    */
+    if (res.status === 429) {
+      console.warn(`[apisports] Rate limited (429) on ${date}; result unknown.`);
+      return { error: 'rate-limited' };
+    }
+
+    if (!res.ok) {
+      console.warn(`[apisports] HTTP ${res.status} on ${date}; result unknown.`);
+      return { error: `http-${res.status}` };
+    }
 
     const body = await res.json();
 
@@ -142,17 +158,22 @@ export class ApiSportsProvider extends EventProvider {
 
   async fetchEvents(location, { startDate, endDate }, airportCode) {
     const dates = ApiSportsProvider.datesInWindow(startDate, endDate);
-    if (dates.length === 0) return this.empty('no-dates');
+    if (dates.length === 0) {
+      console.warn(`[apisports] No usable dates in window ${startDate}–${endDate}; skipping ${airportCode}.`);
+      return this.empty('no-dates');
+    }
 
     const collected = [];
     let anyAnswered = false;
     let lastError = null;
+    const failedDates = [];
 
     for (const date of dates) {
       const result = await this.#fixturesForDate(date);
 
       if (result.error) {
         lastError = result.error;
+        failedDates.push(date);
         continue;
       }
 
@@ -161,7 +182,21 @@ export class ApiSportsProvider extends EventProvider {
     }
 
     // Not one date resolved: we don't know whether the city is quiet.
-    if (!anyAnswered) return this.unavailable(lastError || 'transport-error');
+    if (!anyAnswered) {
+      console.warn(
+        `[apisports] Could NOT check ${location.city} for ${startDate}–${endDate} ` +
+        `(${lastError || 'transport-error'}); ${failedDates.length}/${dates.length} dates failed.`
+      );
+      return this.unavailable(lastError || 'transport-error');
+    }
+
+    // Partial success is worth saying out loud: the city was checked, but not fully.
+    if (failedDates.length > 0) {
+      console.warn(
+        `[apisports] Partial window for ${location.city}: ${failedDates.length}/${dates.length} ` +
+        `dates unavailable (${lastError}). Result may be incomplete.`
+      );
+    }
 
     if (collected.length === 0) {
       console.log(`[apisports] No fixtures in ${location.city} for ${startDate}–${endDate}.`);

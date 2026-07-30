@@ -16,7 +16,7 @@ export class RateLimiter {
    * @param {number} options.windowMs   Window length in milliseconds.
    * @param {string} [options.name]     Label for logging.
    */
-  constructor({ limit, windowMs, name = 'provider', now = () => Date.now(), sleep } = {}) {
+  constructor({ limit, windowMs, name = 'provider', minGapMs, onAcquire, now = () => Date.now(), sleep } = {}) {
     if (!limit || !windowMs) throw new Error('RateLimiter requires limit and windowMs');
 
     this.limit = limit;
@@ -24,6 +24,25 @@ export class RateLimiter {
     this.name = name;
     this.now = now;
     this.sleep = sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+
+    /*
+      Called with the timestamp at the moment a token is consumed.
+
+      Exists because measuring from outside is unreliable: a caller that records the clock
+      after `await acquire()` sees whatever value other queued waiters have advanced it to
+      by the time its continuation runs. That produced a phantom "6 calls in one window"
+      and a duplicate timestamp in an earlier version of the pacing test — the limiter was
+      correct and the measurement was not.
+    */
+    this.onAcquire = onAcquire || null;
+
+    /*
+      Minimum gap between consecutive calls, so the allowance is spread across the window
+      rather than fired as a burst. Defaults to an even spread (window / limit), which for
+      Ticketmaster's 5/second means roughly 200ms apart. Callers with a very high limit —
+      the tests' effectively-unlimited limiter — get no gap.
+    */
+    this.minGapMs = minGapMs ?? (limit > 1000 ? 0 : Math.floor(windowMs / limit));
 
     // Timestamps of calls still inside the current window.
     this.recent = [];
@@ -38,11 +57,26 @@ export class RateLimiter {
     }
   }
 
-  /** Milliseconds until a token frees up; 0 when one is available now. */
+  /**
+   * Milliseconds until the next call may go out; 0 when one may go now.
+   *
+   * Two constraints. The window budget, and a minimum gap between consecutive calls.
+   *
+   * The gap matters because a plain token bucket permits the whole allowance in the same
+   * millisecond — five simultaneous requests are technically "5 per second" but arrive as a
+   * burst, and Ticketmaster answered one of them with a 429 in production. Spacing calls
+   * across the window is the same throughput with none of the spikiness.
+   */
   msUntilAvailable() {
     this.#prune();
-    if (this.recent.length < this.limit) return 0;
-    return Math.max(0, this.recent[0] + this.windowMs - this.now());
+
+    const budgetWait =
+      this.recent.length < this.limit ? 0 : Math.max(0, this.recent[0] + this.windowMs - this.now());
+
+    const last = this.recent[this.recent.length - 1];
+    const spacingWait = last === undefined ? 0 : Math.max(0, last + this.minGapMs - this.now());
+
+    return Math.max(budgetWait, spacingWait);
   }
 
   /**
@@ -58,7 +92,9 @@ export class RateLimiter {
         await this.sleep(delay);
         delay = this.msUntilAvailable();
       }
-      this.recent.push(this.now());
+      const consumedAt = this.now();
+      this.recent.push(consumedAt);
+      if (this.onAcquire) this.onAcquire(consumedAt);
     });
 
     // Keep the chain alive even if a waiter throws.
@@ -104,11 +140,22 @@ export const PROVIDER_LIMITS = {
 /** Shared limiter per provider, so every caller in the process shares one budget. */
 const limiters = new Map();
 
-export function getLimiter(providerKey) {
+/**
+ * @param {string} providerKey
+ * @param {object} [fallbackConfig] Used when the key has no published ceiling — a provider
+ *   that makes no outbound calls (the simulated engine) declares its own nominal limit
+ *   rather than appearing in PROVIDER_LIMITS, which is reserved for real APIs.
+ */
+export function getLimiter(providerKey, fallbackConfig) {
   if (!limiters.has(providerKey)) {
-    const config = PROVIDER_LIMITS[providerKey];
+    const config = PROVIDER_LIMITS[providerKey] || fallbackConfig;
     if (!config) throw new Error(`No rate limit configured for provider: ${providerKey}`);
-    limiters.set(providerKey, new RateLimiter(config));
+    limiters.set(providerKey, new RateLimiter({ ...config, name: providerKey }));
   }
   return limiters.get(providerKey);
+}
+
+/** Test seam: drop the memoised limiters so budgets don't leak between cases. */
+export function resetLimiters() {
+  limiters.clear();
 }

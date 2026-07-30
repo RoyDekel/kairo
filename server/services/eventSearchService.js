@@ -128,6 +128,20 @@ export class EventSearchService {
 
       const { status, events = [], reason } = outcome.value;
       sources[key] = { status, reason, count: events.length };
+
+      /*
+        Name the provider that couldn't answer.
+
+        A provider returning `unavailable` used to leave no trace at this level, so a
+        destination could go unchecked while the log showed only the providers that DID
+        answer. Reading those logs, the gap was invisible.
+      */
+      if (status === EventStatus.UNAVAILABLE) {
+        console.warn(
+          `[EventSearchService] ${airportCode} not checked by ${key} (${reason || 'unknown'}).`
+        );
+      }
+
       if (events.length > 0) eventsByProvider.push(events);
     });
 

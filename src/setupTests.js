@@ -3,6 +3,7 @@ import { vi, beforeEach } from 'vitest';
 import React from 'react';
 import { eventCache } from '../server/services/eventCache.js';
 import { quoteCache } from '../server/services/quoteCache.js';
+import { resetLimiters } from '../server/services/rateLimiter.js';
 
 /*
   Tests must not touch production services.
@@ -47,6 +48,9 @@ beforeEach(() => {
   unmockedFetch.mockClear();
   eventCache.clear();
   quoteCache.clear();
+  // Limiters are memoised per provider key at module scope; a spent budget would
+  // otherwise make a later test wait on a limit an earlier one consumed.
+  resetLimiters();
 });
 
 // Mock Leaflet

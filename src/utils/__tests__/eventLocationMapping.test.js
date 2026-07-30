@@ -148,7 +148,8 @@ describe('travel-window honesty', () => {
   });
 
   test('with no credential the provider is dropped and simulation is used', async () => {
-    // Mirrors local development without an API key: nobody is being misled.
+    // Mirrors local development without an API key: nobody is being misled. Providers are
+    // passed explicitly so the result does not depend on which keys the machine has set.
     const service = new EventSearchService({
       providers: [new TicketmasterProvider({ apiKey: '', limiter: instantLimiter() })],
       cache: new EventCache({ ttlMs: 60_000 })

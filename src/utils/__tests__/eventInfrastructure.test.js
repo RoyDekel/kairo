@@ -15,61 +15,80 @@ import { TicketmasterProvider } from '../../../server/providers/ticketmasterProv
  * from the discovery page entirely.
  */
 
-/** A limiter whose clock and sleep are controlled, so tests don't wait in real time. */
-const makeTestLimiter = ({ limit, windowMs }) => {
+/**
+ * A limiter whose clock and sleep are controlled, so tests don't wait in real time.
+ *
+ * `consumed` records the timestamp at the moment each token is taken, via the limiter's
+ * onAcquire hook. Reading the clock after `await acquire()` instead would measure when the
+ * continuation ran — by which point other queued waiters have advanced the shared clock.
+ * That mistake produced a phantom window violation in an earlier version of these tests.
+ */
+const makeTestLimiter = ({ limit, windowMs, minGapMs }) => {
   let clock = 0;
+  const consumed = [];
   const limiter = new RateLimiter({
     limit,
     windowMs,
+    minGapMs,
     name: 'test',
+    onAcquire: (t) => consumed.push(t),
     now: () => clock,
     sleep: async (ms) => {
       clock += ms;
     }
   });
-  return { limiter, advance: (ms) => { clock += ms; }, clockNow: () => clock };
+  return { limiter, consumed, advance: (ms) => { clock += ms; }, clockNow: () => clock };
 };
 
 /** A limiter that never delays, for tests not about pacing. */
 const instantLimiter = () => new RateLimiter({ limit: 1e9, windowMs: 1, name: 'instant' });
 
 describe('RateLimiter', () => {
-  test('allows calls up to the limit without waiting', async () => {
-    const { limiter, clockNow } = makeTestLimiter({ limit: 5, windowMs: 1000 });
+  /*
+    Deliberate behaviour change: the allowance is now SPREAD across the window rather than
+    released as a burst. Five simultaneous requests are technically "5 per second", but
+    Ticketmaster answered one of them with a 429 in production. Same throughput, no spike.
+  */
+  test('spaces calls evenly instead of bursting the whole allowance', async () => {
+    const { limiter, consumed } = makeTestLimiter({ limit: 5, windowMs: 1000 });
 
     for (let i = 0; i < 5; i++) await limiter.acquire();
 
-    expect(clockNow()).toBe(0);
+    expect(consumed).toEqual([0, 200, 400, 600, 800]);
     expect(limiter.used).toBe(5);
   });
 
-  test('delays the call that would exceed the limit', async () => {
-    const { limiter, clockNow } = makeTestLimiter({ limit: 5, windowMs: 1000 });
+  test('a caller can opt out of spacing', async () => {
+    const { limiter, consumed } = makeTestLimiter({ limit: 5, windowMs: 1000, minGapMs: 0 });
 
     for (let i = 0; i < 5; i++) await limiter.acquire();
-    expect(clockNow()).toBe(0);
+    expect(consumed).toEqual([0, 0, 0, 0, 0]);
+  });
 
+  test('delays the call that would exceed the window budget', async () => {
+    const { limiter, consumed } = makeTestLimiter({ limit: 5, windowMs: 1000, minGapMs: 0 });
+
+    for (let i = 0; i < 5; i++) await limiter.acquire();
     await limiter.acquire();
-    expect(clockNow()).toBeGreaterThanOrEqual(1000);
+
+    expect(consumed.at(-1)).toBeGreaterThanOrEqual(1000);
   });
 
   test('paces a 31-destination fan-out within the documented budget', async () => {
-    const { limiter, clockNow } = makeTestLimiter({ limit: 5, windowMs: 1000 });
+    const { limiter, consumed } = makeTestLimiter({ limit: 5, windowMs: 1000 });
 
-    const timestamps = [];
-    await Promise.all(
-      Array.from({ length: 31 }, () =>
-        limiter.acquire().then(() => timestamps.push(clockNow()))
-      )
-    );
+    await Promise.all(Array.from({ length: 31 }, () => limiter.acquire()));
 
-    expect(timestamps).toHaveLength(31);
+    expect(consumed).toHaveLength(31);
 
     // No 1-second window ever contains more than 5 calls.
-    for (const t of timestamps) {
-      const inWindow = timestamps.filter((other) => other >= t && other < t + 1000);
+    for (const t of consumed) {
+      const inWindow = consumed.filter((other) => other >= t && other < t + 1000);
       expect(inWindow.length).toBeLessThanOrEqual(5);
     }
+
+    // And no two calls land on the same instant.
+    expect(new Set(consumed).size).toBe(31);
   });
 
   test('frees capacity again once the window rolls over', async () => {

@@ -1,5 +1,5 @@
 import { EventStatus } from '../services/eventCache.js';
-import { RateLimiter } from '../services/rateLimiter.js';
+import { getLimiter } from '../services/rateLimiter.js';
 
 export { EventStatus };
 
@@ -47,10 +47,16 @@ export { EventStatus };
 export class EventProvider {
   /**
    * @param {object} options
-   * @param {object} [options.limiter] Injectable for tests; defaults to this provider's rate limit.
+   * @param {object} [options.limiter] Injectable for tests. Otherwise the PROCESS-WIDE
+   *   limiter for this provider key is used.
+   *
+   * This used to construct `new RateLimiter(...)` per instance, which meant the shared
+   * budget documented in rateLimiter.js was never actually enforced — getLimiter() was
+   * exported and never called. Two instances of the same provider would each have taken a
+   * full allowance, so the real outbound rate could double without any code looking wrong.
    */
   constructor({ limiter } = {}) {
-    this.limiter = limiter || new RateLimiter({ ...this.constructor.rateLimit, name: this.constructor.key });
+    this.limiter = limiter || getLimiter(this.constructor.key, this.constructor.rateLimit);
   }
 
   /** Short identifier used in cache keys, logs and the `source` field. */
