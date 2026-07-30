@@ -1,70 +1,128 @@
-# KAIRO ✈️ — Smart AI Flight Price & Buy Timing Engine
+# KAIRO ✈️ — Smart AI Flight Price & Event-Driven Telemetry Engine
 
-**KAIRO** ("Never Overpay For Flights Again") is an AI-powered Flight Price Intelligence and Telemetry web application. Inspired by the ancient concept of *Kairos* (the exact right moment to act), KAIRO predicts whether flight prices will rise or drop, gives you an instant Buy Timing rating with confidence scores, and pairs flight deals with live concerts, sports matches, and music festivals across 32 global hubs.
-
----
-
-## Key Features
-
-*   **🔍 Dynamic Roundtrip Search Engine**: Disables one-way search to focus on roundtrip flights. Includes select inputs for departure/arrival airports, date pickers, and passenger selectors.
-*   **🌍 Multi-Route Airport Catalog**: Pre-stores coordinates for major global hubs (Tel Aviv `TLV`, Krakow `KRK`, London `LHR`, Paris `CDG`, New York `JFK`, Dubai `DXB`, Rome `FCO`, Tokyo `NRT`, Athens `ATH`) to enable dynamic geodesic flight path drawing and Haversine distance tracking.
-*   **👥 Passenger Structure & Multipliers**: Supports counts for Adults, Children, and Infants. Fares scale dynamically based on route distance and passenger discount coefficients (e.g. 25% discount for children, 90% discount for infants).
-*   **🔄 Two-Step Booking Flow**: Guides users through a logical checkout flow:
-    1.  *Select Outbound Leg* (lists outbound flights on departure date).
-    2.  *Select Return Leg* (lists return flights on return date with outbound leg summary).
-    3.  *Confirm Bundle* (shows pricing breakdowns and a CTA button to track the roundtrip package).
-*   **📍 Auto-Bounding Telemetry Map**: Uses Leaflet.js (CartoDB Dark Matter layer) to render paths. Centering and zoom factors update dynamically using `fitBounds()` to frame any selected route (short-haul or trans-oceanic).
-*   **📊 Price History & Projections**: Shows a line graph powered by Chart.js representing a 30-day price history and a 7-day future price prediction.
-*   **💡 Booking Recommendations**: Computes price trends to recommend **BUY NOW**, **WAIT**, or **HOLD** actions.
-*   **🔔 Alerts & Live Logs Feed**: Setup price drops and status notifications triggers to capture simulated price fluctuations and telemetry alerts.
-*   **⏱️ Telemetry Simulator HUD**: Adjust simulation speeds (1x, 5x, 20x) or drag the slider manually to test flight phases (Scheduled → Boarding → Takeoff → Cruising → Descending → Landed).
+**KAIRO** ("Never Overpay For Flights Again") is an AI-powered Flight Price Intelligence and Telemetry web application. Inspired by the ancient concept of *Kairos* (the exact right moment to act), KAIRO predicts whether flight prices will rise or drop, gives you an instant Buy Timing rating with confidence scores, and pairs flight deals with live concerts, sports matches, and music festivals across 32 global destination hubs.
 
 ---
 
-## Tech Stack
+## 🌟 Key Features
 
-*   **Core**: React + Vite (Fast HMR & bundlers)
-*   **Styling**: Custom CSS variables, glassmorphic card elements, custom scrollbars, and neon glow accents.
-*   **Maps**: [Leaflet.js](https://leafletjs.com/) (using CartoDB Dark Matter tile layer)
-*   **Charts**: [Chart.js](https://www.chartjs.org/) + [React Chartjs 2](https://react-chartjs-2.js.org/)
-*   **Icons**: [Lucide React](https://lucide.dev/)
+### 📍 Interactive Telemetry & Flight Map
+* **CartoDB Dark Matter Visualization**: Powered by Leaflet.js (`react-leaflet`), featuring dynamic geodesic flight paths, animated aircraft icons, and auto-bounding viewport adjustment (`fitBounds`).
+* **Real-Time Telemetry Simulator HUD**: Live flight status tracker (Scheduled → Boarding → Takeoff → Cruising → Descending → Landed) with adjustable simulation speeds (1x, 5x, 20x) and interactive flight phase controls.
+
+### 🤖 Event-Driven AI Intelligence ("Where to Go" Explorer)
+* **Live Event Integration**: Aggregates live sports fixtures (API-Sports) and entertainment/concerts (Ticketmaster) to identify high-demand event occasions.
+* **Event-Driven Price Insights**: Highlights pricing pressure indicators, match schedules, and event impact badges for popular destinations.
+* **Smart Destination Discovery**: Batch-prices up to 32 destinations concurrently via server-side fan-out, aligning fare estimates with cached live quotes.
+
+### 📈 Price Intelligence & Confidence Engine
+* **Price Projections & History**: Interactive line charts (Chart.js) showing 30-day historical price trends and 7-day future predictions.
+* **Buy Verdict Ratings**: Computes algorithmic recommendations (**BUY NOW**, **WAIT**, or **HOLD**) accompanied by price confidence ratings and evidence breakdowns.
+* **Watchlist & Price Alerts**: Set custom target price notifications with live telemetry and price change logs.
+
+### ✈️ Dynamic Roundtrip Booking Flow
+* **32-Airport Global Hub Catalog**: Pre-configured catalog supporting major global hubs (`TLV`, `LHR`, `CDG`, `JFK`, `DXB`, `FCO`, `NRT`, `ATH`, `BCN`, `PRG`, `LIS`, etc.).
+* **Passenger & Cabin Configuration**: Passenger count controls (Adults, Children with 25% discount, Infants with 90% discount) and cabin class filters.
+* **2-Step Selection**: Smooth flow selecting outbound leg, return leg, and reviewing bundled trip summaries.
+
+### 🔒 Secure Full-Stack Architecture & Auth
+* **Express.js API Server**: Dedicated Node backend serving protected endpoints (`/api/flights`, `/api/flights/estimates`, `/api/events`, `/api/events/batch`).
+* **Supabase JWT Authentication**: Secure user login/signup modal with JWT Bearer token middleware validation (`requireAuth`).
+* **Multi-Provider Flight Engine**: Pluggable provider strategies (SerpApi Google Flights, Kiwi, TravelPayouts) with automated fallback to simulated data.
+* **Durable Caching & Rate Limiting**: In-memory TTL quote cache, plus Supabase PostgreSQL `fixtures_cache` for efficient API-Sports daily data storage.
 
 ---
 
-## Getting Started
+## 🛠️ Tech Stack
 
-Follow these steps to run the flight tracker locally:
+### Frontend
+* **Core**: React 19, Vite 8, JavaScript (ES Modules)
+* **Styling**: Modern CSS variables, glassmorphic UI cards, dark mode neon accents
+* **Mapping**: Leaflet 1.9 & React-Leaflet 5 (CartoDB Dark Matter tile layer)
+* **Charts**: Chart.js 4 & React Chartjs 2
+* **Icons**: Lucide React
+
+### Backend & Database
+* **Server**: Node.js & Express 5
+* **Authentication**: Supabase Auth (`@supabase/supabase-js`)
+* **Database / Cache**: Supabase PostgreSQL (`fixtures_cache`), In-Memory TTL Cache
+* **APIs**: SerpApi (Google Flights), Kiwi.com, TravelPayouts, Ticketmaster, API-Sports
+
+### Testing & Quality Assurance
+* **Unit & Integration**: Vitest + React Testing Library + JSDOM
+* **E2E Testing**: Playwright
+* **Code Quality**: ESLint 10
+
+---
+
+## ⚙️ Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+# Server Configuration
+PORT=3001
+
+# Supabase Auth & Database
+VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+
+# Live Flight API Providers (Optional - falls back to simulated provider if omitted)
+SERPAPI_KEY=your_serpapi_key
+KIWI_API_KEY=your_kiwi_api_key
+TRAVELPAYOUTS_TOKEN=your_travelpayouts_token
+FLIGHT_PROVIDER=serpapi # Optional choice: serpapi | kiwi | travelpayouts | simulated
+
+# Live Event API Providers (Optional - falls back to simulated provider if omitted)
+TICKETMASTER_API_KEY=your_ticketmaster_api_key
+API_SPORTS_KEY=your_apisports_api_key
+```
+
+---
+
+## 🚀 Getting Started
 
 ### 1. Prerequisites
-Ensure you have [Node.js](https://nodejs.org/) installed (which includes `npm`).
+Ensure [Node.js](https://nodejs.org/) (v18+) is installed.
 
 ### 2. Installation
-Navigate to your project directory and install the dependencies:
+Clone the repository and install dependencies:
 ```bash
-# Navigate to the folder
 cd kairo
-
-# Install packages
 npm install
 ```
 
-### 3. Development Server
-Launch the development server to run it on your machine:
+### 3. Running Development Server
+Start both the Vite frontend (port 5173) and Express backend (port 3001) concurrently:
 ```bash
+cmd /c "npm run dev"
+# or
 npm run dev
 ```
-Once started, open **[http://localhost:5173/kairo/](http://localhost:5173/kairo/)** in your web browser.
+Open **[http://localhost:5173/kairo/](http://localhost:5173/kairo/)** in your web browser.
 
-### 4. Build & Deployment (GitHub Pages)
-To compile the production bundles and deploy them directly to GitHub Pages:
+---
+
+## 🧪 Testing & Verification
+
+Run unit & integration test suites:
 ```bash
-# 1. Compile the build and push the site online
-npm run deploy
-
-# 2. Push source changes to your repository main branch
-git add .
-git commit -m "Update tracker features and configuration"
-git push
+cmd /c "npm test"
 ```
-The application will be hosted on your GitHub subdomain at:
-`https://<your-github-username>.github.io/kairo/`
+
+Run Playwright E2E tests:
+```bash
+cmd /c "npm run test:e2e"
+```
+
+---
+
+## 📦 Build & Deployment
+
+Compile the production bundle and deploy to GitHub Pages:
+```bash
+npm run build
+npm run deploy
+```
+Hosted live at `https://<your-github-username>.github.io/kairo/`

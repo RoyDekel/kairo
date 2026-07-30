@@ -3,6 +3,7 @@ import { PersistentDayCache, ttlForDate } from '../../../server/services/persist
 import { ApiSportsProvider } from '../../../server/providers/apiSportsProvider.js';
 import { RateLimiter } from '../../../server/services/rateLimiter.js';
 import { snapshotForDate, shouldUseSnapshot } from '../../../server/providers/snapshots/apisportsFixtures.js';
+import { getServerSupabase, resetServerSupabase } from '../../../server/services/supabaseServer.js';
 
 /**
  * The fixture cache must survive the process.
@@ -236,5 +237,53 @@ describe('development uses a snapshot instead of the live API', () => {
   test('snapshot fixtures are dated to the requested day', () => {
     const { response } = snapshotForDate('2026-11-14');
     expect(response.every((f) => f.fixture.date.startsWith('2026-11-14'))).toBe(true);
+  });
+});
+
+describe('server Supabase credentials', () => {
+  beforeEach(() => resetServerSupabase());
+  afterEach(() => resetServerSupabase());
+
+  const withEnv = (vars, fn) => {
+    const saved = { ...process.env };
+    Object.assign(process.env, vars);
+    try { return fn(); } finally { process.env = saved; }
+  };
+
+  test('the URL falls back to the client copy, which is the same project', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const client = withEnv(
+      { SUPABASE_URL: '', VITE_SUPABASE_URL: 'https://demo.supabase.co', SUPABASE_SERVICE_KEY: 'sb_secret_x' },
+      () => getServerSupabase()
+    );
+
+    expect(client).not.toBeNull();
+    warn.mockRestore();
+  });
+
+  /*
+    The key must NEVER fall back to the anon key. That key is public and RLS-enforced, so
+    accepting it would produce a client that looks configured, passes startup, and then has
+    every single cache write denied — the quietest possible failure.
+  */
+  test('the key never falls back to the public anon key', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const client = withEnv(
+      { SUPABASE_URL: 'https://demo.supabase.co', SUPABASE_SERVICE_KEY: '', VITE_SUPABASE_ANON_KEY: 'sb_publishable_x' },
+      () => getServerSupabase()
+    );
+
+    expect(client).toBeNull();
+    expect(warn.mock.calls.flat().join(' ')).toContain('SUPABASE_SERVICE_KEY');
+    warn.mockRestore();
+  });
+
+  test('the warning names exactly what is missing', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    withEnv({ SUPABASE_URL: '', VITE_SUPABASE_URL: '', SUPABASE_SERVICE_KEY: '' }, () => getServerSupabase());
+
+    const text = warn.mock.calls.flat().join(' ');
+    expect(text).toContain('SUPABASE_URL and SUPABASE_SERVICE_KEY');
+    warn.mockRestore();
   });
 });
