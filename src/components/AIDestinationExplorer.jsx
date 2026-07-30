@@ -321,25 +321,8 @@ export default function AIDestinationExplorer({
               Ready to Find Your Next Trip?
             </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', maxWidth: '560px', margin: 0, lineHeight: 1.6 }}>
-              Click <strong>Search Routes</strong> to scan all available destinations, live concerts, matches, and festivals for your selected dates (<strong>{departureDate}</strong> – <strong>{returnDate}</strong>).
+              Click <strong>Search Routes</strong> above to scan all available destinations, live concerts, matches, and festivals for your selected dates (<strong>{departureDate}</strong> – <strong>{returnDate}</strong>).
             </p>
-            <button
-              type="button"
-              onClick={handleSearch}
-              className="btn btn-primary"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '12px 28px',
-                fontSize: '0.95rem',
-                fontWeight: 700,
-                marginTop: '8px'
-              }}
-            >
-              <Search size={18} />
-              Search Routes
-            </button>
           </div>
         ) : isLoading ? (
           <div className="glass-panel" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>

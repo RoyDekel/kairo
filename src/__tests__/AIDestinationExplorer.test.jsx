@@ -90,9 +90,8 @@ describe('AIDestinationExplorer Component', () => {
     );
 
     // Find and click the 'Search Routes' CTA button
-    const searchButtons = screen.getAllByRole('button', { name: /Search Routes/i });
-    expect(searchButtons.length).toBeGreaterThan(0);
-    fireEvent.click(searchButtons[0]);
+    const searchButton = screen.getByRole('button', { name: /Search Routes/i });
+    fireEvent.click(searchButton);
 
     // Verify searchAIDestinations is called
     expect(searchAIDestinations).toHaveBeenCalledWith(
@@ -123,8 +122,8 @@ describe('AIDestinationExplorer Component', () => {
       />
     );
 
-    const searchButtons = screen.getAllByRole('button', { name: /Search Routes/i });
-    fireEvent.click(searchButtons[0]);
+    const searchButton = screen.getByRole('button', { name: /Search Routes/i });
+    fireEvent.click(searchButton);
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'No Verified Ticketmaster Events Found' })).toBeInTheDocument();
