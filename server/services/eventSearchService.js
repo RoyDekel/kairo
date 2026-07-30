@@ -1,7 +1,9 @@
 import { AIRPORTS } from '../../shared/catalog.js';
 import { eventCache, EventStatus } from './eventCache.js';
 import { TicketmasterProvider } from '../providers/ticketmasterProvider.js';
+import { TheSportsDbProvider } from '../providers/theSportsDbProvider.js';
 import { SimulatedEventProvider } from '../providers/simulatedEventProvider.js';
+import { mergeEventLists } from './eventMerge.js';
 
 export { EventStatus };
 
@@ -20,9 +22,17 @@ export class EventSearchService {
   constructor({ providers, cache, mergeEvents } = {}) {
     this.cache = cache || eventCache;
 
-    // Providers that can actually be called, in priority order. Ticketmaster leads
-    // because it is the only source of price, purchase links and sold-out status.
-    const candidates = providers || [new TicketmasterProvider()];
+    /*
+      Providers that can actually be called, in priority order. Ticketmaster leads because
+      it is the only source of price, purchase links and sold-out status.
+
+      TheSportsDB fills a real coverage gap — European football tickets are sold by the
+      clubs, so those matches never appear in Ticketmaster at all — but it stays disabled
+      until THESPORTSDB_API_KEY holds a premium key. Its free tier caps eventsday.php at
+      three results per day worldwide, which would look like "no sport on" rather than
+      "this tier can't answer".
+    */
+    const candidates = providers || [new TicketmasterProvider(), new TheSportsDbProvider()];
     this.providers = candidates.filter((p) => p.isConfigured());
 
     /*
@@ -37,8 +47,9 @@ export class EventSearchService {
       this.providers = [new SimulatedEventProvider()];
     }
 
-    // Injected in stage 3. Until then, results are concatenated as-is.
-    this.mergeEvents = mergeEvents || ((eventsByProvider) => eventsByProvider.flat());
+    // Cross-references providers so the same match from two sources becomes one card.
+    // Injectable so tests can isolate orchestration from matching.
+    this.mergeEvents = mergeEvents || mergeEventLists;
 
     console.log(`[EventSearchService] Active event providers: [${this.providers.map((p) => p.constructor.key).join(', ')}]`);
   }
