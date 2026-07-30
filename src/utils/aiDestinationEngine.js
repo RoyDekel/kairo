@@ -1,5 +1,6 @@
 import { AIRPORTS } from './flightSimulator';
 import { getApiBase, authHeaders, fetchWithTimeout } from '../lib/apiBase';
+import { detectTravelOccasion } from '../../shared/travelOccasion.js';
 import {
   DEFAULT_ORIGIN,
   DEFAULT_DEPARTURE_DATE,
@@ -272,6 +273,9 @@ export async function searchAIDestinations({
 
     const matchScore = Math.min(99, Math.round(priceScore + eventScore + interestBonus));
 
+    // Rare timing, derived only from events a provider actually returned.
+    const occasion = detectTravelOccasion({ city: destinationInfo.city, events: matchedEvents });
+
     const topEvent = matchedEvents[0];
     const fareWording = priceSource === 'live' ? 'Live fare' : 'Estimated fare';
     const aiInsight = `${destinationInfo.city} has verified live events during your dates! ${fareWording} is ${savingsPercent}% below historical average ($${totalRoundtripPrice} roundtrip). Catch "${topEvent.title}" at ${topEvent.venue} during your trip.`;
@@ -291,6 +295,7 @@ export async function searchAIDestinations({
       returnFlight: cheapestReturn,
       matchedEvents,
       matchScore,
+      occasion,
       aiInsight,
       departureDate,
       returnDate

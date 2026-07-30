@@ -1289,3 +1289,38 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 2px;
   line-height: 1.35;
 }
+
+/* Rare-timing badge on discovery cards. Appears seldom by design. */
+.occasion {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 11px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-glass);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-glow);
+}
+
+.occasion-rare { border-left-color: var(--accent); }
+.occasion-notable { border-left-color: var(--text-muted); background: var(--bg-tertiary); }
+
+.occasion-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.occasion-notable .occasion-tag { color: var(--text-muted); }
+
+.occasion-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+}

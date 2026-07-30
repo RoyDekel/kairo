@@ -14,25 +14,11 @@
  * price, purchase URL and sold-out status — the inputs verdictEvidence.js leans on
  * hardest. The fixture record contributes what ticketing lacks: league and team names.
  */
+import { FIXTURE_ALIASES } from '../../shared/fixtures.js';
 
-/** Nicknames that carry no team names at all, mapped to the pair they describe. */
-export const FIXTURE_ALIASES = {
-  'el clasico': ['barcelona', 'real madrid'],
-  'el clásico': ['barcelona', 'real madrid'],
-  'der klassiker': ['bayern munich', 'borussia dortmund'],
-  'north london derby': ['arsenal', 'tottenham'],
-  'manchester derby': ['manchester city', 'manchester united'],
-  'merseyside derby': ['liverpool', 'everton'],
-  'derby della madonnina': ['inter', 'milan'],
-  'milan derby': ['inter', 'milan'],
-  'derby d italia': ['juventus', 'inter'],
-  'old firm': ['celtic', 'rangers'],
-  'de klassieker': ['ajax', 'feyenoord'],
-  'o classico': ['benfica', 'porto'],
-  'superclasico': ['boca juniors', 'river plate'],
-  'süperklasik': ['galatasaray', 'fenerbahce'],
-  'le classique': ['paris saint germain', 'marseille']
-};
+// Re-exported so existing importers keep working; the table itself lives in shared/ now
+// because travelOccasion.js needs the same rivalry knowledge.
+export { FIXTURE_ALIASES };
 
 /** Corporate/legal tokens that differ between sources for the same club. */
 const CLUB_NOISE = new Set([

@@ -121,6 +121,20 @@ export default function DestinationCard({
 
       {/* RIGHT: WHAT'S ON WHILE YOU'RE THERE */}
       <div className="dest-card-events">
+        {/*
+          Rare-timing badge. Deliberately not a third number — the card already shows a
+          match score and the verdict shows a confidence percentage. It renders only when
+          the timing is genuinely unusual, and its scarcity is what gives it weight.
+        */}
+        {rec.occasion && (
+          <div className={`occasion occasion-${rec.occasion.tier}`}>
+            <span className="occasion-tag">
+              {rec.occasion.tier === 'rare' ? '⭐ Rare timing' : 'Notable timing'}
+            </span>
+            <span className="occasion-text">{rec.occasion.headline}</span>
+          </div>
+        )}
+
         <div className="dest-card-events-label">While you're there</div>
 
         {visibleEvents.map((evt) => (
