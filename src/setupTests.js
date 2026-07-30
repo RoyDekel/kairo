@@ -1,10 +1,42 @@
 import '@testing-library/jest-dom';
-import { vi, beforeEach, beforeAll, afterAll } from 'vitest';
+import { vi, beforeEach } from 'vitest';
 import React from 'react';
 
-// Clear localStorage between runs
+/*
+  Tests must not touch production services.
+
+  Before this, every run authenticated against the real Supabase project and called the
+  live Ticketmaster API. That made the suite slow, network-dependent, and capable of
+  writing to real data — the output was full of
+  "localStorage data migrated to Supabase successfully" and
+  "invalid input syntax for type uuid: test-user-123".
+
+  It also made results depend on the machine: the Ticketmaster test took 499ms and hit
+  the live API on a laptop with network, but 25ms and the simulated fallback in CI. Same
+  test, opposite code paths, green both times.
+*/
+
+// Supabase: dataService and AuthProvider both branch on a null client and fall back to
+// localStorage, so nulling it here keeps every test on the offline path.
+vi.mock('./lib/supabaseClient', () => ({ supabase: null }));
+
+/*
+  Network: fail loudly rather than silently reaching the internet.
+
+  A test that needs HTTP should stub fetch itself. Anything that doesn't gets a rejection
+  naming the URL, so an accidental production call shows up as a failure instead of
+  quietly succeeding.
+*/
+const unmockedFetch = vi.fn((input) => {
+  const url = typeof input === 'string' ? input : input?.url || String(input);
+  return Promise.reject(new Error(`Unmocked network request in test: ${url}`));
+});
+
+// Clear localStorage and reset the network guard between runs
 beforeEach(() => {
   window.localStorage.clear();
+  globalThis.fetch = unmockedFetch;
+  unmockedFetch.mockClear();
 });
 
 // Mock Leaflet
@@ -77,37 +109,36 @@ vi.mock('react-chartjs-2', () => ({
   },
 }));
 
-// Filter out expected offline network fallback console logs in unit tests
+/*
+  Quieten only the app's own deliberate offline-fallback notices.
+
+  This filter used to be much broader — it swallowed 'Failed to load', 'Failed to save',
+  'fetch failed', 'ECONNREFUSED' and 'invalid input syntax for type uuid'. Those messages
+  were real: the tests were genuinely failing to reach production Supabase. Hiding them
+  removed the evidence without fixing the cause, and any genuine bug whose message
+  happened to contain 'Failed to load' would have been invisible too.
+
+  With Supabase nulled and fetch stubbed above, those messages no longer occur. What's
+  left is the app logging that it fell back to local simulation, which is the expected
+  path under test and is safe to mute. Everything else reaches the console.
+*/
+const EXPECTED_FALLBACK_NOTICES = [
+  'sticking with local simulation defaults',
+  'falling back to local simulation',
+  'Event intelligence service unavailable',
+  'Could not upgrade estimate'
+];
+
 const originalWarn = console.warn;
-const originalError = console.error;
 
 console.warn = (...args) => {
-  const fullText = args.map((a) => (typeof a === 'string' ? a : a?.stack || a?.message || String(a))).join(' ');
-  if (
-    fullText.includes('Failed to fetch') ||
-    fullText.includes('Event intelligence service unavailable') ||
-    fullText.includes('Could not upgrade estimate') ||
-    fullText.includes('sticking with local simulation defaults') ||
-    fullText.includes('ECONNREFUSED') ||
-    fullText.includes('fetch failed')
-  ) {
-    return;
-  }
-  originalWarn(...args);
-};
+  const text = args
+    .map((a) => (typeof a === 'string' ? a : a?.message || String(a)))
+    .join(' ');
 
-console.error = (...args) => {
-  const fullText = args.map((a) => (typeof a === 'string' ? a : a?.stack || a?.message || String(a))).join(' ');
-  if (
-    fullText.includes('Failed to load') ||
-    fullText.includes('Failed to save') ||
-    fullText.includes('invalid input syntax for type uuid') ||
-    fullText.includes('ECONNREFUSED') ||
-    fullText.includes('fetch failed')
-  ) {
-    return;
-  }
-  originalError(...args);
+  if (EXPECTED_FALLBACK_NOTICES.some((notice) => text.includes(notice))) return;
+
+  originalWarn(...args);
 };
 
 
