@@ -1,9 +1,11 @@
 import dotenv from 'dotenv';
 import { EventProvider } from './eventProvider.js';
 import { PROVIDER_LIMITS } from '../services/rateLimiter.js';
-import { TtlCache } from '../services/ttlCache.js';
+import { PersistentDayCache } from '../services/persistentDayCache.js';
+import { getServerSupabase } from '../services/supabaseServer.js';
 import { normalizeTeam } from '../services/eventMerge.js';
 import { airportForClub } from '../../shared/clubCities.js';
+import { snapshotForDate, shouldUseSnapshot } from './snapshots/apisportsFixtures.js';
 
 dotenv.config();
 
@@ -11,9 +13,6 @@ const BASE_URL = 'https://v3.football.api-sports.io';
 
 /** Bounds the fan-out for a long trip. */
 const MAX_DAYS = 10;
-
-/** A day's worldwide fixture list barely changes; six hours is generous. */
-const DAY_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 /**
  * Statuses worth showing a traveller.
@@ -73,13 +72,30 @@ export class ApiSportsProvider extends EventProvider {
     return true;
   }
 
-  constructor({ apiKey, limiter, dayCache } = {}) {
+  constructor({ apiKey, limiter, dayCache, useSnapshot } = {}) {
     super({ limiter });
     this.apiKey = apiKey !== undefined ? apiKey : process.env.APISPORTS_API_KEY || '';
     this.baseUrl = BASE_URL;
 
-    // Raw daily payloads, shared across all destinations. Injectable for tests.
-    this.dayCache = dayCache || new TtlCache({ ttlMs: DAY_CACHE_TTL_MS, maxEntries: 120 });
+    /*
+      Local development serves a committed snapshot unless APISPORTS_LIVE=1. The tests were
+      already isolated, but `npm run dev` with a real key hit the live API on every manual
+      search — the likeliest way to spend a 100/day allowance, since it happens by hand and
+      repeatedly while iterating.
+    */
+    this.useSnapshot = useSnapshot !== undefined ? useSnapshot : shouldUseSnapshot();
+    if (this.useSnapshot) {
+      console.log('[apisports] Using the local fixture snapshot. Set APISPORTS_LIVE=1 for real data.');
+    }
+
+    /*
+      Raw daily payloads, shared across all destinations AND across process restarts.
+
+      The previous in-memory cache advertised a six-hour TTL that Render's free tier made
+      fictional: the service spins down after ~15 minutes idle and takes the Map with it,
+      so nearly every search was a cold start paying full price.
+    */
+    this.dayCache = dayCache || new PersistentDayCache({ supabase: getServerSupabase() });
 
     /*
       In-flight requests, keyed by date.
@@ -120,7 +136,8 @@ export class ApiSportsProvider extends EventProvider {
    * @returns {Promise<{fixtures: Array}|{error: string}>}
    */
   async #fixturesForDate(date) {
-    const cached = this.dayCache.get(date);
+    // Awaited because the durable tier is asynchronous; a plain TtlCache works too.
+    const cached = await this.dayCache.get(date);
     if (cached) return cached;
 
     // Someone is already fetching this date: wait for their result instead of duplicating.
@@ -134,6 +151,12 @@ export class ApiSportsProvider extends EventProvider {
 
   /** Performs the actual HTTP call for one date. Always go through #fixturesForDate. */
   async #requestDate(date) {
+    if (this.useSnapshot) {
+      const payload = { fixtures: snapshotForDate(date).response };
+      await this.dayCache.set(date, payload);
+      return payload;
+    }
+
     let res;
     try {
       res = await this.paced(() =>
@@ -184,7 +207,7 @@ export class ApiSportsProvider extends EventProvider {
     const payload = { fixtures: body?.response || [] };
 
     // Only successful lookups are cached; a failure must be retried, not memoised.
-    this.dayCache.set(date, payload);
+    await this.dayCache.set(date, payload);
     return payload;
   }
 
