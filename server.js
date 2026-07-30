@@ -3,10 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { FlightSearchService } from './server/services/flightSearchService.js';
-import { TicketmasterService } from './server/services/ticketmasterService.js';
+import { EventSearchService, EventStatus } from './server/services/eventSearchService.js';
 import { computeEventDrivenInsights } from './server/services/insightsEngine.js';
 import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
-import { EventStatus } from './server/services/eventCache.js';
 import { AIRPORTS } from './shared/catalog.js';
 
 dotenv.config();
@@ -58,7 +57,7 @@ const requireAuth = async (req, res, next) => {
 
 // Initialize Services
 const flightSearchService = new FlightSearchService();
-const ticketmasterService = new TicketmasterService();
+const eventSearchService = new EventSearchService();
 
 // Health check endpoint for zero-downtime & cold-start warming (Public)
 app.get('/api/health', (req, res) => {
@@ -69,7 +68,7 @@ app.get('/api/health', (req, res) => {
 app.get('/api/events', requireAuth, async (req, res) => {
   const { destination = 'BCN', startDate, endDate } = req.query;
   try {
-    const events = await ticketmasterService.getEventsForDestination(destination, startDate, endDate);
+    const events = await eventSearchService.getEventsForDestination(destination, startDate, endDate);
     res.json({ destination, count: events.length, events });
   } catch (error) {
     console.error("Ticketmaster events endpoint failed:", error);
@@ -99,7 +98,7 @@ app.get('/api/events/batch', requireAuth, async (req, res) => {
 
   try {
     const settled = await Promise.allSettled(
-      codes.map((code) => ticketmasterService.fetchEvents(code, startDate, endDate))
+      codes.map((code) => eventSearchService.fetchEvents(code, startDate, endDate))
     );
 
     /*
@@ -288,7 +287,7 @@ app.get('/api/flights', requireAuth, async (req, res) => {
 
   try {
     const results = await flightSearchService.searchFlights(request);
-    const events = await ticketmasterService.getEventsForDestination(destination, departureDate, returnDate);
+    const events = await eventSearchService.getEventsForDestination(destination, departureDate, returnDate);
 
     // Enriched outbound and return flights with Event-Driven Insights
     const outboundWithInsights = (results.outbound || []).map(flight => ({

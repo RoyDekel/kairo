@@ -1,13 +1,17 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { TicketmasterService } from '../../../server/services/ticketmasterService.js';
+import { EventSearchService } from '../../../server/services/eventSearchService.js';
+import { TicketmasterProvider } from '../../../server/providers/ticketmasterProvider.js';
+import { SimulatedEventProvider } from '../../../server/providers/simulatedEventProvider.js';
+import { EventCache } from '../../../server/services/eventCache.js';
+import { RateLimiter } from '../../../server/services/rateLimiter.js';
 import { AIRPORTS } from '../../../shared/catalog.js';
 
 /**
  * Regressions found in production Render logs.
  *
- * 1. ticketmasterService kept a private 11-airport map and defaulted anything unknown to
- *    `countryCode: 'FR'`, so 21 of the 32 catalog destinations were querying events in
- *    France. The logs gave it away: mapped destinations printed a city name
+ * 1. The event lookup kept a private 11-airport location map and defaulted anything
+ *    unknown to `countryCode: 'FR'`, so 21 of the 32 catalog destinations were querying
+ *    events in France. The logs gave it away: mapped destinations printed a city name
  *    ("for Barcelona"), unmapped ones printed a bare code ("for DUB").
  *
  * 2. When the requested travel window returned nothing, a second query refetched with no
@@ -15,13 +19,16 @@ import { AIRPORTS } from '../../../shared/catalog.js';
  *    outside the trip.
  */
 
-const serviceWithKey = (apiKey = 'test-key') => {
-  const service = new TicketmasterService();
-  service.apiKey = apiKey;
-  return service;
-};
+const instantLimiter = () => new RateLimiter({ limit: 1e9, windowMs: 1, name: 'instant' });
 
-const emptyResponse = () => ({ ok: true, json: async () => ({ _embedded: { events: [] } }) });
+/** A service with one live Ticketmaster provider and a fresh cache. */
+const makeService = ({ apiKey = 'test-key' } = {}) =>
+  new EventSearchService({
+    providers: [new TicketmasterProvider({ apiKey, limiter: instantLimiter() })],
+    cache: new EventCache({ ttlMs: 60_000 })
+  });
+
+const emptyResponse = () => ({ ok: true, status: 200, json: async () => ({ _embedded: { events: [] } }) });
 
 const lastRequestUrl = () => new URL(globalThis.fetch.mock.calls.at(-1)[0]);
 
@@ -58,7 +65,7 @@ describe('destination location mapping', () => {
     ['BUD', 'HU', 'Budapest'],
     ['MAD', 'ES', 'Madrid']
   ])('%s queries %s/%s, not France', async (code, countryCode, city) => {
-    await serviceWithKey().getEventsForDestination(code, '2026-08-10', '2026-08-20');
+    await makeService().fetchEvents(code, '2026-08-10', '2026-08-20');
 
     const params = lastRequestUrl().searchParams;
     expect(params.get('countryCode')).toBe(countryCode);
@@ -66,17 +73,17 @@ describe('destination location mapping', () => {
   });
 
   test('the destination city is sent, so results are not country-wide', async () => {
-    await serviceWithKey().getEventsForDestination('BCN', '2026-08-10', '2026-08-20');
+    await makeService().fetchEvents('BCN', '2026-08-10', '2026-08-20');
     expect(lastRequestUrl().searchParams.get('city')).toBe('Barcelona');
   });
 
   test('two cities in one country produce different queries', async () => {
-    const service = serviceWithKey();
+    const service = makeService();
 
-    await service.getEventsForDestination('MUC', '2026-08-10', '2026-08-20');
+    await service.fetchEvents('MUC', '2026-08-10', '2026-08-20');
     const munich = lastRequestUrl().searchParams.get('city');
 
-    await service.getEventsForDestination('BER', '2026-08-10', '2026-08-20');
+    await service.fetchEvents('BER', '2026-08-10', '2026-08-20');
     const berlin = lastRequestUrl().searchParams.get('city');
 
     expect(munich).toBe('Munich');
@@ -85,10 +92,16 @@ describe('destination location mapping', () => {
   });
 
   test('an unknown airport returns nothing instead of the wrong country', async () => {
-    const events = await serviceWithKey().getEventsForDestination('ZZZ', '2026-08-10', '2026-08-20');
+    const result = await makeService().fetchEvents('ZZZ', '2026-08-10', '2026-08-20');
 
-    expect(events).toEqual([]);
+    expect(result.events).toEqual([]);
+    expect(result.reason).toBe('unmapped-airport');
     expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  test('resolveLocation reads straight from the shared catalog', () => {
+    expect(EventSearchService.resolveLocation('DUB')).toMatchObject({ city: 'Dublin', countryCode: 'IE' });
+    expect(EventSearchService.resolveLocation('ZZZ')).toBeNull();
   });
 });
 
@@ -98,12 +111,13 @@ describe('travel-window honesty', () => {
   });
 
   test('an empty travel window returns no events', async () => {
-    const events = await serviceWithKey().getEventsForDestination('PRG', '2026-08-10', '2026-08-20');
-    expect(events).toEqual([]);
+    const result = await makeService().fetchEvents('PRG', '2026-08-10', '2026-08-20');
+    expect(result.status).toBe('empty');
+    expect(result.events).toEqual([]);
   });
 
   test('does NOT retry without a date filter when the window is empty', async () => {
-    await serviceWithKey().getEventsForDestination('PRG', '2026-08-10', '2026-08-20');
+    await makeService().fetchEvents('PRG', '2026-08-10', '2026-08-20');
 
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     for (const [url] of globalThis.fetch.mock.calls) {
@@ -114,7 +128,7 @@ describe('travel-window honesty', () => {
   });
 
   test('the requested window is passed through to the API', async () => {
-    await serviceWithKey().getEventsForDestination('KRK', '2026-08-11', '2026-08-16');
+    await makeService().fetchEvents('KRK', '2026-08-11', '2026-08-16');
 
     const params = lastRequestUrl().searchParams;
     expect(params.get('startDateTime')).toContain('2026-08-11');
@@ -124,7 +138,7 @@ describe('travel-window honesty', () => {
   test('an unreachable API is reported as unavailable, not as an empty window', async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('ENOTFOUND'));
 
-    const result = await serviceWithKey().fetchEvents('BCN', '2026-08-10', '2026-08-20');
+    const result = await makeService().fetchEvents('BCN', '2026-08-10', '2026-08-20');
 
     // A transport failure is different from an empty window. Both used to produce an
     // empty array, so the discovery page dropped the destination either way — once
@@ -133,10 +147,16 @@ describe('travel-window honesty', () => {
     expect(result.events).toEqual([]);
   });
 
-  test('a missing credential still falls back to the simulated engine', async () => {
-    const result = await serviceWithKey('').fetchEvents('BCN', '2026-08-10', '2026-08-20');
+  test('with no credential the provider is dropped and simulation is used', async () => {
+    // Mirrors local development without an API key: nobody is being misled.
+    const service = new EventSearchService({
+      providers: [new TicketmasterProvider({ apiKey: '', limiter: instantLimiter() })],
+      cache: new EventCache({ ttlMs: 60_000 })
+    });
 
-    // Local development without a key: nobody is being misled, so simulation is fine.
+    expect(service.providerKeys).toEqual([SimulatedEventProvider.key]);
+
+    const result = await service.fetchEvents('BCN', '2026-08-10', '2026-08-20');
     expect(result.events.length).toBeGreaterThan(0);
     expect(result.events.every((e) => !e.isLiveApi)).toBe(true);
     expect(globalThis.fetch).not.toHaveBeenCalled();

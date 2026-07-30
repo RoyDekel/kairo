@@ -1,34 +1,62 @@
 import { describe, test, expect, vi } from 'vitest';
-import { TicketmasterService } from '../../../server/services/ticketmasterService.js';
+import { TicketmasterProvider } from '../../../server/providers/ticketmasterProvider.js';
+import { RateLimiter } from '../../../server/services/rateLimiter.js';
 import { computeEventDrivenInsights } from '../../../server/services/insightsEngine.js';
 
 /**
- * Builds a service with an explicit credential state.
+ * Provider-level tests with an explicit credential state.
  *
- * The suite previously constructed TicketmasterService bare, which reads
- * process.env.TICKETMASTER_API_KEY via dotenv. That made the result depend on the machine:
- * with a key and network it hit the live API (499ms, 10 real events); without, it returned
- * simulated events (25ms). The test asserted only "some events came back", so it passed
- * either way — while being named after the offline path it often wasn't exercising.
+ * The suite once constructed the event service bare, which read TICKETMASTER_API_KEY via
+ * dotenv. That made results depend on the machine: with a key and network it hit the live
+ * API (499ms, 10 real events); without, it returned simulated events (25ms). The test
+ * asserted only "some events came back", so it passed either way — while being named after
+ * the offline path it often wasn't exercising.
  */
-const serviceWithKey = (apiKey) => {
-  const service = new TicketmasterService();
-  service.apiKey = apiKey;
-  return service;
-};
+const instantLimiter = () => new RateLimiter({ limit: 1e9, windowMs: 1, name: 'instant' });
 
-describe('Ticketmaster Event Intelligence Service', () => {
-  test('returns simulated events when no API key is configured', async () => {
-    const service = serviceWithKey('');
-    const events = await service.getEventsForDestination('BCN', '2026-08-10', '2026-08-20');
+const serviceWithKey = (apiKey) => new TicketmasterProvider({ apiKey, limiter: instantLimiter() });
 
-    expect(events.length).toBeGreaterThan(0);
+const BCN = { city: 'Barcelona', country: 'Spain', countryCode: 'ES', lat: 41.29, lon: 2.08 };
+const WINDOW = { startDate: '2026-08-10', endDate: '2026-08-20' };
+
+describe('TicketmasterProvider', () => {
+  /*
+    Simulation is no longer this provider's job. It reports whether it can be called, and
+    EventSearchService substitutes SimulatedEventProvider when nothing live is configured —
+    covered in eventLocationMapping.test.js. Keeping the concerns separate is what stops a
+    live provider's failure from quietly producing fabricated listings.
+  */
+  test('reports itself unconfigured without a credential', () => {
+    expect(serviceWithKey('').isConfigured()).toBe(false);
+    expect(serviceWithKey('test-key').isConfigured()).toBe(true);
+  });
+
+  test('declares the published Ticketmaster rate limit', () => {
+    expect(TicketmasterProvider.rateLimit).toMatchObject({ limit: 5, windowMs: 1000 });
+    expect(TicketmasterProvider.key).toBe('ticketmaster');
+  });
+
+  test('tags every event with its source provider', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        _embedded: {
+          events: [
+            {
+              id: 'e1',
+              name: 'Some Gig',
+              classifications: [{ segment: { name: 'Music' } }],
+              _embedded: { venues: [{ name: 'A Venue' }] },
+              dates: { start: { localDate: '2026-08-12' } }
+            }
+          ]
+        }
+      })
+    });
+
+    const { events } = await serviceWithKey('test-key').fetchEvents(BCN, WINDOW, 'BCN');
+    expect(events[0].source).toBe('ticketmaster');
     expect(events[0].destination).toBe('BCN');
-    expect(events[0].eventImpactScore).toBeGreaterThanOrEqual(70);
-    // Never claims to be live data when it isn't.
-    expect(events.every((e) => !e.isLiveApi)).toBe(true);
-    // No network attempted without a credential.
-    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
   /*
@@ -44,7 +72,7 @@ describe('Ticketmaster Event Intelligence Service', () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('ENOTFOUND'));
 
     const service = serviceWithKey('test-key');
-    const result = await service.fetchEvents('BCN', '2026-08-10', '2026-08-20');
+    const result = await service.fetchEvents(BCN, WINDOW, 'BCN');
 
     expect(globalThis.fetch).toHaveBeenCalled();
     expect(result.status).toBe('unavailable');
@@ -80,7 +108,7 @@ describe('Ticketmaster Event Intelligence Service', () => {
     });
 
     const service = serviceWithKey('test-key');
-    const events = await service.getEventsForDestination('BCN', '2026-08-10', '2026-08-20');
+    const events = (await service.fetchEvents(BCN, WINDOW, 'BCN')).events;
 
     expect(events).toHaveLength(1);
     expect(events[0].title).toBe('Primavera Sound');

@@ -2,7 +2,8 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { RateLimiter, PROVIDER_LIMITS } from '../../../server/services/rateLimiter.js';
 import { EventCache, EventStatus } from '../../../server/services/eventCache.js';
 import { TtlCache } from '../../../server/services/ttlCache.js';
-import { TicketmasterService } from '../../../server/services/ticketmasterService.js';
+import { EventSearchService } from '../../../server/services/eventSearchService.js';
+import { TicketmasterProvider } from '../../../server/providers/ticketmasterProvider.js';
 
 /**
  * Stage 1 infrastructure for multi-provider event lookups.
@@ -184,17 +185,15 @@ describe('EventCache', () => {
   });
 });
 
-describe('TicketmasterService lookup outcomes', () => {
-  const freshService = () =>
-    new TicketmasterService({
-      cache: new EventCache({ ttlMs: 60_000, failureTtlMs: 1_000 }),
-      limiter: instantLimiter()
+describe('EventSearchService lookup outcomes', () => {
+  const freshService = (apiKey = 'test-key') =>
+    new EventSearchService({
+      providers: [new TicketmasterProvider({ apiKey, limiter: instantLimiter() })],
+      cache: new EventCache({ ttlMs: 60_000, failureTtlMs: 1_000 })
     });
 
-  const withKey = (service, key = 'test-key') => {
-    service.apiKey = key;
-    return service;
-  };
+  // Kept as a no-op shim so the assertions below stay readable after the refactor.
+  const withKey = (service) => service;
 
   test('429 reports unavailable, not empty', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 429, json: async () => ({}) });
@@ -297,8 +296,10 @@ describe('TicketmasterService lookup outcomes', () => {
 
     const limiter = instantLimiter();
     const spy = vi.spyOn(limiter, 'schedule');
-    const service = new TicketmasterService({ cache: new EventCache({ ttlMs: 1000 }), limiter });
-    service.apiKey = 'test-key';
+    const service = new EventSearchService({
+      providers: [new TicketmasterProvider({ apiKey: 'test-key', limiter })],
+      cache: new EventCache({ ttlMs: 1000 })
+    });
 
     await service.fetchEvents('BCN', '2026-08-11', '2026-08-16');
     expect(spy).toHaveBeenCalled();

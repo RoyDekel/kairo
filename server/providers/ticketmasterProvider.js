@@ -1,0 +1,151 @@
+import dotenv from 'dotenv';
+import { EventProvider } from './eventProvider.js';
+import { PROVIDER_LIMITS } from '../services/rateLimiter.js';
+
+dotenv.config();
+
+const BASE_URL = 'https://app.ticketmaster.com/discovery/v2/events.json';
+
+/**
+ * Ticketmaster Discovery API — a ticketing source.
+ *
+ * This is the only provider that can supply price ranges, purchase links and sold-out
+ * status, which is what verdictEvidence.js needs for its strongest reason. It is not a
+ * complete picture of sport: European football tickets are generally sold by the clubs,
+ * not through Ticketmaster, which is the coverage gap a fixture provider fills.
+ */
+export class TicketmasterProvider extends EventProvider {
+  static get key() {
+    return 'ticketmaster';
+  }
+
+  static get rateLimit() {
+    return PROVIDER_LIMITS.ticketmaster;
+  }
+
+  constructor({ apiKey, limiter } = {}) {
+    super({ limiter });
+    // Credential comes from the environment only. Never hardcode a fallback here: this
+    // module sits next to code imported by the browser toolchain, and a literal would be
+    // one bad import away from the public bundle again.
+    this.apiKey = apiKey !== undefined ? apiKey : process.env.TICKETMASTER_API_KEY || '';
+    this.baseUrl = BASE_URL;
+  }
+
+  isConfigured() {
+    return Boolean(this.apiKey && this.apiKey.trim() !== '');
+  }
+
+  async fetchEvents(location, { startDate, endDate }, airportCode) {
+    const startIso = startDate ? new Date(startDate).toISOString().split('.')[0] + 'Z' : '';
+    const endIso = endDate ? new Date(endDate).toISOString().split('.')[0] + 'Z' : '';
+
+    /*
+      Query the destination city within the requested travel window.
+
+      `city` was previously omitted despite a comment claiming otherwise, so every query
+      was country-wide: Barcelona returned events anywhere in Spain, and Munich and Berlin
+      returned identical German results.
+    */
+    const params = new URLSearchParams({
+      apikey: this.apiKey,
+      countryCode: location.countryCode,
+      city: location.city,
+      size: '10',
+      sort: 'date,asc'
+    });
+
+    if (startIso) params.append('startDateTime', startIso);
+    if (endIso) params.append('endDateTime', endIso);
+
+    try {
+      // Paced to the documented 5 requests/second. The batch endpoint fans out over ~31
+      // destinations at once, which previously exceeded this six-fold and was 429'd.
+      const res = await this.paced(() => fetch(`${this.baseUrl}?${params.toString()}`));
+
+      if (res.status === 429) {
+        console.warn(`[ticketmaster] Rate limited for ${location.city}; result unknown.`);
+        return this.unavailable('rate-limited');
+      }
+
+      if (!res.ok) {
+        console.warn(`[ticketmaster] HTTP ${res.status} for ${location.city}; result unknown.`);
+        return this.unavailable(`http-${res.status}`);
+      }
+
+      const data = await res.json();
+      const rawEvents = data?._embedded?.events || [];
+
+      /*
+        No second, undated attempt.
+
+        A previous "Strategy B" refetched without any date filter when the travel window
+        came back empty. Those events rendered under "While you're there" despite being
+        months outside the trip, and since the discovery page only lists destinations that
+        have matching events, it made nearly every destination look eventful.
+      */
+      if (rawEvents.length === 0) {
+        console.log(`[ticketmaster] No events in ${location.city} for ${startDate}–${endDate}.`);
+        return this.empty();
+      }
+
+      console.log(`[ticketmaster] Retrieved ${rawEvents.length} events for ${location.city} between ${startDate} and ${endDate}.`);
+      return this.ok(this.format(rawEvents, airportCode));
+    } catch (err) {
+      // Transport failure: we genuinely don't know, so don't claim the city is quiet.
+      console.warn(`[ticketmaster] Request failed for ${location.city}:`, err.message);
+      return this.unavailable('transport-error');
+    }
+  }
+
+  /** Maps the Discovery payload onto the normalized shape, deduplicating by title. */
+  format(rawEvents, airportCode) {
+    const seenTitles = new Set();
+    const events = [];
+
+    for (const evt of rawEvents) {
+      if (!evt.name) continue;
+
+      const title = evt.name.trim();
+      const normalizedTitle = title.toLowerCase();
+      if (seenTitles.has(normalizedTitle)) continue;
+      seenTitles.add(normalizedTitle);
+
+      const idx = events.length;
+      const venue = evt._embedded?.venues?.[0]?.name || 'Major Stadium / Arena';
+      const category = evt.classifications?.[0]?.segment?.name?.toLowerCase() || 'entertainment';
+      const categoryLabel = category.includes('music')
+        ? 'Music 🎵'
+        : category.includes('sport')
+        ? 'Sports ⚽'
+        : 'Event 🎟️';
+
+      const priceMin = evt.priceRanges?.[0]?.min || 55;
+      const priceMax = evt.priceRanges?.[0]?.max || 220;
+
+      // Demand pressure. A sold-out or off-sale event means the city is filling up, which
+      // is the signal the buy/wait verdict leans on hardest.
+      const statusCode = evt.dates?.status?.code;
+      const isSoldOut = statusCode === 'soldout' || statusCode === 'offsale';
+      const impactScore = isSoldOut ? 96 : 75 + (idx % 20);
+
+      events.push({
+        id: evt.id || `tm-${airportCode}-${idx}`,
+        source: TicketmasterProvider.key,
+        destination: airportCode,
+        title,
+        venue,
+        category,
+        categoryLabel,
+        isLiveApi: true,
+        date: evt.dates?.start?.localDate || null,
+        priceEstimate: `$${Math.round(priceMin)} - $${Math.round(priceMax)}`,
+        eventImpactScore: impactScore,
+        isSoldOut,
+        url: evt.url || null
+      });
+    }
+
+    return events;
+  }
+}
