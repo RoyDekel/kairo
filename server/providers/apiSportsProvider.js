@@ -41,11 +41,19 @@ const PLANNED_STATUSES = new Set(['TBD', 'NS']);
  *    So current-season data is reachable, but only via `date`. Querying by league/season
  *    would be blocked — which is also why this provider never does.
  *
- * 2. Caching must be keyed by DATE, not destination.
- *    One /fixtures?date= call returns every fixture on Earth for that day. The service
- *    calls this provider once per destination, so without a date-level cache a single
- *    search would issue 31 x 6 = 186 requests against a 100/day budget. With it, a
- *    six-day window costs six requests shared by every destination and every user.
+ * 2. Caching must be keyed by DATE, not destination — AND must deduplicate in flight.
+ *    One /fixtures?date= call returns every fixture on Earth for that day, and the service
+ *    calls this provider once per destination, so the cache key has to be the date.
+ *
+ *    But a cache alone was not enough, and assuming it was cost a real account. The batch
+ *    endpoint queries all destinations CONCURRENTLY: every one of them checked the cache
+ *    for a date in the same tick, every one missed because nothing had returned yet, and
+ *    every one issued its own request. Measured: 20 destinations x a 5-day window = 100
+ *    calls — the entire free daily allowance — from a single search, then paced 6s apart
+ *    by the 10/minute limiter into ten minutes of steady traffic.
+ *
+ *    The in-flight map below is what actually makes the cache work. With it the same
+ *    search costs 5 requests, shared by every destination and every user.
  * -------------------------------------------------------------------------------------
  */
 export class ApiSportsProvider extends EventProvider {
@@ -72,6 +80,19 @@ export class ApiSportsProvider extends EventProvider {
 
     // Raw daily payloads, shared across all destinations. Injectable for tests.
     this.dayCache = dayCache || new TtlCache({ ttlMs: DAY_CACHE_TTL_MS, maxEntries: 120 });
+
+    /*
+      In-flight requests, keyed by date.
+
+      Without this the date cache is useless under the access pattern that actually
+      happens. /api/events/batch queries every destination CONCURRENTLY, so all of them
+      check the cache for a given date in the same tick, all miss — nothing has returned
+      yet — and all issue their own request. Twenty destinations across a five-day window
+      produced 100 calls, which is the entire free daily allowance, from a single search.
+
+      Sharing the promise collapses that back to one request per date.
+    */
+    this.inFlight = new Map();
   }
 
   isConfigured() {
@@ -102,6 +123,17 @@ export class ApiSportsProvider extends EventProvider {
     const cached = this.dayCache.get(date);
     if (cached) return cached;
 
+    // Someone is already fetching this date: wait for their result instead of duplicating.
+    const pending = this.inFlight.get(date);
+    if (pending) return pending;
+
+    const request = this.#requestDate(date).finally(() => this.inFlight.delete(date));
+    this.inFlight.set(date, request);
+    return request;
+  }
+
+  /** Performs the actual HTTP call for one date. Always go through #fixturesForDate. */
+  async #requestDate(date) {
     let res;
     try {
       res = await this.paced(() =>

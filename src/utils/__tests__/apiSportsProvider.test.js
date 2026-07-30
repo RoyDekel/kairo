@@ -243,7 +243,7 @@ describe('ApiSportsProvider', () => {
     provider once per destination. Without a date-level cache a single 31-destination search
     would issue 186 requests against a 100/day budget.
   */
-  test('fetches each date once and shares it across destinations', async () => {
+  test('fetches each date once when destinations are queried in sequence', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(okResponse([fixture({ city: 'Barcelona' })]));
 
     const provider = makeProvider();
@@ -255,6 +255,53 @@ describe('ApiSportsProvider', () => {
 
     // 3 dates, 3 destinations -> still only 3 requests.
     expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  /*
+    THE CASE THAT MATTERS, AND THE ONE THE TEST ABOVE MISSED.
+
+    /api/events/batch queries every destination CONCURRENTLY. The sequential test passed
+    because each call finished before the next began, so the cache was always warm. Under
+    real concurrency every destination checked the cache in the same tick, all missed
+    (nothing had returned yet) and all issued their own request:
+
+        20 destinations x 5 dates = 100 calls  — the entire free daily allowance,
+                                                 from ONE search.
+
+    Paced at 6s apart by the 10/minute limiter, that also meant ten minutes of sustained
+    requests after each search. This test pins the in-flight deduplication that fixes it.
+  */
+  test('concurrent destinations share ONE request per date', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(okResponse([fixture({ city: 'Barcelona' })]));
+
+    const provider = makeProvider();
+    const window = { startDate: '2026-10-14', endDate: '2026-10-18' }; // 5 dates
+    const destinations = ['BCN', 'MAD', 'MUC', 'BER', 'VIE', 'PRG', 'BUD', 'LIS', 'DUB', 'MXP'];
+
+    await Promise.all(
+      destinations.map((code) => provider.fetchEvents({ ...BCN, city: code }, window, code))
+    );
+
+    // 5 dates, regardless of how many destinations ask at once.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(5);
+  });
+
+  test('a failed in-flight request is not left blocking later attempts', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('ENOTFOUND'));
+
+    const provider = makeProvider();
+    const window = { startDate: '2026-10-14', endDate: '2026-10-14' };
+
+    await Promise.all([
+      provider.fetchEvents(BCN, window, 'BCN'),
+      provider.fetchEvents(BCN, window, 'MAD')
+    ]);
+    // Shared while in flight...
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
+    // ...but released afterwards, so a later search retries rather than reusing a failure.
+    await provider.fetchEvents(BCN, window, 'BCN');
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 
   test('enumerates the window inclusively and caps long trips', () => {
