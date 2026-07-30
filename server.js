@@ -6,6 +6,7 @@ import { FlightSearchService } from './server/services/flightSearchService.js';
 import { TicketmasterService } from './server/services/ticketmasterService.js';
 import { computeEventDrivenInsights } from './server/services/insightsEngine.js';
 import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
+import { EventStatus } from './server/services/eventCache.js';
 import { AIRPORTS } from './shared/catalog.js';
 
 dotenv.config();
@@ -98,21 +99,45 @@ app.get('/api/events/batch', requireAuth, async (req, res) => {
 
   try {
     const settled = await Promise.allSettled(
-      codes.map((code) => ticketmasterService.getEventsForDestination(code, startDate, endDate))
+      codes.map((code) => ticketmasterService.fetchEvents(code, startDate, endDate))
     );
 
+    /*
+      Report per-destination status, not just a list.
+
+      A destination with no events and a destination we were rate limited on both used to
+      arrive as an empty array, so the discovery page dropped them identically — one
+      correctly, one as a silent lie. `unavailable` lets the client say "couldn't check"
+      instead of "nothing on".
+    */
     const eventsByDestination = {};
+    const statusByDestination = {};
+    const unavailable = [];
+
     settled.forEach((result, idx) => {
       const code = codes[idx];
+
       if (result.status === 'fulfilled') {
-        eventsByDestination[code] = result.value || [];
-      } else {
-        console.warn(`[events/batch] Lookup failed for ${code}:`, result.reason?.message || result.reason);
-        eventsByDestination[code] = [];
+        eventsByDestination[code] = result.value.events || [];
+        statusByDestination[code] = result.value.status;
+        if (result.value.status === EventStatus.UNAVAILABLE) unavailable.push(code);
+        return;
       }
+
+      console.warn(`[events/batch] Lookup threw for ${code}:`, result.reason?.message || result.reason);
+      eventsByDestination[code] = [];
+      statusByDestination[code] = EventStatus.UNAVAILABLE;
+      unavailable.push(code);
     });
 
-    res.json({ count: codes.length, eventsByDestination });
+    res.json({
+      count: codes.length,
+      eventsByDestination,
+      statusByDestination,
+      // Lets the UI admit the result set is incomplete rather than presenting it as final.
+      partial: unavailable.length > 0,
+      unavailableDestinations: unavailable
+    });
   } catch (error) {
     console.error('Batched events endpoint failed:', error);
     res.status(500).json({ error: 'Failed to fetch batched destination event intelligence.' });

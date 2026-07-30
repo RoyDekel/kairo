@@ -13,6 +13,8 @@
  * Map for Redis if that ever stops being acceptable.
  */
 
+import { TtlCache } from './ttlCache.js';
+
 /** How long a live provider quote stays trustworthy. Airfares move, but not by the minute. */
 const DEFAULT_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -22,9 +24,9 @@ const MAX_ENTRIES = 500;
 export class QuoteCache {
   constructor({ ttlMs = DEFAULT_TTL_MS, maxEntries = MAX_ENTRIES, now = () => Date.now() } = {}) {
     this.ttlMs = ttlMs;
-    this.maxEntries = maxEntries;
     this.now = now;
-    this.entries = new Map();
+    // Expiry and LRU eviction live in TtlCache, shared with the event cache.
+    this.store = new TtlCache({ ttlMs, maxEntries, now });
   }
 
   /**
@@ -47,19 +49,7 @@ export class QuoteCache {
 
   /** Returns the cached quote, or null when absent or expired. */
   get(keyParts) {
-    const key = QuoteCache.buildKey(keyParts);
-    const entry = this.entries.get(key);
-    if (!entry) return null;
-
-    if (this.now() - entry.quotedAtMs > this.ttlMs) {
-      this.entries.delete(key);
-      return null;
-    }
-
-    // Refresh recency for the LRU eviction below.
-    this.entries.delete(key);
-    this.entries.set(key, entry);
-    return entry;
+    return this.store.get(QuoteCache.buildKey(keyParts));
   }
 
   /**
@@ -67,15 +57,6 @@ export class QuoteCache {
    * can label a number as a real quote rather than an estimate.
    */
   set(keyParts, { roundtripPrice, outbound, return: returnFlight, source }) {
-    const key = QuoteCache.buildKey(keyParts);
-
-    // Evict least-recently-used entries once we're at capacity.
-    while (this.entries.size >= this.maxEntries) {
-      const oldestKey = this.entries.keys().next().value;
-      if (oldestKey === undefined) break;
-      this.entries.delete(oldestKey);
-    }
-
     const entry = {
       roundtripPrice,
       outbound,
@@ -85,17 +66,16 @@ export class QuoteCache {
       quotedAt: new Date(this.now()).toISOString()
     };
 
-    this.entries.set(key, entry);
-    return entry;
+    return this.store.set(QuoteCache.buildKey(keyParts), entry);
   }
 
   /** Drops every entry. Used by tests. */
   clear() {
-    this.entries.clear();
+    this.store.clear();
   }
 
   get size() {
-    return this.entries.size;
+    return this.store.size;
   }
 }
 

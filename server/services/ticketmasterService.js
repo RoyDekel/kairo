@@ -1,6 +1,10 @@
 import dotenv from 'dotenv';
 import { AIRPORTS } from '../../shared/catalog.js';
+import { eventCache, EventStatus } from './eventCache.js';
+import { getLimiter } from './rateLimiter.js';
 dotenv.config();
+
+export { EventStatus };
 
 /*
   Location lookup for Ticketmaster queries, resolved from the shared catalog.
@@ -28,81 +32,132 @@ function resolveLocation(airportCode) {
 }
 
 export class TicketmasterService {
-  constructor() {
+  constructor({ cache, limiter } = {}) {
     // Credential comes from the environment only. Never hardcode a fallback key here:
     // this module is imported by tests that also run in the browser toolchain, and a
     // literal would be one bad import away from the public bundle again.
-    // When unset, getEventsForDestination() degrades to the simulated event engine.
+    // When unset, lookups degrade to the simulated event engine.
     this.apiKey = process.env.TICKETMASTER_API_KEY || '';
     this.baseUrl = 'https://app.ticketmaster.com/discovery/v2/events.json';
+
+    // Injectable so tests can supply a fresh cache and an instant limiter.
+    this.cache = cache || eventCache;
+    this.limiter = limiter || getLimiter('ticketmaster');
   }
 
   /**
-   * Fetch live events from Ticketmaster for a specific airport & date range
+   * Looks up events for an airport and date window.
+   *
+   * Returns a result object rather than a bare array, because "there is nothing on" and
+   * "we could not find out" are different answers and were previously indistinguishable:
+   * a 429 made res.ok false, which produced an empty array, which was logged as
+   * "0 events". Since the undated fallback was removed, throttled destinations silently
+   * vanished from the discovery page as though they had nothing on.
+   *
+   * @returns {Promise<{status: string, events: Array, reason?: string, cached?: boolean}>}
    */
-  async getEventsForDestination(airportCode, startDateStr, endDateStr) {
+  async fetchEvents(airportCode, startDateStr, endDateStr) {
     const locInfo = resolveLocation(airportCode);
 
     // Unknown airport: return nothing rather than events from an unrelated country.
     if (!locInfo) {
       console.warn(`[TicketmasterService] No location mapping for ${airportCode}; returning no events.`);
-      return [];
+      return { status: EventStatus.EMPTY, events: [], reason: 'unmapped-airport' };
     }
 
-    if (this.apiKey && this.apiKey.trim() !== '') {
-      try {
-        console.log(`[TicketmasterService] Calling LIVE Ticketmaster Discovery API for ${locInfo.city} (${locInfo.countryCode})...`);
-        const startIso = startDateStr ? new Date(startDateStr).toISOString().split('.')[0] + 'Z' : '';
-        const endIso = endDateStr ? new Date(endDateStr).toISOString().split('.')[0] + 'Z' : '';
+    const cacheKey = { destination: airportCode, startDate: startDateStr, endDate: endDateStr, provider: 'ticketmaster' };
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return { ...cached, cached: true };
+    }
 
-        /*
-          Query the destination city within the requested travel window.
+    const result = await this.#lookup(airportCode, locInfo, startDateStr, endDateStr);
+    this.cache.set(cacheKey, result);
+    return result;
+  }
 
-          `city` was previously omitted despite the comment claiming otherwise, so every
-          query was country-wide: searching Barcelona returned events anywhere in Spain,
-          and Munich and Berlin returned the same German results.
-        */
-        const params = new URLSearchParams({
-          apikey: this.apiKey,
-          countryCode: locInfo.countryCode,
-          city: locInfo.city,
-          size: '10',
-          sort: 'date,asc'
-        });
+  async #lookup(airportCode, locInfo, startDateStr, endDateStr) {
+    if (!this.apiKey || this.apiKey.trim() === '') {
+      console.log(`[TicketmasterService] TICKETMASTER_API_KEY not configured; utilizing event simulation engine.`);
+      return {
+        status: EventStatus.OK,
+        events: this.generateSimulatedEvents(airportCode, locInfo),
+        reason: 'no-credential'
+      };
+    }
 
-        if (startIso) params.append('startDateTime', startIso);
-        if (endIso) params.append('endDateTime', endIso);
+    const startIso = startDateStr ? new Date(startDateStr).toISOString().split('.')[0] + 'Z' : '';
+    const endIso = endDateStr ? new Date(endDateStr).toISOString().split('.')[0] + 'Z' : '';
 
-        const res = await fetch(`${this.baseUrl}?${params.toString()}`);
-        const data = res.ok ? await res.json() : null;
-        const rawEvents = data?._embedded?.events || [];
+    /*
+      Query the destination city within the requested travel window.
 
-        /*
-          No second, undated attempt.
+      `city` was previously omitted despite the comment claiming otherwise, so every
+      query was country-wide: searching Barcelona returned events anywhere in Spain,
+      and Munich and Berlin returned the same German results.
+    */
+    const params = new URLSearchParams({
+      apikey: this.apiKey,
+      countryCode: locInfo.countryCode,
+      city: locInfo.city,
+      size: '10',
+      sort: 'date,asc'
+    });
 
-          There used to be a "Strategy B" that refetched without any date filter when the
-          travel window came back empty. Those events were rendered under "While you're
-          there" despite being months outside the trip, and because the discovery page
-          only lists destinations that have matching events, it made nearly every
-          destination look eventful. An empty window now genuinely means no events.
-        */
-        if (rawEvents.length > 0) {
-          console.log(`[TicketmasterService] Live API Success: Retrieved ${rawEvents.length} real-time events for ${locInfo.city} between ${startDateStr} and ${endDateStr}.`);
-          return this.formatTicketmasterEvents(rawEvents, airportCode, true);
-        }
+    if (startIso) params.append('startDateTime', startIso);
+    if (endIso) params.append('endDateTime', endIso);
 
-        console.log(`[TicketmasterService] No events in ${locInfo.city} for ${startDateStr}–${endDateStr}.`);
-        return [];
-      } catch (err) {
-        console.warn(`[TicketmasterService] Live API request failed, utilizing high-fidelity fallback engine:`, err.message);
+    try {
+      // Paced to the documented 5 requests/second. The batch endpoint fans out over ~31
+      // destinations at once, which previously exceeded this by six-fold.
+      const res = await this.limiter.schedule(() => fetch(`${this.baseUrl}?${params.toString()}`));
+
+      if (res.status === 429) {
+        console.warn(`[TicketmasterService] Rate limited (429) for ${locInfo.city}; result unknown.`);
+        return { status: EventStatus.UNAVAILABLE, events: [], reason: 'rate-limited' };
       }
-    } else {
-      console.log(`[TicketmasterService] TICKETMASTER_API_KEY not configured in .env; utilizing event simulation engine.`);
-    }
 
-    // Simulated engine: only for a missing credential or an unreachable API, never as a
-    // substitute for a genuinely empty date window.
-    return this.generateSimulatedEvents(airportCode, locInfo);
+      if (!res.ok) {
+        console.warn(`[TicketmasterService] HTTP ${res.status} for ${locInfo.city}; result unknown.`);
+        return { status: EventStatus.UNAVAILABLE, events: [], reason: `http-${res.status}` };
+      }
+
+      const data = await res.json();
+      const rawEvents = data?._embedded?.events || [];
+
+      /*
+        No second, undated attempt.
+
+        There used to be a "Strategy B" that refetched without any date filter when the
+        travel window came back empty. Those events were rendered under "While you're
+        there" despite being months outside the trip, and because the discovery page
+        only lists destinations that have matching events, it made nearly every
+        destination look eventful. An empty window now genuinely means no events.
+      */
+      if (rawEvents.length > 0) {
+        console.log(`[TicketmasterService] Retrieved ${rawEvents.length} events for ${locInfo.city} between ${startDateStr} and ${endDateStr}.`);
+        return { status: EventStatus.OK, events: this.formatTicketmasterEvents(rawEvents, airportCode, true) };
+      }
+
+      console.log(`[TicketmasterService] No events in ${locInfo.city} for ${startDateStr}–${endDateStr}.`);
+      return { status: EventStatus.EMPTY, events: [] };
+    } catch (err) {
+      // Transport failure: we genuinely don't know, so don't claim the city is quiet.
+      console.warn(`[TicketmasterService] Request failed for ${locInfo.city}:`, err.message);
+      return { status: EventStatus.UNAVAILABLE, events: [], reason: 'transport-error' };
+    }
+  }
+
+  /**
+   * Backwards-compatible array form.
+   *
+   * Callers that only need a list keep working, but note this collapses EMPTY and
+   * UNAVAILABLE back into the same empty array — prefer fetchEvents() where the
+   * distinction matters.
+   */
+  async getEventsForDestination(airportCode, startDateStr, endDateStr) {
+    const { events } = await this.fetchEvents(airportCode, startDateStr, endDateStr);
+    return events;
   }
 
   /**

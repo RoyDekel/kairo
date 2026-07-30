@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom';
 import { vi, beforeEach } from 'vitest';
 import React from 'react';
+import { eventCache } from '../server/services/eventCache.js';
+import { quoteCache } from '../server/services/quoteCache.js';
 
 /*
   Tests must not touch production services.
@@ -32,11 +34,19 @@ const unmockedFetch = vi.fn((input) => {
   return Promise.reject(new Error(`Unmocked network request in test: ${url}`));
 });
 
-// Clear localStorage and reset the network guard between runs
+/*
+  Process-level caches must not leak between tests.
+
+  eventCache is a module singleton, so without this a lookup cached by one test satisfies
+  the next one and its fetch is never called — which is exactly how a test asserting "one
+  live event" received two simulated events left over from an earlier case.
+*/
 beforeEach(() => {
   window.localStorage.clear();
   globalThis.fetch = unmockedFetch;
   unmockedFetch.mockClear();
+  eventCache.clear();
+  quoteCache.clear();
 });
 
 // Mock Leaflet

@@ -31,15 +31,24 @@ describe('Ticketmaster Event Intelligence Service', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
-  test('falls back to simulated events when the live API is unreachable', async () => {
+  /*
+    Deliberate change of behaviour.
+
+    An unreachable API used to return simulated events, which meant users saw fabricated
+    listings — "El Clásico", "Primavera Sound" — presented exactly like real ones, with no
+    indication anything had gone wrong. Reporting UNAVAILABLE lets the UI say it couldn't
+    check. The simulated engine is now reserved for a missing credential, i.e. local
+    development without a key, where nobody is being misled.
+  */
+  test('reports unavailable rather than fabricating events when the API is unreachable', async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('ENOTFOUND'));
 
     const service = serviceWithKey('test-key');
-    const events = await service.getEventsForDestination('BCN', '2026-08-10', '2026-08-20');
+    const result = await service.fetchEvents('BCN', '2026-08-10', '2026-08-20');
 
     expect(globalThis.fetch).toHaveBeenCalled();
-    expect(events.length).toBeGreaterThan(0);
-    expect(events.every((e) => !e.isLiveApi)).toBe(true);
+    expect(result.status).toBe('unavailable');
+    expect(result.events).toEqual([]);
   });
 
   test('formats live API results and marks them as live', async () => {

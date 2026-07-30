@@ -121,14 +121,24 @@ describe('travel-window honesty', () => {
     expect(params.get('endDateTime')).toContain('2026-08-16');
   });
 
-  test('simulated events are still used when the API is unreachable', async () => {
+  test('an unreachable API is reported as unavailable, not as an empty window', async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('ENOTFOUND'));
 
-    const events = await serviceWithKey().getEventsForDestination('BCN', '2026-08-10', '2026-08-20');
+    const result = await serviceWithKey().fetchEvents('BCN', '2026-08-10', '2026-08-20');
 
-    // A transport failure is different from an empty window: we degrade rather than
-    // claim the destination has nothing on.
-    expect(events.length).toBeGreaterThan(0);
-    expect(events.every((e) => !e.isLiveApi)).toBe(true);
+    // A transport failure is different from an empty window. Both used to produce an
+    // empty array, so the discovery page dropped the destination either way — once
+    // correctly, once while implying we had checked.
+    expect(result.status).toBe('unavailable');
+    expect(result.events).toEqual([]);
+  });
+
+  test('a missing credential still falls back to the simulated engine', async () => {
+    const result = await serviceWithKey('').fetchEvents('BCN', '2026-08-10', '2026-08-20');
+
+    // Local development without a key: nobody is being misled, so simulation is fine.
+    expect(result.events.length).toBeGreaterThan(0);
+    expect(result.events.every((e) => !e.isLiveApi)).toBe(true);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });
