@@ -1,6 +1,7 @@
 import { AIRPORTS } from '../../shared/catalog.js';
 import { eventCache, EventStatus } from './eventCache.js';
 import { TicketmasterProvider } from '../providers/ticketmasterProvider.js';
+import { ApiSportsProvider } from '../providers/apiSportsProvider.js';
 import { SimulatedEventProvider } from '../providers/simulatedEventProvider.js';
 import { mergeEventLists } from './eventMerge.js';
 
@@ -24,12 +25,15 @@ export class EventSearchService {
     /*
       Providers that can actually be called.
 
-      A sports schedule provider is still missing. TheSportsDB was evaluated and dropped:
-      its free tier caps RESULTS rather than requests (eventsday.php returns 3 events per
-      day worldwide), so it would present as "no sport on" rather than "this tier can't
-      answer". API-Sports fixtures are the intended replacement.
+      ApiSportsProvider is the coverage source: it answers "what is on in this city on
+      these dates". Ticketmaster is enrichment — it adds price, purchase links and sold-out
+      status, but misses club-sold football entirely. Both are queried and merged.
+
+      TheSportsDB was evaluated and dropped: its free tier caps RESULTS rather than requests
+      (eventsday.php returns 3 events per day worldwide), so it could not locate a city's
+      events at all.
     */
-    const candidates = providers || [new TicketmasterProvider()];
+    const candidates = providers || [new TicketmasterProvider(), new ApiSportsProvider()];
     this.providers = candidates.filter((p) => p.isConfigured());
 
     /*

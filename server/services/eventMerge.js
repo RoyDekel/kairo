@@ -29,13 +29,30 @@ const CLUB_NOISE = new Set([
 /** Separators a "team vs team" title might use. */
 const VS_SPLIT = /\s+(?:vs\.?|v\.?|versus|@|at|-|–|—)\s+/i;
 
-/** Lowercase, strip accents, collapse punctuation and whitespace. */
+/**
+ * Latin letters that Unicode decomposition does NOT split into base + accent.
+ *
+ * NFD turns "é" into "e" + a combining mark, but ø, ł, æ and friends are distinct
+ * codepoints with nothing to strip. Without this map they were replaced by whitespace and
+ * then discarded as single letters, so "FC København" became "benhavn" and "Wisła Kraków"
+ * became "wis krakow" — breaking the match for two of the catalog's own destinations.
+ */
+const LATIN_EQUIVALENTS = {
+  ø: 'o', å: 'a', æ: 'ae', œ: 'oe', ł: 'l', đ: 'd', ð: 'd',
+  þ: 'th', ß: 'ss', ı: 'i', ħ: 'h', ŧ: 't', ə: 'e'
+};
+
+/** Lowercase, transliterate, strip accents, collapse punctuation and whitespace. */
 export function normalizeText(value) {
   if (!value || typeof value !== 'string') return '';
-  return value
+
+  const transliterated = value
+    .toLowerCase()
+    .replace(/[øåæœłđðþßıħŧə]/g, (ch) => LATIN_EQUIVALENTS[ch] || ch);
+
+  return transliterated
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
