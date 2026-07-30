@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Compass, WifiOff } from 'lucide-react';
+import { Sparkles, Compass, WifiOff, Search } from 'lucide-react';
 import { AIRPORTS } from '../utils/flightSimulator';
 import { searchAIDestinations, fetchAuthoritativeQuote, DiscoveryUnavailableError } from '../utils/aiDestinationEngine';
 import DestinationCard from './DestinationCard';
@@ -22,8 +22,6 @@ export default function AIDestinationExplorer({
   const { session } = useAuth();
 
   // Origin and dates live in the app-wide `searchParams` rather than in local state.
-  // Previously this component kept its own copy and only wrote back on "Track Route",
-  // so changing dates here left "Search & Compare" showing stale values.
   const origin = searchParams.origin || DEFAULT_ORIGIN;
   const departureDate = searchParams.departureDate || DEFAULT_DEPARTURE_DATE;
   const returnDate = searchParams.returnDate || DEFAULT_RETURN_DATE;
@@ -52,57 +50,45 @@ export default function AIDestinationExplorer({
   const [aiRecommendations, setAiRecommendations] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [isBackendUnavailable, setIsBackendUnavailable] = useState(false);
   // Destination currently being upgraded from estimate to live quote (null when idle).
   const [trackingDestCode, setTrackingDestCode] = useState(null);
 
   const accessToken = session?.access_token;
 
-  // Compute AI destination recommendations via the backend event intelligence endpoint.
-  // Debounced because `maxBudget` is a range slider — without this, every pixel of drag
-  // fired a fresh round of network requests.
-  React.useEffect(() => {
-    let isMounted = true;
+  // Perform AI destination search on user CTA click instead of auto-fetching on mount/tab focus.
+  const handleSearch = () => {
     setIsLoading(true);
+    setHasSearched(true);
 
-    const debounceId = setTimeout(() => {
-      searchAIDestinations({
-        origin,
-        departureDate,
-        returnDate,
-        maxBudget,
-        interests: selectedInterests,
-        accessToken
+    searchAIDestinations({
+      origin,
+      departureDate,
+      returnDate,
+      maxBudget,
+      interests: selectedInterests,
+      accessToken
+    })
+      .then((results) => {
+        setAiRecommendations(results);
+        setCurrentPage(1);
+        setIsBackendUnavailable(false);
+        setIsLoading(false);
       })
-        .then((results) => {
-          if (!isMounted) return;
-          setAiRecommendations(results);
-          setCurrentPage(1);
+      .catch((err) => {
+        if (err instanceof DiscoveryUnavailableError) {
+          console.warn('Event intelligence service unavailable:', err.message);
+          setIsBackendUnavailable(true);
+        } else {
+          console.error('Error searching AI destinations:', err);
           setIsBackendUnavailable(false);
-          setIsLoading(false);
-        })
-        .catch((err) => {
-          if (!isMounted) return;
-          // Distinguish "backend unreachable" from "genuinely no events", otherwise a
-          // cold Render instance looks identical to an empty result set.
-          if (err instanceof DiscoveryUnavailableError) {
-            console.warn('Event intelligence service unavailable:', err.message);
-            setIsBackendUnavailable(true);
-          } else {
-            console.error('Error searching AI destinations:', err);
-            setIsBackendUnavailable(false);
-          }
-          setAiRecommendations([]);
-          setCurrentPage(1);
-          setIsLoading(false);
-        });
-    }, 400);
-
-    return () => {
-      isMounted = false;
-      clearTimeout(debounceId);
-    };
-  }, [origin, departureDate, returnDate, maxBudget, selectedInterests, accessToken]);
+        }
+        setAiRecommendations([]);
+        setCurrentPage(1);
+        setIsLoading(false);
+      });
+  };
 
   // Hand the chosen destination off to the "Should I Book?" verdict view.
   const handleTrackRoute = async (recommendation) => {
@@ -183,7 +169,7 @@ export default function AIDestinationExplorer({
             </p>
           </div>
           <div className="badge badge-info" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-            {aiRecommendations.length} Destinations Scanned
+            {hasSearched ? `${aiRecommendations.length} Destinations Scanned` : 'Click Search Routes to scan'}
           </div>
         </div>
 
@@ -253,46 +239,109 @@ export default function AIDestinationExplorer({
           </div>
         </div>
 
-        {/* INTEREST CATEGORY PILLS */}
-        <div>
-          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-            Filter by Event Category:
+        {/* INTEREST CATEGORY PILLS AND CTA BUTTON */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+              Filter by Event Category:
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {[
+                { id: 'music', label: 'Music & Concerts 🎵' },
+                { id: 'sports', label: 'Sports & Football ⚽' },
+                { id: 'festivals', label: 'Festivals & Nightlife 🎪' },
+                { id: 'culture', label: 'Culture & Food 🏛️' }
+              ].map((cat) => {
+                const isSelected = selectedInterests.includes(cat.id);
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => toggleInterest(cat.id)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-glass)',
+                      background: isSelected ? 'var(--primary-glow-weak)' : 'var(--bg-tertiary)',
+                      color: isSelected ? 'var(--primary)' : 'var(--text-secondary)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {cat.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {[
-              { id: 'music', label: 'Music & Concerts 🎵' },
-              { id: 'sports', label: 'Sports & Football ⚽' },
-              { id: 'festivals', label: 'Festivals & Nightlife 🎪' },
-              { id: 'culture', label: 'Culture & Food 🏛️' }
-            ].map((cat) => {
-              const isSelected = selectedInterests.includes(cat.id);
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => toggleInterest(cat.id)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '20px',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-glass)',
-                    background: isSelected ? 'var(--primary-glow-weak)' : 'var(--bg-tertiary)',
-                    color: isSelected ? 'var(--primary)' : 'var(--text-secondary)',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  {cat.label}
-                </button>
-              );
-            })}
-          </div>
+
+          <button
+            type="button"
+            onClick={handleSearch}
+            disabled={isLoading}
+            className="btn btn-primary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '12px 28px',
+              fontSize: '0.95rem',
+              fontWeight: 700,
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              opacity: isLoading ? 0.75 : 1,
+              boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)'
+            }}
+          >
+            <Search size={18} />
+            {isLoading ? 'Searching Routes...' : 'Search Routes'}
+          </button>
         </div>
       </div>
 
       {/* AI RECOMMENDATION RESULTS LIST */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {isLoading ? (
+        {!hasSearched ? (
+          <div className="glass-panel" style={{ textAlign: 'center', padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              background: 'var(--primary-glow-weak)',
+              border: '1px solid var(--border-glass)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '4px'
+            }}>
+              <Compass size={34} style={{ color: 'var(--primary)' }} />
+            </div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+              Ready to Find Your Next Trip?
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', maxWidth: '560px', margin: 0, lineHeight: 1.6 }}>
+              Click <strong>Search Routes</strong> to scan all available destinations, live concerts, matches, and festivals for your selected dates (<strong>{departureDate}</strong> – <strong>{returnDate}</strong>).
+            </p>
+            <button
+              type="button"
+              onClick={handleSearch}
+              className="btn btn-primary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '12px 28px',
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                marginTop: '8px'
+              }}
+            >
+              <Search size={18} />
+              Search Routes
+            </button>
+          </div>
+        ) : isLoading ? (
           <div className="glass-panel" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
             <Sparkles size={28} style={{ color: 'var(--primary)' }} />
             <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -311,9 +360,15 @@ export default function AIDestinationExplorer({
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', maxWidth: '540px', margin: 0, lineHeight: 1.6 }}>
               KAIRO couldn't reach the event intelligence backend, so destination recommendations are paused. The service may still be warming up.
             </p>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-              💡 Give it a few seconds and adjust any filter to retry — or head to <strong>Search & Compare</strong> if you already know your route.
-            </p>
+            <button
+              type="button"
+              onClick={handleSearch}
+              className="btn btn-secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '8px', padding: '8px 16px', fontSize: '0.85rem' }}
+            >
+              <Search size={14} />
+              Retry Search
+            </button>
           </div>
         ) : aiRecommendations.length === 0 ? (
           <div className="glass-panel" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
