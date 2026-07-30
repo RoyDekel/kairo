@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Compass, WifiOff, Search } from 'lucide-react';
+import { Sparkles, Compass, WifiOff, Search, AlertTriangle } from 'lucide-react';
 import { AIRPORTS } from '../utils/flightSimulator';
 import { searchAIDestinations, fetchAuthoritativeQuote, DiscoveryUnavailableError } from '../utils/aiDestinationEngine';
 import DestinationCard from './DestinationCard';
@@ -26,7 +26,12 @@ export default function AIDestinationExplorer({
   const departureDate = searchParams.departureDate || DEFAULT_DEPARTURE_DATE;
   const returnDate = searchParams.returnDate || DEFAULT_RETURN_DATE;
 
-  const patchSearchParams = (patch) => setSearchParams((prev) => ({ ...prev, ...patch }));
+  const [validationError, setValidationError] = useState('');
+
+  const patchSearchParams = (patch) => {
+    setValidationError('');
+    setSearchParams((prev) => ({ ...prev, ...patch }));
+  };
 
   const setOrigin = (value) => patchSearchParams({ origin: value });
   const setDepartureDate = (value) => patchSearchParams({ departureDate: value });
@@ -36,8 +41,14 @@ export default function AIDestinationExplorer({
   const [maxBudget, setMaxBudget] = useState(1200);
   const [selectedInterests, setSelectedInterests] = useState(['music', 'sports', 'festivals', 'culture']);
 
+  const handleMaxBudgetChange = (value) => {
+    setValidationError('');
+    setMaxBudget(value);
+  };
+
   // Toggle interest tags
   const toggleInterest = (category) => {
+    setValidationError('');
     if (selectedInterests.includes(category)) {
       if (selectedInterests.length > 1) {
         setSelectedInterests(selectedInterests.filter((c) => c !== category));
@@ -57,8 +68,31 @@ export default function AIDestinationExplorer({
 
   const accessToken = session?.access_token;
 
-  // Perform AI destination search on user CTA click instead of auto-fetching on mount/tab focus.
+  // Perform AI destination search on user CTA click with full validations.
   const handleSearch = () => {
+    setValidationError('');
+
+    if (!origin) {
+      setValidationError('Please select an origin city.');
+      return;
+    }
+    if (!departureDate) {
+      setValidationError('Please select a departure date.');
+      return;
+    }
+    if (!returnDate) {
+      setValidationError('Please select a return date.');
+      return;
+    }
+    if (new Date(returnDate) <= new Date(departureDate)) {
+      setValidationError('Return date must be after the departure date.');
+      return;
+    }
+    if (isNaN(maxBudget) || maxBudget < 150) {
+      setValidationError('Max budget must be at least $150.');
+      return;
+    }
+
     setIsLoading(true);
     setHasSearched(true);
 
@@ -233,11 +267,30 @@ export default function AIDestinationExplorer({
               max="2000"
               step="50"
               value={maxBudget}
-              onChange={(e) => setMaxBudget(Number(e.target.value))}
+              onChange={(e) => handleMaxBudgetChange(Number(e.target.value))}
               style={{ accentColor: 'var(--primary)', marginTop: '8px' }}
             />
           </div>
         </div>
+
+        {/* VALIDATION ERROR ALERT BANNER */}
+        {validationError && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            color: '#ef4444',
+            padding: '12px 16px',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <AlertTriangle size={18} />
+            <span>{validationError}</span>
+          </div>
+        )}
 
         {/* INTEREST CATEGORY PILLS AND CTA BUTTON */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>

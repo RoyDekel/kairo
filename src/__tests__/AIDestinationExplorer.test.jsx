@@ -129,4 +129,29 @@ describe('AIDestinationExplorer Component', () => {
       expect(screen.getByRole('heading', { name: 'No Verified Ticketmaster Events Found' })).toBeInTheDocument();
     });
   });
+
+  test('validates return date is after departure date before searching', () => {
+    const invalidParams = {
+      origin: 'BER',
+      departureDate: '2026-08-20',
+      returnDate: '2026-08-10'
+    };
+
+    render(
+      <AIDestinationExplorer
+        searchParams={invalidParams}
+        setSearchParams={mockSetSearchParams}
+        setActiveRoundtrip={mockSetActiveRoundtrip}
+        setActiveTab={mockSetActiveTab}
+        onToggleWatchlist={mockOnToggleWatchlist}
+        watchlist={[]}
+      />
+    );
+
+    const searchButton = screen.getByRole('button', { name: /Search Routes/i });
+    fireEvent.click(searchButton);
+
+    expect(screen.getByText('Return date must be after the departure date.')).toBeInTheDocument();
+    expect(searchAIDestinations).not.toHaveBeenCalled();
+  });
 });
