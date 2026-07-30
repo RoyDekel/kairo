@@ -8,7 +8,6 @@ import {
   titleOverlap,
   FIXTURE_ALIASES
 } from '../../../server/services/eventMerge.js';
-import { TheSportsDbProvider } from '../../../server/providers/theSportsDbProvider.js';
 import { EventSearchService } from '../../../server/services/eventSearchService.js';
 import { EventCache } from '../../../server/services/eventCache.js';
 import { RateLimiter } from '../../../server/services/rateLimiter.js';
@@ -43,7 +42,7 @@ const ticketing = (over = {}) => ({
 
 const fixture = (over = {}) => ({
   id: 'tsdb-1',
-  source: 'thesportsdb',
+  source: 'apisports',
   title: 'Barcelona vs Real Madrid',
   venue: 'Camp Nou',
   date: '2026-08-12',
@@ -212,7 +211,7 @@ describe('mergePair', () => {
   });
 
   test('records which sources contributed', () => {
-    expect(mergePair(ticketing(), fixture()).mergedFrom.sort()).toEqual(['thesportsdb', 'ticketmaster']);
+    expect(mergePair(ticketing(), fixture()).mergedFrom.sort()).toEqual(['apisports', 'ticketmaster']);
   });
 
   test('prefers a real venue name over a generic placeholder', () => {
@@ -247,7 +246,7 @@ describe('mergeEventLists', () => {
     ]);
 
     expect(merged).toHaveLength(2);
-    expect(merged.some((e) => e.source === 'thesportsdb')).toBe(true);
+    expect(merged.some((e) => e.source === 'apisports')).toBe(true);
   });
 
   test('handles empty input and a single provider', () => {
@@ -262,136 +261,6 @@ describe('mergeEventLists', () => {
   });
 });
 
-const instantLimiterForProvider = () => new RateLimiter({ limit: 1e9, windowMs: 1, name: 'i' });
-
-describe('TheSportsDbProvider gating', () => {
-  test('is unconfigured without a key', () => {
-    expect(new TheSportsDbProvider({ apiKey: '' }).isConfigured()).toBe(false);
-  });
-
-  /*
-    The documented free key returns 3 results per day for the entire world, which cannot
-    locate a match in a given city. Enabling it would look like "no sport on" rather than
-    "this tier cannot answer".
-  */
-  test('rejects the documented free key', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(new TheSportsDbProvider({ apiKey: '123' }).isConfigured()).toBe(false);
-    expect(warn).toHaveBeenCalled();
-    warn.mockRestore();
-  });
-
-  test('is configured with a premium key', () => {
-    expect(new TheSportsDbProvider({ apiKey: 'premium-abc' }).isConfigured()).toBe(true);
-  });
-
-  test('enumerates the dates in the travel window, capped', () => {
-    expect(TheSportsDbProvider.datesInWindow('2026-08-11', '2026-08-13')).toEqual([
-      '2026-08-11',
-      '2026-08-12',
-      '2026-08-13'
-    ]);
-    expect(TheSportsDbProvider.datesInWindow('2026-08-11', '2026-12-31').length).toBeLessThanOrEqual(10);
-    expect(TheSportsDbProvider.datesInWindow(null)).toEqual([]);
-  });
-
-  test('declares itself sports-only', () => {
-    expect(TheSportsDbProvider.isSportsOnly).toBe(true);
-  });
-
-  test('filters worldwide fixtures down to the destination city', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        events: [
-          {
-            idEvent: '1',
-            strEvent: 'Barcelona vs Real Madrid',
-            strVenue: 'Spotify Camp Nou, Barcelona',
-            strCountry: 'Spain',
-            strLeague: 'La Liga',
-            strHomeTeam: 'Barcelona',
-            strAwayTeam: 'Real Madrid',
-            dateEvent: '2026-08-12'
-          },
-          // eventsday.php returns fixtures worldwide; this one must be dropped.
-          {
-            idEvent: '2',
-            strEvent: 'Arsenal vs Chelsea',
-            strVenue: 'Emirates Stadium, London',
-            strCountry: 'England',
-            strHomeTeam: 'Arsenal',
-            strAwayTeam: 'Chelsea',
-            dateEvent: '2026-08-12'
-          }
-        ]
-      })
-    });
-
-    const provider = new TheSportsDbProvider({ apiKey: 'premium-abc', limiter: instantLimiterForProvider() });
-    const result = await provider.fetchEvents(
-      { city: 'Barcelona', country: 'Spain', countryCode: 'ES', lat: 41.3, lon: 2.1 },
-      { startDate: '2026-08-12', endDate: '2026-08-12' },
-      'BCN'
-    );
-
-    expect(result.status).toBe('ok');
-    expect(result.events).toHaveLength(1);
-    expect(result.events[0].homeTeam).toBe('Barcelona');
-  });
-
-  /*
-    Inventing a price or an impact score would feed the buy/wait verdict a number with
-    nothing behind it, so a fixture source must leave those fields absent.
-  */
-  test('supplies no ticketing fields it cannot know', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        events: [
-          {
-            idEvent: '1',
-            strEvent: 'Barcelona vs Real Madrid',
-            strVenue: 'Camp Nou, Barcelona',
-            strCountry: 'Spain',
-            strHomeTeam: 'Barcelona',
-            strAwayTeam: 'Real Madrid',
-            dateEvent: '2026-08-12'
-          }
-        ]
-      })
-    });
-
-    const provider = new TheSportsDbProvider({ apiKey: 'premium-abc', limiter: instantLimiterForProvider() });
-    const { events } = await provider.fetchEvents(
-      { city: 'Barcelona', country: 'Spain', countryCode: 'ES', lat: 41.3, lon: 2.1 },
-      { startDate: '2026-08-12', endDate: '2026-08-12' },
-      'BCN'
-    );
-
-    expect(events[0].priceEstimate).toBeUndefined();
-    expect(events[0].isSoldOut).toBeUndefined();
-    expect(events[0].eventImpactScore).toBeUndefined();
-    expect(events[0].url).toBeUndefined();
-  });
-
-  test('reports unavailable when every date is rate limited', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 429, json: async () => ({}) });
-
-    const provider = new TheSportsDbProvider({ apiKey: 'premium-abc', limiter: instantLimiterForProvider() });
-    const result = await provider.fetchEvents(
-      { city: 'Barcelona', country: 'Spain', countryCode: 'ES', lat: 41.3, lon: 2.1 },
-      { startDate: '2026-08-12', endDate: '2026-08-12' },
-      'BCN'
-    );
-
-    expect(result.status).toBe('unavailable');
-    expect(result.reason).toBe('rate-limited');
-  });
-});
-
 describe('EventSearchService with two providers', () => {
   const instant = () => new RateLimiter({ limit: 1e9, windowMs: 1, name: 'i' });
 
@@ -402,7 +271,7 @@ describe('EventSearchService with two providers', () => {
   }
 
   class FakeFixtures extends EventProvider {
-    static get key() { return 'thesportsdb'; }
+    static get key() { return 'apisports'; }
     static get rateLimit() { return { limit: 9, windowMs: 1 }; }
     async fetchEvents() { return this.ok([fixture()]); }
   }
@@ -422,11 +291,27 @@ describe('EventSearchService with two providers', () => {
       isSoldOut: true,
       league: 'La Liga'
     });
-    expect(Object.keys(result.sources).sort()).toEqual(['thesportsdb', 'ticketmaster']);
+    expect(Object.keys(result.sources).sort()).toEqual(['apisports', 'ticketmaster']);
   });
 
-  test('only Ticketmaster is active by default, since the sports key is unset', () => {
+  test('only the enrichment provider is active by default', () => {
+    // No coverage provider is configured yet, which the service warns about.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const service = new EventSearchService({ cache: new EventCache({ ttlMs: 1000 }) });
-    expect(service.providerKeys).not.toContain('thesportsdb');
+
+    expect(service.providerKeys).toEqual(['ticketmaster']);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('No coverage provider'));
+    warn.mockRestore();
+  });
+
+  test('a coverage provider silences the warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    new EventSearchService({
+      providers: [new FakeFixtures({ limiter: instant() })],
+      cache: new EventCache({ ttlMs: 1000 })
+    });
+
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('No coverage provider'));
+    warn.mockRestore();
   });
 });

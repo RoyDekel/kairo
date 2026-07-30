@@ -7,16 +7,28 @@ dotenv.config();
 const BASE_URL = 'https://app.ticketmaster.com/discovery/v2/events.json';
 
 /**
- * Ticketmaster Discovery API — a ticketing source.
+ * Ticketmaster Discovery API — an ENRICHMENT source.
  *
- * This is the only provider that can supply price ranges, purchase links and sold-out
- * status, which is what verdictEvidence.js needs for its strongest reason. It is not a
- * complete picture of sport: European football tickets are generally sold by the clubs,
- * not through Ticketmaster, which is the coverage gap a fixture provider fills.
+ * Deliberately not treated as coverage. KAIRO doesn't sell tickets, so "what is on in this
+ * city" is a schedule question, and a ticketing feed answers it only partially: European
+ * football tickets are sold by the clubs, so those matches never appear here at all.
+ *
+ * What it uniquely provides is the demand signal — price range, purchase link, and
+ * sold-out status. verdictEvidence.js builds its strongest reason from isSoldOut, and
+ * insightsEngine.js derives BUY_NOW from isHighImpactEvent. A fixture feed can tell you a
+ * derby is being played; only this can tell you it sold out.
+ *
+ * NOTE: it is currently the only configured provider, so in practice it is also carrying
+ * coverage. EventSearchService warns about that, because it means the discovery page is
+ * blind to anything not sold through Ticketmaster.
  */
 export class TicketmasterProvider extends EventProvider {
   static get key() {
     return 'ticketmaster';
+  }
+
+  static get role() {
+    return 'enrichment';
   }
 
   static get rateLimit() {

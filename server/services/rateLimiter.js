@@ -89,13 +89,15 @@ export class RateLimiter {
  * with the limit it was written against.
  *
  * Ticketmaster Discovery: 5,000/day and 5/second.
- * TheSportsDB free:       30/minute.
- * API-Sports free:        100/day and 10/minute — the daily cap is the binding one, and
- *                         is why that provider cannot back a per-destination fan-out.
+ * API-Sports free:        100/day and 10/minute. The DAILY cap is the binding one, so a
+ *                         provider built on it must query by date (a handful of calls per
+ *                         travel window) rather than per destination (~31 per search).
+ *
+ * TheSportsDB was evaluated and dropped: its free tier limits RESULTS, not requests —
+ * eventsday.php returns 3 events per day worldwide — so it cannot locate a city's events.
  */
 export const PROVIDER_LIMITS = {
   ticketmaster: { limit: 5, windowMs: 1000, name: 'ticketmaster' },
-  thesportsdb: { limit: 30, windowMs: 60_000, name: 'thesportsdb' },
   apisports: { limit: 10, windowMs: 60_000, name: 'apisports' }
 };
 

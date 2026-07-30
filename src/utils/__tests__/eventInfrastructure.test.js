@@ -91,8 +91,6 @@ describe('RateLimiter', () => {
   test('documented provider limits match the published free tiers', () => {
     // Ticketmaster Discovery: 5 requests/second.
     expect(PROVIDER_LIMITS.ticketmaster).toMatchObject({ limit: 5, windowMs: 1000 });
-    // TheSportsDB free: 30 requests/minute.
-    expect(PROVIDER_LIMITS.thesportsdb).toMatchObject({ limit: 30, windowMs: 60_000 });
     // API-Sports free: 10 requests/minute (and 100/day, which is the binding constraint).
     expect(PROVIDER_LIMITS.apisports).toMatchObject({ limit: 10, windowMs: 60_000 });
   });

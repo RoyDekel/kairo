@@ -58,6 +58,26 @@ export class EventProvider {
     throw new Error('EventProvider subclasses must define a static key');
   }
 
+  /**
+   * What this provider is for.
+   *
+   *   'coverage'   — answers "what is happening in this city on these dates". A schedule
+   *                  or fixture source. This is what the discovery page is really asking.
+   *   'enrichment' — cannot be relied on for coverage, but adds fields others can't:
+   *                  a purchase link, a price range, and crucially sold-out status.
+   *
+   * The distinction matters because KAIRO uses events for two jobs. Listing what's on is
+   * the visible one. The other is a demand signal for flight pricing: insightsEngine.js
+   * derives BUY_NOW from isHighImpactEvent, and verdictEvidence.js builds its strongest
+   * reason from isSoldOut. A fixture feed knows a match exists; only a ticketing feed
+   * knows it sold out, which is what says the city is filling up.
+   *
+   * So ticketing is not the primary source, but dropping it would blunt the verdict.
+   */
+  static get role() {
+    return 'coverage';
+  }
+
   /** Published rate limit: { limit, windowMs }. */
   static get rateLimit() {
     throw new Error('EventProvider subclasses must define a static rateLimit');

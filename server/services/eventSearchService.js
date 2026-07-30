@@ -1,7 +1,6 @@
 import { AIRPORTS } from '../../shared/catalog.js';
 import { eventCache, EventStatus } from './eventCache.js';
 import { TicketmasterProvider } from '../providers/ticketmasterProvider.js';
-import { TheSportsDbProvider } from '../providers/theSportsDbProvider.js';
 import { SimulatedEventProvider } from '../providers/simulatedEventProvider.js';
 import { mergeEventLists } from './eventMerge.js';
 
@@ -23,16 +22,14 @@ export class EventSearchService {
     this.cache = cache || eventCache;
 
     /*
-      Providers that can actually be called, in priority order. Ticketmaster leads because
-      it is the only source of price, purchase links and sold-out status.
+      Providers that can actually be called.
 
-      TheSportsDB fills a real coverage gap — European football tickets are sold by the
-      clubs, so those matches never appear in Ticketmaster at all — but it stays disabled
-      until THESPORTSDB_API_KEY holds a premium key. Its free tier caps eventsday.php at
-      three results per day worldwide, which would look like "no sport on" rather than
-      "this tier can't answer".
+      A sports schedule provider is still missing. TheSportsDB was evaluated and dropped:
+      its free tier caps RESULTS rather than requests (eventsday.php returns 3 events per
+      day worldwide), so it would present as "no sport on" rather than "this tier can't
+      answer". API-Sports fixtures are the intended replacement.
     */
-    const candidates = providers || [new TicketmasterProvider(), new TheSportsDbProvider()];
+    const candidates = providers || [new TicketmasterProvider()];
     this.providers = candidates.filter((p) => p.isConfigured());
 
     /*
@@ -51,7 +48,22 @@ export class EventSearchService {
     // Injectable so tests can isolate orchestration from matching.
     this.mergeEvents = mergeEvents || mergeEventLists;
 
-    console.log(`[EventSearchService] Active event providers: [${this.providers.map((p) => p.constructor.key).join(', ')}]`);
+    console.log(`[EventSearchService] Active event providers: [${this.providerKeys.join(', ')}]`);
+
+    /*
+      Warn when nothing is answering the actual question.
+
+      With only an enrichment provider, the discovery page can only show events that happen
+      to be sold through that channel — a club-sold derby is invisible, and the page reports
+      the city as quiet. That is a coverage gap, not an empty calendar, and it should be
+      visible in the logs rather than inferred from thin results.
+    */
+    if (!this.usingSimulation && !this.providers.some((p) => p.constructor.role === 'coverage')) {
+      console.warn(
+        '[EventSearchService] No coverage provider configured — only enrichment sources are active. ' +
+        'Events not sold through those channels will be missing, and cities may look quiet when they are not.'
+      );
+    }
   }
 
   /** Resolves an airport code to a queryable location using the shared catalog. */
