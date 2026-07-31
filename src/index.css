@@ -861,20 +861,35 @@ h6 {
   margin-bottom: 14px;
 }
 
-.dest-card-avatar {
+/* Destination Icon / Avatar UI Infrastructure for When to Go Smart Cards */
+.dest-card-avatar,
+.flight-destination-icon {
   width: 44px;
   height: 44px;
   flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  background: var(--primary-glow-weak);
-  border: 1px solid var(--primary-glow);
-  color: var(--primary);
+  border-radius: 12px;
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-glass, rgba(255, 255, 255, 0.12));
+  color: #64748b; /* Neutral slate grey default */
   font-family: var(--font-heading);
   font-weight: 800;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.3s ease-in-out; /* 300ms smooth transition */
+}
+
+/* Card Hover effect - Elevates & glows modern flight blue (#2563eb / var(--primary)) */
+.dest-card:hover .dest-card-avatar,
+.dest-card:hover .flight-destination-icon,
+.destination-card:hover .flight-destination-icon {
+  color: #2563eb; /* Modern flight blue */
+  background: var(--primary-glow-weak, rgba(37, 99, 235, 0.14));
+  border-color: rgba(37, 99, 235, 0.45);
+  transform: translateY(-4px); /* 4px gentle lift */
+  filter: drop-shadow(0 4px 8px rgba(37, 99, 235, 0.35)); /* Subtle glowing aura */
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
 }
 
 .dest-card-city {

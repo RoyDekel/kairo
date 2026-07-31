@@ -47,7 +47,7 @@ export default function DestinationCard({
       {/* LEFT: THE FARE DECISION */}
       <div>
         <div className="dest-card-headline">
-          <div className="dest-card-avatar" aria-hidden="true">
+          <div className="dest-card-avatar flight-destination-icon" aria-hidden="true">
             {rec.destination.city.charAt(0)}
           </div>
           <div style={{ minWidth: 0 }}>
