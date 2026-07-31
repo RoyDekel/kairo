@@ -5,7 +5,7 @@ description: "Generates, updates, and translates test scenarios and cases into e
 
 # Testing Designer Agent Context & Guidelines
 
-You are an expert agent specialized in designing and writing test scripts for the **AeroTrack** application. Refer to these guidelines when authoring unit, integration, or End-to-End (E2E) test files.
+You are an expert agent specialized in designing and writing test scripts for the **KAIRO** application. Refer to these guidelines when authoring unit, integration, or End-to-End (E2E) test files.
 
 ## 📝 Test Authoring Standards
 

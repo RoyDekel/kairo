@@ -1,7 +1,8 @@
-import { ArrowRight, Bookmark, CheckCircle, ExternalLink } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowRight, Bookmark, CheckCircle, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
 
-/** Max events shown inline. Beyond this we summarise, to keep the card scannable. */
+/** Max events shown inline when collapsed. */
 const MAX_VISIBLE_EVENTS = 3;
 
 /** "2026-08-13" -> "13 Aug". Compact by design; the year is implied by the search dates. */
@@ -13,12 +14,7 @@ function formatEventDate(dateStr) {
 }
 
 /**
- * A single "Whento Go" result.
- *
- * Structured around the two questions a user actually has — "is this fare good?" on the
- * left, "what's on while I'm there?" on the right. The previous layout stacked a verbose
- * AI insight banner above a grid of boxed event cards, which made every destination tall
- * enough to push the next one off screen.
+ * A single "When to Go" result.
  */
 export default function DestinationCard({
   recommendation,
@@ -28,11 +24,11 @@ export default function DestinationCard({
   onTrack,
   onToggleWatchlist
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const rec = recommendation;
   const isEstimate = rec.priceSource === 'estimate';
 
-  // Buy/wait verdict for the roundtrip total. Deterministic on rec.id, so the verdict
-  // stays stable across re-renders rather than flickering between scans.
+  // Buy/wait verdict for the roundtrip total.
   const insight = getPriceConfidenceInsight({ id: rec.id, price: rec.roundtripPrice }, rec.roundtripPrice);
   const isWait = insight.recommendation === 'WAIT';
 
@@ -40,8 +36,11 @@ export default function DestinationCard({
     ? `drop of ~$${insight.expectedSavings} expected in ${insight.expectedDropDays}`
     : `near the 90-day low of $${insight.low90Day}`;
 
-  const visibleEvents = rec.matchedEvents.slice(0, MAX_VISIBLE_EVENTS);
-  const hiddenEventCount = rec.matchedEvents.length - visibleEvents.length;
+  const totalEvents = rec.matchedEvents ? rec.matchedEvents.length : 0;
+  const visibleEvents = isExpanded
+    ? rec.matchedEvents
+    : (rec.matchedEvents ? rec.matchedEvents.slice(0, MAX_VISIBLE_EVENTS) : []);
+  const hiddenEventCount = totalEvents - MAX_VISIBLE_EVENTS;
 
   return (
     <div className="glass-panel dest-card">
@@ -222,10 +221,35 @@ export default function DestinationCard({
           </div>
         ))}
 
-        {hiddenEventCount > 0 && (
-          <div className="dest-card-more">
-            +{hiddenEventCount} more event{hiddenEventCount > 1 ? 's' : ''} during your trip
-          </div>
+        {totalEvents > MAX_VISIBLE_EVENTS && (
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="dest-card-more-btn"
+            style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-glass, rgba(255, 255, 255, 0.1))',
+              borderRadius: '16px',
+              color: 'var(--primary, #0284c7)',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              padding: '6px 12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              margin: '6px 0 2px 0',
+              alignSelf: 'flex-start'
+            }}
+          >
+            <span>
+              {isExpanded
+                ? 'Show fewer events'
+                : `+${hiddenEventCount} more event${hiddenEventCount > 1 ? 's' : ''} during your trip`}
+            </span>
+            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
         )}
 
         <div className="dest-card-actions">
