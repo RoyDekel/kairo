@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, Bookmark, CheckCircle, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
+import CityLandmarkIcon from './CityLandmarkIcon';
 
 /** Max events shown inline when collapsed. */
 const MAX_VISIBLE_EVENTS = 3;
@@ -47,8 +48,8 @@ export default function DestinationCard({
       {/* LEFT: THE FARE DECISION */}
       <div>
         <div className="dest-card-headline">
-          <div className="dest-card-avatar flight-destination-icon" aria-hidden="true">
-            {rec.destination.city.charAt(0)}
+          <div className="dest-card-avatar flight-destination-icon" aria-hidden="true" title={`${rec.destination.city} landmark`}>
+            <CityLandmarkIcon cityCode={rec.destCode} cityName={rec.destination.city} size={22} />
           </div>
           <div style={{ minWidth: 0 }}>
             <h3 className="dest-card-city">{rec.destination.city}</h3>
