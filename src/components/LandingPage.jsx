@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Plane, Activity, Bell, ArrowRight, CheckCircle, Zap, Ticket, Globe, Star, TrendingDown, Clock, ShieldCheck, HelpCircle, ChevronDown, ChevronUp, Share2, Copy } from 'lucide-react';
+import { Sparkles, Plane, Activity, Bell, ArrowRight, CheckCircle, Zap, Ticket, Globe, Star, TrendingDown, Clock, ShieldCheck, HelpCircle, ChevronDown, ChevronUp, Share2, Copy, Search, Compass } from 'lucide-react';
 import { AIRPORTS } from '../utils/flightSimulator';
 import { getZeroClickDemoData } from '../utils/priceConfidenceEngine';
 import { useAuth } from '../contexts/AuthProvider';
@@ -264,27 +264,114 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Automated price intelligence from decision to touchdown</p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '20px 24px' }}>
-            <div style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 1</div>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Search or Pick Dates</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px' }}>
+          {/* STEP 01 */}
+          <div style={{
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-glass)',
+            borderRadius: 'var(--radius-md)',
+            padding: '28px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '54px',
+              height: '54px',
+              borderRadius: '50%',
+              background: 'rgba(59, 130, 246, 0.12)',
+              border: '1.5px solid rgba(59, 130, 246, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--primary)',
+              marginBottom: '14px',
+              boxShadow: '0 0 16px rgba(59, 130, 246, 0.15)'
+            }}>
+              <Search size={24} />
+            </div>
+            <div style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+              Step 01
+            </div>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-primary)' }}>
+              Search or Pick Dates
+            </h3>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
               Know your route? Use <strong>Search &amp; Compare</strong>. Only know your dates? <strong>When to Go</strong> pairs them with live concerts, matches, and festivals worldwide.
             </p>
           </div>
 
-          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '20px 24px' }}>
-            <div style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 2</div>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Get AI Price Confidence</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          {/* STEP 02 */}
+          <div style={{
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-glass)',
+            borderRadius: 'var(--radius-md)',
+            padding: '28px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '54px',
+              height: '54px',
+              borderRadius: '50%',
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1.5px solid rgba(245, 158, 11, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--accent)',
+              marginBottom: '14px',
+              boxShadow: '0 0 16px rgba(245, 158, 11, 0.15)'
+            }}>
+              <Sparkles size={24} />
+            </div>
+            <div style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+              Step 02
+            </div>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-primary)' }}>
+              Get AI Price Confidence
+            </h3>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
               KAIRO analyzes 90-day price trends and gives you an instant <strong>Buy Now</strong> or <strong>Wait</strong> rating with up to 95% confidence.
             </p>
           </div>
 
-          <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)', padding: '20px 24px' }}>
-            <div style={{ color: '#059669', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 3</div>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Instant Price Drop Alerts</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          {/* STEP 03 */}
+          <div style={{
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-glass)',
+            borderRadius: 'var(--radius-md)',
+            padding: '28px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '54px',
+              height: '54px',
+              borderRadius: '50%',
+              background: 'rgba(16, 185, 129, 0.12)',
+              border: '1.5px solid rgba(16, 185, 129, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#059669',
+              marginBottom: '14px',
+              boxShadow: '0 0 16px rgba(16, 185, 129, 0.15)'
+            }}>
+              <Bell size={24} />
+            </div>
+            <div style={{ color: '#059669', fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+              Step 03
+            </div>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-primary)' }}>
+              Instant Price Drop Alerts
+            </h3>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
               Save routes to your cloud watchlist. KAIRO notifies you the second fares drop to your target threshold.
             </p>
           </div>
