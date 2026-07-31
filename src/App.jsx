@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Sun, Moon, LogIn, LogOut, Zap } from 'lucide-react';
-import { 
-  AIRPORTS, 
+import {
+  AIRPORTS,
   generateFlightsForRoute,
   calculatePassengerCost,
-  getFlightTelemetry 
+  getFlightTelemetry
 } from './utils/flightSimulator';
 import FlightMap from './components/FlightMap';
 import PriceChart from './components/PriceChart';
@@ -52,7 +52,7 @@ export default function App() {
   }, [theme, userId]);
 
   // 1. Search Query Parameters — the single source of truth for origin/destination/dates.
-  //    Both "Where to Go" and "Search & Compare" read and write this object so the two
+  //    Both "When to Go" and "Search & Compare" read and write this object so the two
   //    pages can never show different routes or dates for the same session.
   const [searchParams, setSearchParams] = useState(createDefaultSearchParams);
 
@@ -140,10 +140,10 @@ export default function App() {
   // Retrieve GPS Coordinates for active telemetry
   const originAirport = AIRPORTS[activeFlight?.origin] || AIRPORTS.TLV;
   const destinationAirport = AIRPORTS[activeFlight?.destination] || AIRPORTS.KRK;
-  
+
   const telemetry = getFlightTelemetry(
-    simulationProgress, 
-    originAirport.coords, 
+    simulationProgress,
+    originAirport.coords,
     destinationAirport.coords
   );
 
@@ -198,7 +198,7 @@ export default function App() {
         console.warn("Failed to fetch initial flights from server, sticking with local simulation defaults:", err);
       }
     };
-    
+
     fetchDefaultFlights();
     return () => {
       active = false;
@@ -453,7 +453,7 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', flexGrow: 1 }}>
-      
+
       {/* HEADER SECTION */}
       <header style={{
         display: 'flex',
@@ -465,8 +465,8 @@ export default function App() {
         borderBottom: '1px solid var(--border-glass)'
       }}>
         {/* LOGO & BRAND MARK */}
-        <div 
-          onClick={() => setActiveTab('landing')} 
+        <div
+          onClick={() => setActiveTab('landing')}
           style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}
           title="Back to KAIRO Home"
         >
@@ -657,10 +657,10 @@ export default function App() {
             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
 
-          <button 
+          <button
             onClick={user ? handleOpenNotifications : undefined}
             disabled={!user}
-            className="btn-icon" 
+            className="btn-icon"
             style={{
               position: 'relative',
               background: 'transparent',
@@ -692,7 +692,7 @@ export default function App() {
 
       {/* TAB VIEWS CONTROLLER */}
       <main className="animate-fade-in" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        
+
         {/* VIEW 0: SAAS MARKETING LANDING PAGE */}
         {activeTab === 'landing' && (
           <LandingPage
@@ -702,7 +702,7 @@ export default function App() {
           />
         )}
 
-        {/* VIEW 1: "WHERE TO GO" — DESTINATION DISCOVERY (destination is the OUTPUT) */}
+        {/* VIEW 1: "WHEN TO GO" — DESTINATION DISCOVERY (destination is the OUTPUT) */}
         {activeTab === 'ai-explorer' && (
           <AIDestinationExplorer
             searchParams={searchParams}

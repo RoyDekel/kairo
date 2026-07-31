@@ -8,6 +8,7 @@ import {
   DEFAULT_ORIGIN,
   DEFAULT_DEPARTURE_DATE,
   DEFAULT_RETURN_DATE,
+  getTodayDateString,
   createDefaultPassengers
 } from '../utils/searchDefaults';
 
@@ -239,6 +240,7 @@ export default function AIDestinationExplorer({
             <input
               type="date"
               value={departureDate}
+              min={getTodayDateString()}
               onChange={(e) => setDepartureDate(e.target.value)}
               className="input-field"
             />
@@ -250,6 +252,7 @@ export default function AIDestinationExplorer({
             <input
               type="date"
               value={returnDate}
+              min={departureDate || getTodayDateString()}
               onChange={(e) => setReturnDate(e.target.value)}
               className="input-field"
             />

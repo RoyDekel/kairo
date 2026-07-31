@@ -11,10 +11,10 @@ export class FlightSearchService {
       travelpayouts: new TravelPayoutsProvider(),
       serpapi: new SerpApiProvider()
     };
-    
+
     this.activeProviderName = this.determineActiveProvider();
     this.activeProvider = this.providers[this.activeProviderName] || this.providers.simulated;
-    
+
     console.log(`===============================================`);
     console.log(` FlightSearchService Initialized`);
     console.log(` Active Strategy Provider: [${this.activeProviderName.toUpperCase()}]`);
@@ -23,12 +23,12 @@ export class FlightSearchService {
 
   determineActiveProvider() {
     const configProvider = process.env.FLIGHT_PROVIDER;
-    
+
     // 1. Explicitly configured provider choice
     if (configProvider && this.providers[configProvider.toLowerCase()]) {
       return configProvider.toLowerCase();
     }
-    
+
     // 2. Autodetect based on available API Keys
     if (process.env.SERPAPI_KEY && process.env.SERPAPI_KEY.trim() !== '') {
       return 'serpapi';
@@ -37,11 +37,11 @@ export class FlightSearchService {
     if (process.env.KIWI_API_KEY && process.env.KIWI_API_KEY.trim() !== '') {
       return 'kiwi';
     }
-    
+
     if (process.env.TRAVELPAYOUTS_TOKEN && process.env.TRAVELPAYOUTS_TOKEN.trim() !== '') {
       return 'travelpayouts';
     }
-    
+
     // 3. Fallback
     return 'simulated';
   }
@@ -54,7 +54,7 @@ export class FlightSearchService {
   /**
    * Cheap breadth-first pricing for the discovery page.
    *
-   * Always uses the simulated provider: "Where to Go" scans ~31 destinations at once and
+   * Always uses the simulated provider: "When to Go" scans ~31 destinations at once and
    * the paid providers bill per search. Results are explicitly estimates — callers must
    * label them as such, and prefer a cached real quote whenever one exists.
    */
@@ -68,7 +68,7 @@ export class FlightSearchService {
       return await this.activeProvider.searchAsync(searchRequest);
     } catch (error) {
       console.error(`[FlightSearchService] Strategy [${this.activeProviderName.toUpperCase()}] failed:`, error.message || error);
-      
+
       // Error boundary: fallback to local simulation
       if (this.activeProviderName !== 'simulated') {
         console.warn(`[FlightSearchService] Falling back to SIMULATED strategy provider to guarantee service availability.`);
@@ -83,7 +83,7 @@ export class FlightSearchService {
           throw simError;
         }
       }
-      
+
       throw error;
     }
   }

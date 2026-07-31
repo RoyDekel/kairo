@@ -6,7 +6,7 @@ import { AIRPORTS as SHARED_AIRPORTS } from '../../../shared/catalog.js';
 
 /**
  * These tests guard the invariant the whole refactor exists to protect:
- * "Where to Go" and "Search & Compare" must never quote different fares for the same
+ * "When to Go" and "Search & Compare" must never quote different fares for the same
  * route on the same dates.
  */
 

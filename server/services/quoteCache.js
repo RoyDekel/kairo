@@ -1,7 +1,7 @@
 /**
  * In-memory cache of the cheapest roundtrip fare KAIRO has seen per route.
  *
- * This is what makes "Where to Go" and "Search & Compare" agree. The discovery page
+ * This is what makes "When to Go" and "Search & Compare" agree. The discovery page
  * cannot afford a real provider search for all ~31 destinations (SerpApi bills per
  * search), so it asks for estimates. Whenever /api/flights performs a real search, the
  * resulting fare is recorded here; the estimates endpoint then serves that exact number
