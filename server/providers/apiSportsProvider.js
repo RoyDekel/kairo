@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import { EventProvider } from './eventProvider.js';
 import { PROVIDER_LIMITS } from '../services/rateLimiter.js';
 import { PersistentDayCache } from '../services/persistentDayCache.js';
-import { DailyBudget } from '../services/dailyBudget.js';
+import { DailyBudget, utcDay } from '../services/dailyBudget.js';
 import { getServerSupabase } from '../services/supabaseServer.js';
 import { normalizeTeam } from '../services/eventMerge.js';
 import { airportForClub } from '../../shared/clubCities.js';
@@ -43,12 +43,26 @@ const PLANNED_STATUSES = new Set(['TBD', 'NS']);
  * -------------------------------------------------------------------------------------
  * TWO FINDINGS FROM REAL RESPONSES SHAPED THIS
  *
- * 1. The free plan's season lock does NOT apply to date queries.
- *      ?league=140&season=2026 -> errors: {"plan":"Free plans do not have access to this
- *                                 season, try from 2022 to 2024."}
- *      ?date=2026-07-30        -> errors: [], results: 145, of which 138 were season 2026
- *    So current-season data is reachable, but only via `date`. Querying by league/season
- *    would be blocked — which is also why this provider never does.
+ * 1. The free plan CANNOT serve this feature. Corrected from an earlier, wrong conclusion.
+ *
+ *    This file previously claimed "the free plan's season lock does NOT apply to date
+ *    queries", on the evidence of one call:
+ *      ?date=2026-07-30 -> errors: [], results: 145, of which 138 were season 2026
+ *
+ *    That call succeeded only because the date happened to be inside the plan's allowance
+ *    at the moment it was made. Production later returned, for every future date:
+ *      "Free plans do not have access to this date, try from 2026-07-30 to 2026-08-01."
+ *
+ *    The lock does apply; it simply presents as a rolling window of roughly today ±1 day.
+ *    Generalising from a single sample that fell inside that window produced a confident
+ *    and false claim, written into the code as documentation.
+ *
+ *    This matters structurally, not marginally. KAIRO asks what is on during a FUTURE
+ *    trip, typically weeks or months out. No amount of caching, deduplication or budgeting
+ *    changes the fact that the free plan cannot answer that question. A paid plan lifts
+ *    the restriction; nothing else does.
+ *
+ *    The provider still never queries by league+season, which is blocked outright.
  *
  * 2. Caching must be keyed by DATE, not destination — AND must deduplicate in flight.
  *    One /fixtures?date= call returns every fixture on Earth for that day, and the service
@@ -136,6 +150,20 @@ export class ApiSportsProvider extends EventProvider {
       Sharing the promise collapses that back to one request per date.
     */
     this.inFlight = new Map();
+
+    /*
+      The date range this plan is actually allowed to query, learned from the API itself.
+
+      The free plan answers only for roughly today ±1 day and rejects everything else with
+      "Free plans do not have access to this date, try from X to Y". Since KAIRO asks about
+      future trips, that rejection is the normal case, and without this every search spent
+      four guaranteed-to-fail calls out of a daily ceiling of eighty.
+
+      The window is parsed from the error rather than hardcoded, so a plan upgrade widens it
+      automatically and no constant goes stale.
+    */
+    this.planWindow = null;
+    this.planWindowDay = null;
   }
 
   isConfigured() {
@@ -186,8 +214,47 @@ export class ApiSportsProvider extends EventProvider {
     return request;
   }
 
+  /**
+   * Records the plan's queryable range, as reported by the API.
+   *
+   * @returns {boolean} whether a range was recognised
+   */
+  #learnPlanWindow(message) {
+    const match = /from\s+(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})/.exec(message || '');
+    if (!match) return false;
+
+    const [, from, to] = match;
+    this.planWindow = { from, to };
+    this.planWindowDay = utcDay(Date.now());
+
+    console.warn(
+      `[apisports] Plan covers ${from}..${to} only. Dates outside that range will be skipped ` +
+      'without calling the API. Trips further out cannot be checked on this plan.'
+    );
+    return true;
+  }
+
+  /** True when we know the plan cannot answer for this date. */
+  #outsidePlan(date) {
+    // The window moves with the calendar, so yesterday's answer is not today's.
+    if (this.planWindowDay && this.planWindowDay !== utcDay(Date.now())) {
+      this.planWindow = null;
+      this.planWindowDay = null;
+    }
+    if (!this.planWindow) return false;
+    return date < this.planWindow.from || date > this.planWindow.to;
+  }
+
   /** Performs the actual HTTP call for one date. Always go through #fixturesForDate. */
   async #requestDate(date) {
+    /*
+      Skip dates the plan has already told us it will refuse. Costs nothing, spends nothing,
+      and still reports a non-answer rather than an empty one.
+    */
+    if (this.#outsidePlan(date)) {
+      return { error: 'outside-plan-window' };
+    }
+
     if (this.useSnapshot) {
       const payload = { fixtures: snapshotForDate(date).response };
       await this.dayCache.set(date, payload);
@@ -256,6 +323,15 @@ export class ApiSportsProvider extends EventProvider {
     const hasErrors = errors && !Array.isArray(errors) && Object.keys(errors).length > 0;
     if (hasErrors) {
       const [field, message] = Object.entries(errors)[0];
+
+      /*
+        A plan error names the range this subscription may query. Learning it turns every
+        subsequent out-of-range date into a free skip instead of another wasted call.
+      */
+      if (field === 'plan' && this.#learnPlanWindow(message)) {
+        return { error: 'outside-plan-window' };
+      }
+
       console.warn(`[apisports] API reported ${field}: ${message}`);
       return { error: field === 'requests' ? 'quota-exceeded' : `api-${field}` };
     }
@@ -294,10 +370,16 @@ export class ApiSportsProvider extends EventProvider {
 
     // Not one date resolved: we don't know whether the city is quiet.
     if (!anyAnswered) {
-      console.warn(
-        `[apisports] Could NOT check ${location.city} for ${startDate}–${endDate} ` +
-        `(${lastError || 'transport-error'}); ${failedDates.length}/${dates.length} dates failed.`
-      );
+      // The plan case is not a failure to be investigated; it is a known limitation, and
+      // repeating a scary "Could NOT check" line per destination buries the real signal.
+      if (lastError === 'outside-plan-window') {
+        console.log(`[apisports] ${location.city} skipped: ${startDate}–${endDate} is outside the plan's range.`);
+      } else {
+        console.warn(
+          `[apisports] Could NOT check ${location.city} for ${startDate}–${endDate} ` +
+          `(${lastError || 'transport-error'}); ${failedDates.length}/${dates.length} dates failed.`
+        );
+      }
       return this.unavailable(lastError || 'transport-error');
     }
 
