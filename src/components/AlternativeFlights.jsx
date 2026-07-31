@@ -81,7 +81,7 @@ export default function AlternativeFlights({
   const [localDepDate, setLocalDepDate] = useState(searchParams.departureDate);
   const [localRetDate, setLocalRetDate] = useState(searchParams.returnDate);
   const [localStops, setLocalStops] = useState(searchParams.stops || '0');
-  const [localTravelClass, setLocalTravelClass] = useState(searchParams.travelClass || '1');
+  const [localTravelClass, setLocalTravelClass] = useState(searchParams.travelClass || 'ALL');
 
   // Multi-city legs state
   const [localLegs, setLocalLegs] = useState([
@@ -186,7 +186,7 @@ export default function AlternativeFlights({
     setLocalDepDate(searchParams.departureDate || '');
     setLocalRetDate(searchParams.returnDate || '');
     setLocalStops(searchParams.stops || '0');
-    setLocalTravelClass(searchParams.travelClass || '1');
+    setLocalTravelClass(searchParams.travelClass || 'ALL');
     setLocalAdults(searchParams.passengers?.adults ?? 1);
     setLocalChildren(searchParams.passengers?.children ?? 0);
     setLocalInfants(searchParams.passengers?.infants ?? 0);
@@ -214,7 +214,7 @@ export default function AlternativeFlights({
           children: searchParams.passengers.children,
           infants: searchParams.passengers.infants,
           stops: searchParams.stops || '0',
-          travelClass: searchParams.travelClass || '1'
+          travelClass: searchParams.travelClass || 'ALL'
         });
         const res = await fetchWithTimeout(`${getApiBase()}/api/flights?${queryParams.toString()}`, {
           timeoutMs: 4000,
@@ -758,6 +758,7 @@ export default function AlternativeFlights({
                 }}
                 title="Select travel class (1: Economy, 2: Premium economy, 3: Business, 4: First)"
               >
+                <option value="ALL">All Classes</option>
                 <option value="1">Economy</option>
                 <option value="2">Premium Economy</option>
                 <option value="3">Business Class</option>
