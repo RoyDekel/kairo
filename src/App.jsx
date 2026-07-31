@@ -582,30 +582,6 @@ export default function App() {
                   <div className="user-dropdown-email">{user?.email || 'Signed In'}</div>
                   <button
                     onClick={() => {
-                      setActiveTab('landing');
-                      setIsUserMenuOpen(false);
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '10px 14px',
-                      background: 'transparent',
-                      border: 'none',
-                      borderBottom: '1px solid var(--border-glass)',
-                      color: 'var(--primary)',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      fontSize: '0.85rem',
-                      width: '100%',
-                      textAlign: 'left'
-                    }}
-                  >
-                    <Zap size={14} />
-                    Upgrade to Pro / Pricing
-                  </button>
-                  <button
-                    onClick={() => {
                       signOut();
                       setIsUserMenuOpen(false);
                     }}

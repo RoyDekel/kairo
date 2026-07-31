@@ -13,6 +13,15 @@ import {
   createDefaultPassengers
 } from '../utils/searchDefaults';
 
+function formatDateDMY(dateStr) {
+  if (!dateStr) return '';
+  const parts = String(dateStr).split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+}
+
 export default function AIDestinationExplorer({
   searchParams,
   setSearchParams,
@@ -382,7 +391,7 @@ export default function AIDestinationExplorer({
               Ready to Find Your Next Trip?
             </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', maxWidth: '560px', margin: 0, lineHeight: 1.6 }}>
-              Click <strong>Search Routes</strong> above to scan all available destinations, live concerts, matches, and festivals for your selected dates (<strong>{departureDate}</strong> – <strong>{returnDate}</strong>).
+              Click <strong>Search Routes</strong> above to scan all available destinations, live concerts, matches, and festivals for your selected dates (<strong>{formatDateDMY(departureDate)}</strong> – <strong>{formatDateDMY(returnDate)}</strong>).
             </p>
           </div>
         ) : isLoading ? (
@@ -392,7 +401,7 @@ export default function AIDestinationExplorer({
               Scanning destinations and live events...
             </div>
             <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              Checking real-time live events and flights for {departureDate} – {returnDate}
+              Checking real-time live events and flights for {formatDateDMY(departureDate)} – {formatDateDMY(returnDate)}
             </div>
           </div>
         ) : isBackendUnavailable ? (
@@ -421,7 +430,7 @@ export default function AIDestinationExplorer({
               No Verified Ticketmaster Events Found
             </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', maxWidth: '540px', margin: 0, lineHeight: 1.6 }}>
-              There are currently no verified live Ticketmaster events listed for these travel dates (<strong>{departureDate}</strong> – <strong>{returnDate}</strong>) within your budget of <strong>${maxBudget}</strong>.
+              There are currently no verified live Ticketmaster events listed for these travel dates (<strong>{formatDateDMY(departureDate)}</strong> – <strong>{formatDateDMY(returnDate)}</strong>) within your budget of <strong>${maxBudget}</strong>.
             </p>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
               💡 Tip: Try picking dates closer to upcoming months or adjusting your budget filter!

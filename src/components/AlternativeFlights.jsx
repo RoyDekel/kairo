@@ -42,6 +42,15 @@ const AirlineLogo = ({ flight, fallbackLogo, size = 32 }) => {
   return <span style={{ fontSize: `${size * 0.45}px` }}>{fallbackLogo || '✈️'}</span>;
 };
 
+function formatDateDMY(dateStr) {
+  if (!dateStr) return '';
+  const parts = String(dateStr).split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+}
+
 export default function AlternativeFlights({
   selectedDate,
   setSelectedDate,
@@ -1078,7 +1087,7 @@ export default function AlternativeFlights({
                     Compare on Skyscanner Aggregator
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    Search Skyscanner directly for {bookingStep === 1 ? searchParams.origin : searchParams.destination} → {bookingStep === 1 ? searchParams.destination : searchParams.origin} flights on {bookingStep === 1 ? searchParams.departureDate : searchParams.returnDate}.
+                    Search Skyscanner directly for {bookingStep === 1 ? searchParams.origin : searchParams.destination} → {bookingStep === 1 ? searchParams.destination : searchParams.origin} flights on {formatDateDMY(bookingStep === 1 ? searchParams.departureDate : searchParams.returnDate)}.
                   </div>
                 </div>
               </div>
@@ -1355,7 +1364,7 @@ export default function AlternativeFlights({
                     </div>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <span>Date: {searchParams.departureDate}</span>
+                    <span>Date: {formatDateDMY(searchParams.departureDate)}</span>
                     <span>Duration: {selectedOutbound.duration}</span>
                   </div>
                 </div>
@@ -1380,7 +1389,7 @@ export default function AlternativeFlights({
                       </div>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      <span>Date: {searchParams.returnDate}</span>
+                      <span>Date: {formatDateDMY(searchParams.returnDate)}</span>
                       <span>Duration: {selectedReturn.duration}</span>
                     </div>
                   </div>
