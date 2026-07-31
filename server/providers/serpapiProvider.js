@@ -12,24 +12,24 @@ export class SerpApiProvider extends FlightProvider {
   }
 
   async searchAsync(searchRequest) {
-    const { origin, destination, departureDate, returnDate, passengers, stops } = searchRequest;
+    const { origin, destination, departureDate, returnDate, passengers, stops, travelClass } = searchRequest;
 
     if (!this.apiKey || this.apiKey.trim() === '') {
       throw new Error("SerpAPI key is missing in environment.");
     }
 
-    console.log(`[SerpApiProvider] Querying outbound: ${origin} -> ${destination} on ${departureDate} with stops: ${stops}`);
-    const outboundOffers = await this.fetchSerpApiOffers(origin, destination, departureDate, stops);
+    console.log(`[SerpApiProvider] Querying outbound: ${origin} -> ${destination} on ${departureDate} (stops: ${stops}, travel_class: ${travelClass || '1'})`);
+    const outboundOffers = await this.fetchSerpApiOffers(origin, destination, departureDate, stops, travelClass);
     const outboundFlights = outboundOffers
-      .map(offer => this.mapSerpApiToFlight(offer, 'outbound', passengers))
+      .map(offer => this.mapSerpApiToFlight(offer, 'outbound', passengers, travelClass))
       .filter(Boolean);
 
     let returnFlights = [];
     if (returnDate) {
-      console.log(`[SerpApiProvider] Querying return: ${destination} -> ${origin} on ${returnDate} with stops: ${stops}`);
-      const returnOffers = await this.fetchSerpApiOffers(destination, origin, returnDate, stops);
+      console.log(`[SerpApiProvider] Querying return: ${destination} -> ${origin} on ${returnDate} (stops: ${stops}, travel_class: ${travelClass || '1'})`);
+      const returnOffers = await this.fetchSerpApiOffers(destination, origin, returnDate, stops, travelClass);
       returnFlights = returnOffers
-        .map(offer => this.mapSerpApiToFlight(offer, 'return', passengers))
+        .map(offer => this.mapSerpApiToFlight(offer, 'return', passengers, travelClass))
         .filter(Boolean);
     }
 
@@ -39,13 +39,14 @@ export class SerpApiProvider extends FlightProvider {
     };
   }
 
-  async fetchSerpApiOffers(dep, arr, dateStr, stops) {
+  async fetchSerpApiOffers(dep, arr, dateStr, stops, travelClass = '1') {
     const params = {
       engine: 'google_flights',
       departure_id: dep,
       arrival_id: arr,
       outbound_date: dateStr,
       type: '2', // Explicitly specify One-way flight
+      travel_class: travelClass || '1',
       currency: 'USD',
       hl: 'en',
       api_key: this.apiKey.trim()
@@ -73,7 +74,7 @@ export class SerpApiProvider extends FlightProvider {
     return [...bestFlights, ...otherFlights];
   }
 
-  mapSerpApiToFlight(offer, direction, passengers) {
+  mapSerpApiToFlight(offer, direction, passengers, requestedTravelClass = '1') {
     try {
       const segments = offer.flights || [];
       const firstSegment = segments[0];
@@ -107,7 +108,19 @@ export class SerpApiProvider extends FlightProvider {
       const priceDetails = calculatePassengerCost(priceVal, passengers);
 
       const planeType = firstSegment.airplane || 'Boeing 737 neo';
-      const cabinClass = firstSegment.travel_class || 'Economy';
+      
+      const rawCabin = firstSegment.travel_class || offer.travel_class || requestedTravelClass;
+      let cabinClass = 'Economy';
+      const cabinStr = String(rawCabin).trim().toLowerCase();
+      if (cabinStr === '2' || cabinStr.includes('premium')) {
+        cabinClass = 'Premium Economy';
+      } else if (cabinStr === '3' || cabinStr.includes('business')) {
+        cabinClass = 'Business';
+      } else if (cabinStr === '4' || cabinStr.includes('first')) {
+        cabinClass = 'First';
+      } else {
+        cabinClass = 'Economy';
+      }
 
       const originCode = firstSegment.departure_airport?.id || depTimeStr;
       const destinationCode = lastSegment.arrival_airport?.id || arrTimeStr;

@@ -81,6 +81,7 @@ export default function AlternativeFlights({
   const [localDepDate, setLocalDepDate] = useState(searchParams.departureDate);
   const [localRetDate, setLocalRetDate] = useState(searchParams.returnDate);
   const [localStops, setLocalStops] = useState(searchParams.stops || '0');
+  const [localTravelClass, setLocalTravelClass] = useState(searchParams.travelClass || '1');
 
   // Multi-city legs state
   const [localLegs, setLocalLegs] = useState([
@@ -185,6 +186,7 @@ export default function AlternativeFlights({
     setLocalDepDate(searchParams.departureDate || '');
     setLocalRetDate(searchParams.returnDate || '');
     setLocalStops(searchParams.stops || '0');
+    setLocalTravelClass(searchParams.travelClass || '1');
     setLocalAdults(searchParams.passengers?.adults ?? 1);
     setLocalChildren(searchParams.passengers?.children ?? 0);
     setLocalInfants(searchParams.passengers?.infants ?? 0);
@@ -211,7 +213,8 @@ export default function AlternativeFlights({
           adults: searchParams.passengers.adults,
           children: searchParams.passengers.children,
           infants: searchParams.passengers.infants,
-          stops: searchParams.stops || '0'
+          stops: searchParams.stops || '0',
+          travelClass: searchParams.travelClass || '1'
         });
         const res = await fetchWithTimeout(`${getApiBase()}/api/flights?${queryParams.toString()}`, {
           timeoutMs: 4000,
@@ -330,7 +333,8 @@ export default function AlternativeFlights({
         children: localChildren,
         infants: localInfants
       },
-      stops: localStops
+      stops: localStops,
+      travelClass: localTravelClass
     };
 
     setSearchParams(newParams);
@@ -723,6 +727,42 @@ export default function AlternativeFlights({
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* Travel Class Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label htmlFor="travel-class-select" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Class:
+              </label>
+              <select
+                id="travel-class-select"
+                aria-label="Travel Class"
+                value={localTravelClass}
+                onChange={(e) => setLocalTravelClass(e.target.value)}
+                className="input-field"
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  borderRadius: '6px',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-glass-bright)',
+                  cursor: 'pointer',
+                  appearance: 'none',
+                  WebkitAppearance: 'none',
+                  paddingRight: '26px',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 8px center'
+                }}
+                title="Select travel class (1: Economy, 2: Premium economy, 3: Business, 4: First)"
+              >
+                <option value="1">Economy</option>
+                <option value="2">Premium Economy</option>
+                <option value="3">Business Class</option>
+                <option value="4">First Class</option>
+              </select>
             </div>
 
             {/* Direct flights checkbox */}
@@ -1194,7 +1234,33 @@ export default function AlternativeFlights({
                         </div>
                         <div style={{ overflow: 'hidden' }}>
                           <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{flight.airlineName}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{flight.flightNumber} • {flight.planeType}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                            <span>{flight.flightNumber} • {flight.planeType}</span>
+                            {flight.cabinClass && (
+                              <span
+                                style={{
+                                  fontSize: '0.66rem',
+                                  fontWeight: 700,
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  background: flight.cabinClass === 'Business' || flight.cabinClass === 'First'
+                                    ? 'rgba(168, 85, 247, 0.18)'
+                                    : flight.cabinClass === 'Premium Economy'
+                                    ? 'rgba(14, 165, 233, 0.18)'
+                                    : 'rgba(255, 255, 255, 0.08)',
+                                  color: flight.cabinClass === 'Business' || flight.cabinClass === 'First'
+                                    ? '#c084fc'
+                                    : flight.cabinClass === 'Premium Economy'
+                                    ? '#38bdf8'
+                                    : 'var(--text-secondary)',
+                                  border: '1px solid var(--border-glass)',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                {flight.cabinClass}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 

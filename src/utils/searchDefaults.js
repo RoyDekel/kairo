@@ -44,5 +44,6 @@ export const createDefaultSearchParams = () => ({
   departureDate: DEFAULT_DEPARTURE_DATE,
   returnDate: DEFAULT_RETURN_DATE,
   passengers: createDefaultPassengers(),
-  stops: '0'
+  stops: '0',
+  travelClass: '1'
 });

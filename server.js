@@ -271,7 +271,8 @@ app.get('/api/flights', requireAuth, async (req, res) => {
     adults = '1',
     children = '0',
     infants = '0',
-    stops = '0'
+    stops = '0',
+    travelClass = '1'
   } = req.query;
 
   if (!origin || !destination || !departureDate) {
@@ -288,7 +289,8 @@ app.get('/api/flights', requireAuth, async (req, res) => {
       children: parseInt(children, 10),
       infants: parseInt(infants, 10)
     },
-    stops
+    stops,
+    travelClass
   };
 
   try {
