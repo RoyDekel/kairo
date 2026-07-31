@@ -1,4 +1,4 @@
-import { ArrowRight, Bookmark, CheckCircle } from 'lucide-react';
+import { ArrowRight, Bookmark, CheckCircle, ExternalLink } from 'lucide-react';
 import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
 
 /** Max events shown inline. Beyond this we summarise, to keep the card scannable. */
@@ -166,7 +166,59 @@ export default function DestinationCard({
                 {evt.date ? ` · ${formatEventDate(evt.date)}` : ''}
               </div>
             </div>
-            {evt.priceEstimate && <div className="dest-card-event-price">{evt.priceEstimate}</div>}
+            {evt.url ? (
+              <a
+                href={evt.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  background: 'var(--primary-glow-weak, rgba(2, 132, 199, 0.12))',
+                  color: 'var(--primary, #0284c7)',
+                  border: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  transition: 'all 0.2s ease'
+                }}
+                title="View event & buy tickets"
+              >
+                <span>Tickets</span>
+                <ExternalLink size={12} />
+              </a>
+            ) : (
+              <a
+                href={`https://www.google.com/search?q=${encodeURIComponent(`${evt.title} ${evt.venue} tickets`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  background: 'var(--bg-tertiary, rgba(255, 255, 255, 0.05))',
+                  color: 'var(--text-secondary, #94a3b8)',
+                  border: '1px solid var(--border-glass, rgba(255, 255, 255, 0.1))',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  transition: 'all 0.2s ease'
+                }}
+                title="Search tickets for this event"
+              >
+                <span>Find Tickets</span>
+                <ExternalLink size={12} />
+              </a>
+            )}
           </div>
         ))}
 
