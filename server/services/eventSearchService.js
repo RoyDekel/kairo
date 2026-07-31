@@ -70,6 +70,18 @@ export class EventSearchService {
     }
   }
 
+  /**
+   * True when a provider is actually answering "what is on in this city on these dates".
+   *
+   * Ticketmaster alone is enrichment: it knows about events sold through its channel and
+   * nothing else, so a club-sold football match is invisible to it. Callers need to know
+   * that, because "we found nothing" and "we can only see part of what's on" justify very
+   * different statements to a user.
+   */
+  get hasCoverage() {
+    return !this.usingSimulation && this.providers.some((p) => p.constructor.role === 'coverage');
+  }
+
   /** Resolves an airport code to a queryable location using the shared catalog. */
   static resolveLocation(airportCode) {
     const airport = AIRPORTS[airportCode?.toUpperCase()];

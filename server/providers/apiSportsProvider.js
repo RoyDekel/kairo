@@ -112,6 +112,16 @@ export class ApiSportsProvider extends EventProvider {
   }
 
   isConfigured() {
+    /*
+      An explicit kill switch, separate from the credential.
+
+      While the API-Sports account is suspended the key must stay in place — in .env and in
+      Render — so that reinstatement is a one-variable change rather than a hunt for a
+      credential that was deleted weeks earlier. Removing the key to disable the provider
+      would also be indistinguishable, in the logs, from having lost it.
+    */
+    if (process.env.APISPORTS_DISABLED === '1') return false;
+
     return Boolean(this.apiKey && this.apiKey.trim() !== '');
   }
 

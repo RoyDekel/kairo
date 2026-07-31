@@ -60,6 +60,25 @@ export function buildVerdictEvidence({ flight, insight, departureDate } = {}) {
         headline: `${topEvent.isSoldOut ? 'Sold-out' : 'High-demand'} event on your dates`,
         detail: `"${topEvent.title}" at ${topEvent.venue}${impact ? ` — ${impact}% demand impact` : ''}. Seats into ${flight.destination} get scarce around events like this.`
       });
+    } else if (insight.eventCoverage === 'ticketed-only') {
+      /*
+        We can see ticketed events and nothing else.
+
+        The claim below used to be "No major event competing for seats", pointing 'wait'.
+        That asserts a negative from evidence incapable of showing the positive: European
+        club football is sold by the clubs, so a sold-out derby is invisible through a
+        ticketing channel. The verdict would have argued for waiting precisely when the
+        stadium across town was full.
+
+        So the claim is narrowed to what was actually checked, and the direction drops to
+        neutral — an incomplete look is context, not a reason to wait.
+      */
+      evidence.push({
+        id: 'event-quiet-partial',
+        direction: 'neutral',
+        headline: 'No major ticketed event on your dates',
+        detail: `The biggest listed event is "${topEvent.title}"${impact ? ` (${impact}% impact)` : ''}. Fixtures and shows sold directly by clubs or venues aren't visible right now, so treat this as a partial view.`
+      });
     } else {
       evidence.push({
         id: 'event-quiet',

@@ -69,7 +69,13 @@ app.get('/api/events', requireAuth, async (req, res) => {
   const { destination = 'BCN', startDate, endDate } = req.query;
   try {
     const events = await eventSearchService.getEventsForDestination(destination, startDate, endDate);
-    res.json({ destination, count: events.length, events });
+    res.json({
+      destination,
+      count: events.length,
+      events,
+      // Lets the client avoid asserting "nothing major is on" from partial coverage.
+      coverage: eventSearchService.hasCoverage ? 'full' : 'ticketed-only'
+    });
   } catch (error) {
     console.error("Ticketmaster events endpoint failed:", error);
     res.status(500).json({ error: "Failed to fetch destination event intelligence." });
@@ -292,12 +298,12 @@ app.get('/api/flights', requireAuth, async (req, res) => {
     // Enriched outbound and return flights with Event-Driven Insights
     const outboundWithInsights = (results.outbound || []).map(flight => ({
       ...flight,
-      insights: computeEventDrivenInsights(flight, request, events)
+      insights: computeEventDrivenInsights(flight, request, events, { coverage: eventSearchService.hasCoverage ? 'full' : 'ticketed-only' })
     }));
 
     const returnWithInsights = (results.return || []).map(flight => ({
       ...flight,
-      insights: computeEventDrivenInsights(flight, request, events)
+      insights: computeEventDrivenInsights(flight, request, events, { coverage: eventSearchService.hasCoverage ? 'full' : 'ticketed-only' })
     }));
 
     // Record the cheapest fare so /api/flights/estimates can serve this exact number to

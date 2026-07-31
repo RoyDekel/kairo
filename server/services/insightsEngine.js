@@ -3,7 +3,7 @@
  * Correlates flight fare analytics with Ticketmaster Event Intelligence & Days-to-Departure curves.
  */
 
-export function computeEventDrivenInsights(flight, searchRequest = {}, events = []) {
+export function computeEventDrivenInsights(flight, searchRequest = {}, events = [], { coverage = 'full' } = {}) {
   const currentPrice = flight?.price || 450;
 
   // 1. Calculate Days to Departure (U-shape price curve)
@@ -90,6 +90,17 @@ export function computeEventDrivenInsights(flight, searchRequest = {}, events = 
     topEvent,
     eventImpactScore,
     isHighImpactEvent,
+
+    /*
+      How completely we can see what is on at the destination.
+
+      'full'          a coverage provider answered, so an absence of events means something
+      'ticketed-only' only a ticketing channel answered; anything sold elsewhere is invisible
+
+      The verdict uses this to avoid arguing "nothing is competing for seats" from evidence
+      that could not have shown a competitor in the first place.
+    */
+    eventCoverage: coverage,
     rationalePillars: [
       topEvent ? `Event Surge: "${topEvent.title}" (${topEvent.eventImpactScore}% Impact)` : 'Ticketmaster live event analytics',
       'Historical 90-day fare percentile modeling',
