@@ -83,7 +83,7 @@ export class SimulatedProvider extends FlightProvider {
         : '1 carry-on (8kg) + 1 checked bag (23kg) included.';
 
       return {
-        id: `SIMULATED-${airline.code}-${idx + 100}-${direction}-${dateStr}`,
+        id: `SIMULATED-${originCode}-${destinationCode}-${airline.code}-${idx + 100}-${direction}-${dateStr}`,
         flightNumber: `${airline.code} ${idx + 101 + (direction === 'return' ? 10 : 0)}`,
         airlineCode: airline.code,
         airlineName: airline.name,

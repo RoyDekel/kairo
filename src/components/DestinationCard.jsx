@@ -245,7 +245,14 @@ export default function DestinationCard({
           </button>
 
           <button
-            onClick={() => onToggleWatchlist(rec.outboundFlight)}
+            onClick={() => onToggleWatchlist({
+              ...rec.outboundFlight,
+              origin: rec.originCode,
+              destination: rec.destCode,
+              departureDate: rec.departureDate,
+              returnDate: rec.returnDate,
+              price: rec.roundtripPrice || rec.outboundFlight?.price
+            })}
             className="btn btn-secondary"
             style={{ padding: '9px 16px', fontSize: '0.85rem' }}
             title={isWatched ? 'Remove from watchlist' : 'Save to watchlist'}
