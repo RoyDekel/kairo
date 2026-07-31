@@ -1446,10 +1446,16 @@ h6 {
   header nav {
     display: none !important;
   }
+
+  /* Display Mobile Bottom Dock ONLY on Mobile Screens (< 768px) */
+  .mobile-bottom-nav {
+    display: flex !important;
+  }
 }
 
-/* Mobile Bottom Nav Bar Styling */
+/* Mobile Bottom Nav Bar Styling (Hidden by default on Desktop) */
 .mobile-bottom-nav {
+  display: none;
   position: fixed;
   bottom: 0;
   left: 0;
@@ -1460,7 +1466,6 @@ h6 {
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.15));
   padding-bottom: env(safe-area-inset-bottom, 8px);
-  display: flex;
   justify-content: space-around;
   align-items: center;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
