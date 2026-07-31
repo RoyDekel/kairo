@@ -1517,3 +1517,34 @@ h6 {
     z-index: 9999;
   }
 }
+
+/* Alerts Manager Responsive Layout */
+.alerts-manager-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 24px;
+}
+
+.alerts-log-column {
+  border-left: 1px solid var(--border-glass);
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 340px;
+}
+
+@media (max-width: 768px) {
+  .alerts-manager-grid {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  .alerts-log-column {
+    border-left: none !important;
+    border-top: 1px solid var(--border-glass) !important;
+    padding-left: 0 !important;
+    padding-top: 20px !important;
+    min-height: auto !important;
+  }
+}

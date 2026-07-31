@@ -861,15 +861,6 @@ export default function App() {
           <Bookmark size={18} />
           <span>Saved ({watchlist.length})</span>
         </button>
-
-        <button
-          type="button"
-          className={`mobile-nav-item ${activeTab === 'alerts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('alerts')}
-        >
-          <Bell size={18} />
-          <span>Alerts</span>
-        </button>
       </nav>
 
     </div>

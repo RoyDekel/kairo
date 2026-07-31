@@ -68,11 +68,7 @@ export default function AlertsManager({
         </p>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1.2fr',
-        gap: '20px'
-      }}>
+      <div className="alerts-manager-grid">
         
         {/* CREATE & MANAGE ALERTS LEFT COLUMN */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -226,14 +222,7 @@ export default function AlertsManager({
         </div>
 
         {/* NOTIFICATION LOGS RIGHT COLUMN */}
-        <div style={{
-          borderLeft: '1px solid var(--border-glass)',
-          paddingLeft: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
-          minHeight: '340px'
-        }}>
+        <div className="alerts-log-column">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
               Notifications Log Feed ({notifications.length})
@@ -251,7 +240,7 @@ export default function AlertsManager({
           {/* Log List */}
           <div style={{
             flexGrow: 1,
-            maxHeight: '300px',
+            maxHeight: '340px',
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
@@ -298,7 +287,8 @@ export default function AlertsManager({
                       padding: '10px 12px',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '4px'
+                      gap: '4px',
+                      wordBreak: 'break-word'
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -315,7 +305,7 @@ export default function AlertsManager({
                       </span>
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{log.time}</span>
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', lineHeight: 1.4, wordBreak: 'break-word' }}>
                       <strong>{log.flightNumber}</strong>: {log.message}
                     </div>
                   </div>
