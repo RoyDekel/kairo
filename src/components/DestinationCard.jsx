@@ -14,6 +14,43 @@ function formatEventDate(dateStr) {
   return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
+/** Convert ISO country code or country name to flag emoji */
+function getCountryFlag(countryCode, countryName = '') {
+  if (countryCode && countryCode.length === 2) {
+    const codePoints = countryCode
+      .toUpperCase()
+      .split('')
+      .map((char) => 127397 + char.charCodeAt(0));
+    return String.fromCodePoint(...codePoints);
+  }
+  const name = (countryName || '').toLowerCase();
+  if (name.includes('uk') || name.includes('united kingdom') || name.includes('britain')) return '🇬🇧';
+  if (name.includes('spain')) return '🇪🇸';
+  if (name.includes('france')) return '🇫🇷';
+  if (name.includes('germany')) return '🇩🇪';
+  if (name.includes('italy')) return '🇮🇹';
+  if (name.includes('united states') || name.includes('usa')) return '🇺🇸';
+  if (name.includes('israel')) return '🇮🇱';
+  if (name.includes('japan')) return '🇯🇵';
+  if (name.includes('thailand')) return '🇹🇭';
+  if (name.includes('netherlands')) return '🇳🇱';
+  if (name.includes('poland')) return '🇵🇱';
+  if (name.includes('greece')) return '🇬🇷';
+  if (name.includes('singapore')) return '🇸🇬';
+  if (name.includes('australia')) return '🇦🇺';
+  if (name.includes('austria')) return '🇦🇹';
+  if (name.includes('czech')) return '🇨🇿';
+  if (name.includes('hungary')) return '🇭🇺';
+  if (name.includes('portugal')) return '🇵🇹';
+  if (name.includes('ireland')) return '🇮🇪';
+  if (name.includes('switzerland')) return '🇨🇭';
+  if (name.includes('korea')) return '🇰🇷';
+  if (name.includes('denmark')) return '🇩🇰';
+  if (name.includes('brazil')) return '🇧🇷';
+  if (name.includes('emirates') || name.includes('uae')) return '🇦🇪';
+  return '🌐';
+}
+
 /**
  * A single "When to Go" result.
  */
@@ -46,116 +83,124 @@ export default function DestinationCard({
   return (
     <div className="glass-panel dest-card">
       {/* LEFT: THE FARE DECISION */}
-      <div>
-        <div className="dest-card-headline">
-          <div className="dest-card-avatar flight-destination-icon" aria-hidden="true" title={`${rec.destination.city} landmark`}>
-            <CityLandmarkIcon cityCode={rec.destCode} cityName={rec.destination.city} size={22} />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h3 className="dest-card-city" style={{ margin: 0 }}>{rec.destination.city}</h3>
-              <span
-                style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 800,
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  background: 'rgba(16, 185, 129, 0.14)',
-                  color: '#10b981',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                  whiteSpace: 'nowrap'
-                }}
-                title={`KAIRO match score: ${rec.matchScore} out of 100`}
-              >
-                ★ {rec.matchScore}% match
-              </span>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div>
+          <div className="dest-card-headline">
+            <div className="dest-card-avatar flight-destination-icon" aria-hidden="true" title={`${rec.destination.city} landmark`}>
+              <CityLandmarkIcon cityCode={rec.destCode} cityName={rec.destination.city} size={22} />
             </div>
-            <div className="dest-card-sub" style={{ marginTop: '4px' }}>
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontWeight: 800,
-                  fontSize: '0.72rem',
-                  padding: '2px 7px',
-                  borderRadius: '6px',
-                  background: 'rgba(2, 132, 199, 0.14)',
-                  color: 'var(--primary, #0284c7)',
-                  border: '1px solid rgba(2, 132, 199, 0.3)',
-                  letterSpacing: '0.05em'
-                }}
-              >
-                {rec.destCode}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{rec.destination.country}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h3 className="dest-card-city" style={{ margin: 0 }}>{rec.destination.city}</h3>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    background: 'rgba(16, 185, 129, 0.14)',
+                    color: '#10b981',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={`KAIRO match score: ${rec.matchScore} out of 100`}
+                >
+                  ★ {rec.matchScore}% match
+                </span>
+              </div>
+              <div className="dest-card-sub" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 800,
+                    fontSize: '0.72rem',
+                    padding: '2px 7px',
+                    borderRadius: '6px',
+                    background: 'rgba(2, 132, 199, 0.14)',
+                    color: 'var(--primary, #0284c7)',
+                    border: '1px solid rgba(2, 132, 199, 0.3)',
+                    letterSpacing: '0.05em'
+                  }}
+                >
+                  {rec.destCode}
+                </span>
+                <span style={{ fontSize: '0.86rem', display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--text-secondary)' }}>
+                  <span style={{ fontSize: '1rem', lineHeight: 1 }}>
+                    {getCountryFlag(rec.destination.countryCode, rec.destination.country)}
+                  </span>
+                  <span>{rec.destination.country}</span>
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="dest-card-price-row" style={{ margin: '12px 0 6px 0' }}>
-          <div className="dest-card-price">
-            ${rec.roundtripPrice}
-          </div>
-          {rec.savingsPercent > 0 && (
-            <span className="badge badge-success" style={{ textTransform: 'none', letterSpacing: 0, padding: '4px 10px', fontSize: '0.78rem' }}>
-              {rec.savingsPercent}% below usual
-            </span>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', margin: '6px 0 12px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '12px', borderRight: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-secondary)' }}>
-              <path d="M17 2 L21 6 L17 10"/><path d="M3 6 h18"/><path d="M7 22 L3 18 L7 14"/><path d="M21 18 H3"/>
-            </svg>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Roundtrip</span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '12px', borderRight: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))' }}>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>${rec.averageMarketPrice}</span>
-            <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', fontWeight: 600 }}>usual</span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {isEstimate ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
-                <path d="M3 3 v18 h18"/><path d="M7 15 l4-5 3 3 5-7"/>
-              </svg>
-            ) : (
-              <CheckCircle size={14} style={{ color: 'var(--success)' }} />
+        <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
+          <div className="dest-card-price-row" style={{ margin: '0 0 6px 0' }}>
+            <div className="dest-card-price">
+              ${rec.roundtripPrice}
+            </div>
+            {rec.savingsPercent > 0 && (
+              <span className="badge badge-success" style={{ textTransform: 'none', letterSpacing: 0, padding: '4px 10px', fontSize: '0.78rem' }}>
+                {rec.savingsPercent}% below usual
+              </span>
             )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', margin: '6px 0 12px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '12px', borderRight: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-secondary)' }}>
+                <path d="M17 2 L21 6 L17 10"/><path d="M3 6 h18"/><path d="M7 22 L3 18 L7 14"/><path d="M21 18 H3"/>
+              </svg>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Roundtrip</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '12px', borderRight: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>${rec.averageMarketPrice}</span>
+              <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', fontWeight: 600 }}>usual</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isEstimate ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
+                  <path d="M3 3 v18 h18"/><path d="M7 15 l4-5 3 3 5-7"/>
+                </svg>
+              ) : (
+                <CheckCircle size={14} style={{ color: 'var(--success)' }} />
+              )}
+              <span
+                style={{
+                  fontSize: '0.82rem',
+                  color: isEstimate ? 'var(--text-muted)' : 'var(--success)',
+                  fontWeight: 600
+                }}
+                title={
+                  isEstimate
+                    ? 'Modelled estimate. Track this fare to fetch the live quote.'
+                    : 'Confirmed live fare — matches Search & Compare exactly.'
+                }
+              >
+                {isEstimate ? 'Estimate' : 'Live Fare'}
+              </span>
+            </div>
+          </div>
+
+          <div className="dest-card-verdict">
             <span
-              style={{
-                fontSize: '0.82rem',
-                color: isEstimate ? 'var(--text-muted)' : 'var(--success)',
-                fontWeight: 600
-              }}
+              className={`dest-card-verdict-pill ${isWait ? 'dest-card-verdict-wait' : 'dest-card-verdict-buy'}`}
               title={
                 isEstimate
-                  ? 'Modelled estimate. Track this fare to fetch the live quote.'
-                  : 'Confirmed live fare — matches Search & Compare exactly.'
+                  ? 'Based on the estimated fare. Track this fare for a verdict on the live price.'
+                  : `KAIRO confidence: ${insight.confidenceScore}%`
               }
             >
-              {isEstimate ? 'Estimate' : 'Live Fare'}
+              {isWait ? 'Wait' : 'Buy now'}
             </span>
+            <span className="dest-card-verdict-text">{verdictDetail}</span>
           </div>
-        </div>
-
-        <div className="dest-card-verdict">
-          <span
-            className={`dest-card-verdict-pill ${isWait ? 'dest-card-verdict-wait' : 'dest-card-verdict-buy'}`}
-            title={
-              isEstimate
-                ? 'Based on the estimated fare. Track this fare for a verdict on the live price.'
-                : `KAIRO confidence: ${insight.confidenceScore}%`
-            }
-          >
-            {isWait ? 'Wait' : 'Buy now'}
-          </span>
-          <span className="dest-card-verdict-text">{verdictDetail}</span>
         </div>
       </div>
 
@@ -205,7 +250,7 @@ export default function DestinationCard({
                 )}
               </div>
               <div className="dest-card-event-meta" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
-                <MapPin size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                <MapPin size={12} style={{ color: '#ef4444', flexShrink: 0 }} />
                 <span>{evt.venue}{evt.date ? ` · ${formatEventDate(evt.date)}` : ''}</span>
               </div>
             </div>

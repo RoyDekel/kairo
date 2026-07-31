@@ -832,7 +832,7 @@ h6 {
   gap: 28px;
   padding: 20px 24px;
   border-left: 4px solid var(--primary);
-  align-items: start;
+  align-items: stretch;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
