@@ -3,6 +3,7 @@ import { Sparkles, Compass, WifiOff, Search, AlertTriangle } from 'lucide-react'
 import { AIRPORTS } from '../utils/flightSimulator';
 import { searchAIDestinations, fetchAuthoritativeQuote, DiscoveryUnavailableError } from '../utils/aiDestinationEngine';
 import DestinationCard from './DestinationCard';
+import CustomDatePicker from './CustomDatePicker';
 import { useAuth } from '../contexts/AuthProvider';
 import {
   DEFAULT_ORIGIN,
@@ -235,28 +236,29 @@ export default function AIDestinationExplorer({
           </div>
 
           {/* Departure Date */}
-          <div className="input-group">
-            <label className="input-label">Departure Date</label>
-            <input
-              type="date"
-              value={departureDate}
-              min={getTodayDateString()}
-              onChange={(e) => setDepartureDate(e.target.value)}
-              className="input-field"
-            />
-          </div>
+          <CustomDatePicker
+            label="Departure Date"
+            value={departureDate}
+            onChange={(newDate) => {
+              setDepartureDate(newDate);
+              if (returnDate && newDate > returnDate) {
+                setReturnDate(newDate);
+              }
+            }}
+            minDate={getTodayDateString()}
+            relatedDate={returnDate}
+            isReturnDate={false}
+          />
 
           {/* Return Date */}
-          <div className="input-group">
-            <label className="input-label">Return Date</label>
-            <input
-              type="date"
-              value={returnDate}
-              min={departureDate || getTodayDateString()}
-              onChange={(e) => setReturnDate(e.target.value)}
-              className="input-field"
-            />
-          </div>
+          <CustomDatePicker
+            label="Return Date"
+            value={returnDate}
+            onChange={(newDate) => setReturnDate(newDate)}
+            minDate={departureDate || getTodayDateString()}
+            relatedDate={departureDate}
+            isReturnDate={true}
+          />
 
           {/* Max Budget Slider */}
           <div className="input-group">

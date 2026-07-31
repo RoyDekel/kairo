@@ -4,6 +4,7 @@ import {
   Users, ChevronDown, User, ShieldAlert, ArrowLeftRight
 } from 'lucide-react';
 import { AIRPORTS, AIRLINES, generateFlightsForRoute, getSkyscannerUrl } from '../utils/flightSimulator';
+import CustomDatePicker from './CustomDatePicker';
 import { useAuth } from '../contexts/AuthProvider';
 import { getApiBase, authHeaders, fetchWithTimeout } from '../lib/apiBase';
 
@@ -828,51 +829,32 @@ export default function AlternativeFlights({
               </div>
 
               {/* Departure Date */}
-              <div className="input-group" style={{ flex: '1 1 140px', minWidth: '130px' }}>
-                <label className="input-label">Departure Date</label>
-                <input
-                  type={localDepDate ? "date" : "text"}
-                  placeholder="Departure"
+              <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
+                <CustomDatePicker
+                  label="Departure Date"
                   value={localDepDate}
-                  onFocus={(e) => {
-                    e.target.type = "date";
-                    try {
-                      e.target.showPicker();
-                    } catch (err) { }
-                  }}
-                  onBlur={(e) => {
-                    if (!localDepDate) {
-                      e.target.type = "text";
+                  onChange={(newDate) => {
+                    setLocalDepDate(newDate);
+                    if (localRetDate && newDate > localRetDate) {
+                      setLocalRetDate(newDate);
                     }
                   }}
-                  onChange={(e) => setLocalDepDate(e.target.value)}
-                  className="input-field"
-                  min={getLocalDateString()}
+                  minDate={getLocalDateString()}
+                  relatedDate={localRetDate}
+                  isReturnDate={false}
                 />
               </div>
 
               {/* Return Date - Only rendered for Round Trip */}
               {tripType === 'round-trip' && (
-                <div className="input-group" style={{ flex: '1 1 140px', minWidth: '130px' }}>
-                  <label className="input-label">Return Date</label>
-                  <input
-                    type={localRetDate ? "date" : "text"}
-                    placeholder="Return"
+                <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
+                  <CustomDatePicker
+                    label="Return Date"
                     value={localRetDate}
-                    onFocus={(e) => {
-                      e.target.type = "date";
-                      try {
-                        e.target.showPicker();
-                      } catch (err) { }
-                    }}
-                    onBlur={(e) => {
-                      if (!localRetDate) {
-                        e.target.type = "text";
-                      }
-                    }}
-                    onChange={(e) => setLocalRetDate(e.target.value)}
-                    className="input-field"
-                    min={localDepDate || getLocalDateString()}
+                    onChange={(newDate) => setLocalRetDate(newDate)}
+                    minDate={localDepDate || getLocalDateString()}
+                    relatedDate={localDepDate}
+                    isReturnDate={true}
                   />
                 </div>
               )}
@@ -927,14 +909,12 @@ export default function AlternativeFlights({
                     </select>
                   </div>
 
-                  <div className="input-group" style={{ flex: '1 1 140px', minWidth: '130px' }}>
-                    <label className="input-label">Date</label>
-                    <input
-                      type="date"
+                  <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
+                    <CustomDatePicker
+                      label="Date"
                       value={leg.depDate}
-                      onChange={(e) => updateLeg(leg.id, 'depDate', e.target.value)}
-                      className="input-field"
-                      min={getLocalDateString()}
+                      onChange={(newDate) => updateLeg(leg.id, 'depDate', newDate)}
+                      minDate={getLocalDateString()}
                     />
                   </div>
 

@@ -30,7 +30,7 @@ This skill handles the common scenario where the Node.js dev server on **port 30
    ```powershell
    npm run dev
    ```
-   Run from the project root: `c:\Users\royda\.gemini\antigravity\scratch\flight-tracker`
+   Run from the project root: `c:\Users\royda\.gemini\antigravity\scratch\kairo`
 
 ## Notes
 - Always use `/F` (force) flag with `taskkill` since the process is stuck.
