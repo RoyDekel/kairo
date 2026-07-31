@@ -238,14 +238,16 @@ export default function AlternativeFlights({
             searchParams.destination,
             searchParams.departureDate,
             'outbound',
-            searchParams.passengers
+            searchParams.passengers,
+            searchParams.travelClass
           ));
           setReturnFlights(generateFlightsForRoute(
             searchParams.destination,
             searchParams.origin,
             searchParams.returnDate,
             'return',
-            searchParams.passengers
+            searchParams.passengers,
+            searchParams.travelClass
           ));
         }
       } finally {

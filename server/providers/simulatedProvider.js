@@ -11,15 +11,15 @@ import {
 
 export class SimulatedProvider extends FlightProvider {
   async searchAsync(searchRequest) {
-    const { origin, destination, departureDate, returnDate, passengers } = searchRequest;
+    const { origin, destination, departureDate, returnDate, passengers, travelClass } = searchRequest;
 
-    console.log(`[SimulatedProvider] Generating flights for route: ${origin} -> ${destination}`);
-    const outboundFlights = this.generateFlightsForRoute(origin, destination, departureDate, 'outbound', passengers);
+    console.log(`[SimulatedProvider] Generating flights for route: ${origin} -> ${destination} (travelClass: ${travelClass || 'ALL'})`);
+    const outboundFlights = this.generateFlightsForRoute(origin, destination, departureDate, 'outbound', passengers, travelClass);
     
     let returnFlights = [];
     if (returnDate) {
-      console.log(`[SimulatedProvider] Generating flights for route: ${destination} -> ${origin}`);
-      returnFlights = this.generateFlightsForRoute(destination, origin, returnDate, 'return', passengers);
+      console.log(`[SimulatedProvider] Generating flights for route: ${destination} -> ${origin} (travelClass: ${travelClass || 'ALL'})`);
+      returnFlights = this.generateFlightsForRoute(destination, origin, returnDate, 'return', passengers, travelClass);
     }
 
     return {
@@ -28,7 +28,7 @@ export class SimulatedProvider extends FlightProvider {
     };
   }
 
-  generateFlightsForRoute(originCode, destinationCode, dateStr, direction, passengers) {
+  generateFlightsForRoute(originCode, destinationCode, dateStr, direction, passengers, travelClass = 'ALL') {
     const origin = AIRPORTS[originCode];
     const destination = AIRPORTS[destinationCode];
     
@@ -37,10 +37,10 @@ export class SimulatedProvider extends FlightProvider {
     // Fare model lives in shared/catalog.js so the client fallback simulator agrees.
     const basePrice = getBaseAdultPrice(getDistance(origin.coords, destination.coords), dateStr);
 
-    return this.generateFlightsWithBasePrice(originCode, destinationCode, dateStr, direction, passengers, basePrice);
+    return this.generateFlightsWithBasePrice(originCode, destinationCode, dateStr, direction, passengers, basePrice, travelClass);
   }
 
-  generateFlightsWithBasePrice(originCode, destinationCode, dateStr, direction, passengers, basePrice) {
+  generateFlightsWithBasePrice(originCode, destinationCode, dateStr, direction, passengers, basePrice, travelClass = 'ALL') {
     const origin = AIRPORTS[originCode];
     const destination = AIRPORTS[destinationCode];
     if (!origin || !destination) return [];
@@ -61,10 +61,23 @@ export class SimulatedProvider extends FlightProvider {
       distance > 4000 ? 'Airbus A330-900neo' : 'Boeing 737-900ER'
     ];
 
+    let cabinClassName = 'Economy';
+    let classMultiplier = 1.0;
+    if (travelClass === '2' || String(travelClass).toLowerCase().includes('premium')) {
+      cabinClassName = 'Premium Economy';
+      classMultiplier = 1.6;
+    } else if (travelClass === '3' || String(travelClass).toLowerCase().includes('business')) {
+      cabinClassName = 'Business';
+      classMultiplier = 2.8;
+    } else if (travelClass === '4' || String(travelClass).toLowerCase().includes('first')) {
+      cabinClassName = 'First';
+      classMultiplier = 4.5;
+    }
+
     return availableCarriers.map((airline, idx) => {
       const tierMultiplier = airline.type === 'lowcost' ? 0.85 : 1.15;
       const timeMultiplier = idx === 0 ? 0.95 : idx === 2 ? 1.05 : 1.0;
-      const adultPrice = Math.round(basePrice * tierMultiplier * timeMultiplier);
+      const adultPrice = Math.round(basePrice * tierMultiplier * timeMultiplier * classMultiplier);
       const priceDetails = calculatePassengerCost(adultPrice, passengers);
       
       const [depHours, depMins] = departures[idx].split(':').map(Number);
@@ -93,7 +106,7 @@ export class SimulatedProvider extends FlightProvider {
         durationVal: durationHours,
         price: adultPrice,
         passengerCosts: priceDetails,
-        cabinClass: airline.type === 'lowcost' ? 'Economy' : 'Economy Standard',
+        cabinClass: cabinClassName,
         stops: 'Direct',
         planeType: aircraftModels[idx],
         terminal: `${originCode} T${idx === 2 ? '1' : '3'} → ${destinationCode} T1`,

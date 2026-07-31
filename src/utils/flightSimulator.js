@@ -17,7 +17,7 @@ import {
 export { AIRPORTS, AIRLINES, getDistance, calculatePassengerCost };
 
 // Dynamically generate a set of flights between two airports for a specific date and direction
-export const generateFlightsForRoute = (originCode, destinationCode, dateStr, direction = 'outbound', passengers = { adults: 1 }) => {
+export const generateFlightsForRoute = (originCode, destinationCode, dateStr, direction = 'outbound', passengers = { adults: 1 }, travelClass = 'ALL') => {
   const origin = AIRPORTS[originCode];
   const destination = AIRPORTS[destinationCode];
   
@@ -45,12 +45,25 @@ export const generateFlightsForRoute = (originCode, destinationCode, dateStr, di
     distance > 4000 ? 'Airbus A330-900neo' : 'Boeing 737-900ER'
   ];
 
+  let cabinClassName = 'Economy';
+  let classMultiplier = 1.0;
+  if (travelClass === '2' || String(travelClass).toLowerCase().includes('premium')) {
+    cabinClassName = 'Premium Economy';
+    classMultiplier = 1.6;
+  } else if (travelClass === '3' || String(travelClass).toLowerCase().includes('business')) {
+    cabinClassName = 'Business';
+    classMultiplier = 2.8;
+  } else if (travelClass === '4' || String(travelClass).toLowerCase().includes('first')) {
+    cabinClassName = 'First';
+    classMultiplier = 4.5;
+  }
+
   return availableCarriers.map((airline, idx) => {
     // Calculate randomized offset for departure slot and airline tier
     const tierMultiplier = airline.type === 'lowcost' ? 0.85 : 1.15;
     const timeMultiplier = idx === 0 ? 0.95 : idx === 2 ? 1.05 : 1.0; // Early/late hours are cheaper
     
-    const adultPrice = Math.round(basePrice * tierMultiplier * timeMultiplier);
+    const adultPrice = Math.round(basePrice * tierMultiplier * timeMultiplier * classMultiplier);
     
     // Compute total structure pricing
     const priceDetails = calculatePassengerCost(adultPrice, passengers);
@@ -84,7 +97,7 @@ export const generateFlightsForRoute = (originCode, destinationCode, dateStr, di
       durationVal: durationHours,
       price: adultPrice, // adult base price
       passengerCosts: priceDetails, // Breakdown and total cost
-      cabinClass: airline.type === 'lowcost' ? 'Economy' : 'Economy Standard',
+      cabinClass: cabinClassName,
       stops: 'Direct',
       planeType: aircraftModels[idx],
       terminal: `${originCode} T${idx === 2 ? '1' : '3'} → ${destinationCode} T1`,
