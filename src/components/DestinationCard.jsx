@@ -75,33 +75,42 @@ export default function DestinationCard({
           )}
         </div>
 
-        <div className="dest-card-price-meta">
-          <span>roundtrip</span>
-          <span aria-hidden="true">·</span>
-          <span>usually ${rec.averageMarketPrice}</span>
-          <span aria-hidden="true">·</span>
-          {/*
-            Price provenance: 'live' is the same real provider quote Search & Compare
-            shows; 'estimate' is modelled, because pricing every destination against the
-            paid provider on each scan isn't affordable.
-          */}
-          <span
-            style={{
-              color: isEstimate ? 'var(--text-muted)' : 'var(--success)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '3px',
-              fontWeight: 600
-            }}
-            title={
-              isEstimate
-                ? 'Modelled estimate. Track this fare to fetch the live quote.'
-                : 'Confirmed live fare — matches Search & Compare exactly.'
-            }
-          >
-            {!isEstimate && <CheckCircle size={10} />}
-            {isEstimate ? 'estimate' : 'live fare'}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', margin: '6px 0 12px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '12px', borderRight: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-secondary)' }}>
+              <path d="M17 2 L21 6 L17 10"/><path d="M3 6 h18"/><path d="M7 22 L3 18 L7 14"/><path d="M21 18 H3"/>
+            </svg>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Roundtrip</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '12px', borderRight: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>${rec.averageMarketPrice}</span>
+            <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', fontWeight: 600 }}>usual</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {isEstimate ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
+                <path d="M3 3 v18 h18"/><path d="M7 15 l4-5 3 3 5-7"/>
+              </svg>
+            ) : (
+              <CheckCircle size={14} style={{ color: 'var(--success)' }} />
+            )}
+            <span
+              style={{
+                fontSize: '0.82rem',
+                color: isEstimate ? 'var(--text-muted)' : 'var(--success)',
+                fontWeight: 600
+              }}
+              title={
+                isEstimate
+                  ? 'Modelled estimate. Track this fare to fetch the live quote.'
+                  : 'Confirmed live fare — matches Search & Compare exactly.'
+              }
+            >
+              {isEstimate ? 'Estimate' : 'Live Fare'}
+            </span>
+          </div>
         </div>
 
         <div className="dest-card-verdict">
