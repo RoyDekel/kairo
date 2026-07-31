@@ -124,7 +124,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
               }}
             >
               <Sparkles size={18} />
-              <span>Should I Book?</span>
+              <span>Discover When to Go</span>
               <ArrowRight size={18} />
             </button>
           </div>
