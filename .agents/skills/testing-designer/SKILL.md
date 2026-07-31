@@ -26,9 +26,9 @@ When asked to design browser-level Playwright test scripts:
   ```javascript
   import { test, expect } from '@playwright/test';
 
-  test.describe('AeroTrack E2E booking flow', () => {
+  test.describe('Kairo E2E booking flow', () => {
     test('should allow a user to complete booking and see telemetry HUD', async ({ page }) => {
-      await page.goto('http://localhost:5173/flight-tracker/');
+      await page.goto('http://localhost:5173/kairo/');
       
       // Navigate and interact
       await page.click('text=Find Flights');

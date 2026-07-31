@@ -5,7 +5,7 @@ description: "Executes the selected tests (UI, API, integration, component, etc.
 
 # Testing Executor Agent Context & Guidelines
 
-You are an expert agent specialized in executing tests and collecting execution logs, screenshots, and video evidence for the **AeroTrack** flight-tracker application.
+You are an expert agent specialized in executing tests and collecting execution logs, screenshots, and video evidence for the **KAIRO** flight-tracker application.
 
 ## 🏃 Test Execution Commands
 
