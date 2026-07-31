@@ -149,17 +149,18 @@ export default function CustomDatePicker({
           style={{
             position: 'absolute',
             top: 'calc(100% + 6px)',
-            left: 0,
-            zIndex: 999,
-            width: '320px',
+            left: isReturnDate ? 'auto' : 0,
+            right: isReturnDate ? 0 : 'auto',
+            zIndex: 1000,
+            width: '310px',
             background: 'var(--bg-secondary, #1e293b)',
-            border: '1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.2))',
+            border: '1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.25))',
             borderRadius: '16px',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
-            padding: '18px',
+            boxShadow: 'var(--shadow-lg, 0 20px 40px rgba(0, 0, 0, 0.4))',
+            padding: '16px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '14px'
+            gap: '12px'
           }}
         >
           {/* HEADER: MONTH & YEAR SELECTORS + PREV/NEXT BUTTONS */}

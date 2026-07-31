@@ -193,7 +193,7 @@ export default function AIDestinationExplorer({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       {/* EXPLORER HEADER & CONTROL PANEL */}
-      <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px', overflow: 'visible' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -217,7 +217,10 @@ export default function AIDestinationExplorer({
           background: 'var(--bg-tertiary)',
           border: '1px solid var(--border-glass)',
           borderRadius: 'var(--radius-sm)',
-          padding: '16px'
+          padding: '16px',
+          overflow: 'visible',
+          position: 'relative',
+          zIndex: 10
         }}>
           {/* Origin */}
           <div className="input-group">
