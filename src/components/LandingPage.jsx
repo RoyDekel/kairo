@@ -269,7 +269,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             <div style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '8px' }}>Step 1</div>
             <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>Search or Pick Dates</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              Know your route? Use <strong>Search &amp; Compare</strong>. Only know your dates? <strong>Where to Go</strong> pairs them with live concerts, matches, and festivals worldwide.
+              Know your route? Use <strong>Search &amp; Compare</strong>. Only know your dates? <strong>When to Go</strong> pairs them with live concerts, matches, and festivals worldwide.
             </p>
           </div>
 

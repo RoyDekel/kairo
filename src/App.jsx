@@ -119,7 +119,7 @@ export default function App() {
         time: '12:00 PM',
         flightNumber: 'W6 5122',
         type: 'system',
-        message: 'KAIRO AI engine initialized. Start at "Where to Go" to discover destinations, or "Search & Compare" if you already know your route.'
+        message: 'KAIRO AI engine initialized. Start at "When to Go" to discover destinations, or "Search & Compare" if you already know your route.'
       }
     ];
   });
@@ -499,7 +499,7 @@ export default function App() {
             engine (priceConfidenceEngine) actually renders its BUY NOW / WAIT verdict.
           */}
           {[
-            { id: 'ai-explorer', label: 'Where to Go' },
+            { id: 'ai-explorer', label: 'When to Go' },
             { id: 'alternative', label: 'Search & Compare' },
             { id: 'dashboard', label: 'Should I Book?' },
             { id: 'watchlist', label: 'Watchlist' },

@@ -196,7 +196,7 @@ export default function AIDestinationExplorer({
           <div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Compass size={22} style={{ color: 'var(--primary)' }} />
-              Where to Go
+              When to Go
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
               Got dates but no destination? KAIRO scans every route from your origin and pairs the cheapest fares with live concerts, matches, and festivals.
