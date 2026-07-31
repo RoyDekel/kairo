@@ -138,23 +138,23 @@ export default function AlternativeFlights({
   const [outboundFlights, setOutboundFlights] = useState(() =>
     searchParams.destination
       ? generateFlightsForRoute(
-          searchParams.origin,
-          searchParams.destination,
-          searchParams.departureDate,
-          'outbound',
-          searchParams.passengers
-        )
+        searchParams.origin,
+        searchParams.destination,
+        searchParams.departureDate,
+        'outbound',
+        searchParams.passengers
+      )
       : []
   );
   const [returnFlights, setReturnFlights] = useState(() =>
     searchParams.destination
       ? generateFlightsForRoute(
-          searchParams.destination,
-          searchParams.origin,
-          searchParams.returnDate,
-          'return',
-          searchParams.passengers
-        )
+        searchParams.destination,
+        searchParams.origin,
+        searchParams.returnDate,
+        'return',
+        searchParams.passengers
+      )
       : []
   );
   const [isLoading, setIsLoading] = useState(false);
@@ -165,7 +165,7 @@ export default function AlternativeFlights({
   }, [bookingStep, searchParams, filterCarrier, sortKey]);
 
   // Re-hydrate the search form whenever shared state changes underneath it (for example
-  // after "Where to Go" hands off a destination). The form intentionally keeps local
+  // after "Whento Go" hands off a destination). The form intentionally keeps local
   // draft state so edits aren't committed until Search is pressed — this effect is what
   // stops that draft from going stale relative to the rest of the app.
   useEffect(() => {
@@ -211,7 +211,7 @@ export default function AlternativeFlights({
         if (!res.ok) {
           throw new Error(`Server returned status ${res.status}`);
         }
-        
+
         const data = await res.json();
         if (active) {
           setOutboundFlights(data.outbound || []);
@@ -243,7 +243,7 @@ export default function AlternativeFlights({
     };
 
     fetchFlights();
-    
+
     return () => {
       active = false;
     };
@@ -706,7 +706,7 @@ export default function AlternativeFlights({
                     e.target.type = "date";
                     try {
                       e.target.showPicker();
-                    } catch (err) {}
+                    } catch (err) { }
                   }}
                   onBlur={(e) => {
                     if (!localDepDate) {
@@ -731,7 +731,7 @@ export default function AlternativeFlights({
                       e.target.type = "date";
                       try {
                         e.target.showPicker();
-                      } catch (err) {}
+                      } catch (err) { }
                     }}
                     onBlur={(e) => {
                       if (!localRetDate) {
@@ -875,15 +875,15 @@ export default function AlternativeFlights({
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', padding: '12px 16px' }}>
           {(tripType === 'one-way'
             ? [
-                { step: 1, label: 'Select Flight' },
-                { step: 2, label: 'Confirm Flight' }
-              ]
+              { step: 1, label: 'Select Flight' },
+              { step: 2, label: 'Confirm Flight' }
+            ]
             : tripType === 'multi-city'
-            ? [
+              ? [
                 ...localLegs.map((leg, idx) => ({ step: idx + 1, label: `Flight ${idx + 1}` })),
                 { step: localLegs.length + 1, label: 'Confirm Package' }
               ]
-            : [
+              : [
                 { step: 1, label: 'Select Outbound' },
                 { step: 2, label: 'Select Return' },
                 { step: 3, label: 'Confirm Bundle' }
@@ -1203,159 +1203,159 @@ export default function AlternativeFlights({
         {/* STEP CONFIRMATION FRAME (Roundtrip / One-Way) */}
         {((tripType === 'round-trip' && bookingStep === 3 && selectedOutbound && selectedReturn) ||
           (tripType === 'one-way' && bookingStep === 2 && selectedOutbound)) && (
-          <div className="glass-panel animate-fade-in" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+            <div className="glass-panel animate-fade-in" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
-            {/* Header info */}
-            <div style={{ textAlign: 'center' }}>
-              <span className="badge badge-success" style={{ padding: '4px 12px', fontSize: '0.75rem', marginBottom: '8px' }}>
-                {tripType === 'one-way' ? 'One-Way Configured' : 'Roundtrip Configured'}
-              </span>
-              <h4 style={{ fontSize: '1.4rem', fontWeight: 800 }}>
-                {tripType === 'one-way' ? 'Confirm Your One-Way Flight' : 'Confirm Your Roundtrip Bundle'}
-              </h4>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Review details and activate telemetry HUD maps
-              </p>
-            </div>
-
-            {/* Grid display outbound / return side-by-side */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: tripType === 'one-way' ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: '20px'
-            }}>
-              {/* Outbound Ticket Card */}
-              <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase' }}>Outbound Leg</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedOutbound.airlineName}</span>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedOutbound.flightNumber}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '4px' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedOutbound.departureTime}</div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedOutbound.origin}</div>
-                  </div>
-                  <ArrowRight size={14} style={{ color: 'var(--text-muted)' }} />
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedOutbound.arrivalTime}</div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedOutbound.destination}</div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  <span>Date: {searchParams.departureDate}</span>
-                  <span>Duration: {selectedOutbound.duration}</span>
-                </div>
+              {/* Header info */}
+              <div style={{ textAlign: 'center' }}>
+                <span className="badge badge-success" style={{ padding: '4px 12px', fontSize: '0.75rem', marginBottom: '8px' }}>
+                  {tripType === 'one-way' ? 'One-Way Configured' : 'Roundtrip Configured'}
+                </span>
+                <h4 style={{ fontSize: '1.4rem', fontWeight: 800 }}>
+                  {tripType === 'one-way' ? 'Confirm Your One-Way Flight' : 'Confirm Your Roundtrip Bundle'}
+                </h4>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  Review details and activate telemetry HUD maps
+                </p>
               </div>
 
-              {/* Return Ticket Card (Roundtrip only) */}
-              {tripType === 'round-trip' && selectedReturn && (
+              {/* Grid display outbound / return side-by-side */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: tripType === 'one-way' ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '20px'
+              }}>
+                {/* Outbound Ticket Card */}
                 <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase' }}>Return Leg</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase' }}>Outbound Leg</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedReturn.airlineName}</span>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedReturn.flightNumber}</span>
+                    <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedOutbound.airlineName}</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedOutbound.flightNumber}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '4px' }}>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedReturn.departureTime}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedReturn.origin}</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedOutbound.departureTime}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedOutbound.origin}</div>
                     </div>
                     <ArrowRight size={14} style={{ color: 'var(--text-muted)' }} />
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedReturn.arrivalTime}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedReturn.destination}</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedOutbound.arrivalTime}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedOutbound.destination}</div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <span>Date: {searchParams.returnDate}</span>
-                    <span>Duration: {selectedReturn.duration}</span>
+                    <span>Date: {searchParams.departureDate}</span>
+                    <span>Duration: {selectedOutbound.duration}</span>
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* Detailed passenger cost breakdown card */}
-            <div style={{
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-glass-bright)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '20px 24px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px'
-            }}>
-              <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>Passenger Pricing Details</div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                {/* Adults */}
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>
-                    Adults ({searchParams.passengers.adults} × ${selectedOutbound.price}{selectedReturn ? ` + $${selectedReturn.price}` : ''})
-                  </span>
-                  <span style={{ color: '#fff', fontWeight: 600 }}>
-                    ${searchParams.passengers.adults * (selectedOutbound.price + (selectedReturn ? selectedReturn.price : 0))}
-                  </span>
-                </div>
-
-                {/* Children */}
-                {searchParams.passengers.children > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Children ({searchParams.passengers.children})</span>
-                    <span style={{ color: '#fff', fontWeight: 600 }}>
-                      ${selectedOutbound.passengerCosts.children + (selectedReturn ? selectedReturn.passengerCosts.children : 0)}
-                    </span>
-                  </div>
-                )}
-
-                {/* Infants */}
-                {searchParams.passengers.infants > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Infants ({searchParams.passengers.infants})</span>
-                    <span style={{ color: '#fff', fontWeight: 600 }}>
-                      ${selectedOutbound.passengerCosts.infants + (selectedReturn ? selectedReturn.passengerCosts.infants : 0)}
-                    </span>
+                {/* Return Ticket Card (Roundtrip only) */}
+                {tripType === 'round-trip' && selectedReturn && (
+                  <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase' }}>Return Leg</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedReturn.airlineName}</span>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedReturn.flightNumber}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '4px' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedReturn.departureTime}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedReturn.origin}</div>
+                      </div>
+                      <ArrowRight size={14} style={{ color: 'var(--text-muted)' }} />
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedReturn.arrivalTime}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedReturn.destination}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <span>Date: {searchParams.returnDate}</span>
+                      <span>Duration: {selectedReturn.duration}</span>
+                    </div>
                   </div>
                 )}
               </div>
 
-              <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '10px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Total Fare:</span>
-                <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', filter: 'drop-shadow(0 0 6px var(--primary-glow-weak))' }}>
-                  ${selectedOutbound.passengerCosts.total + (selectedReturn ? selectedReturn.passengerCosts.total : 0)}
-                </span>
+              {/* Detailed passenger cost breakdown card */}
+              <div style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-glass-bright)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '20px 24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>Passenger Pricing Details</div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  {/* Adults */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>
+                      Adults ({searchParams.passengers.adults} × ${selectedOutbound.price}{selectedReturn ? ` + $${selectedReturn.price}` : ''})
+                    </span>
+                    <span style={{ color: '#fff', fontWeight: 600 }}>
+                      ${searchParams.passengers.adults * (selectedOutbound.price + (selectedReturn ? selectedReturn.price : 0))}
+                    </span>
+                  </div>
+
+                  {/* Children */}
+                  {searchParams.passengers.children > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Children ({searchParams.passengers.children})</span>
+                      <span style={{ color: '#fff', fontWeight: 600 }}>
+                        ${selectedOutbound.passengerCosts.children + (selectedReturn ? selectedReturn.passengerCosts.children : 0)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Infants */}
+                  {searchParams.passengers.infants > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Infants ({searchParams.passengers.infants})</span>
+                      <span style={{ color: '#fff', fontWeight: 600 }}>
+                        ${selectedOutbound.passengerCosts.infants + (selectedReturn ? selectedReturn.passengerCosts.infants : 0)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '10px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Total Fare:</span>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', filter: 'drop-shadow(0 0 6px var(--primary-glow-weak))' }}>
+                    ${selectedOutbound.passengerCosts.total + (selectedReturn ? selectedReturn.passengerCosts.total : 0)}
+                  </span>
+                </div>
               </div>
+
+              {/* Action Buttons Row */}
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '8px' }}>
+                <button
+                  onClick={() => {
+                    if (tripType === 'one-way') {
+                      setSelectedOutbound(null);
+                      setBookingStep(1);
+                    } else {
+                      setSelectedReturn(null);
+                      setBookingStep(2);
+                    }
+                  }}
+                  className="btn btn-secondary"
+                  style={{ minWidth: '150px' }}
+                >
+                  Go Back
+                </button>
+
+                <button
+                  onClick={handleConfirmBundle}
+                  className="btn btn-primary"
+                  style={{ minWidth: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  <Check size={16} /> {tripType === 'one-way' ? 'Track One-Way Flight' : 'Track Roundtrip Bundle'}
+                </button>
+              </div>
+
             </div>
-
-            {/* Action Buttons Row */}
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '8px' }}>
-              <button
-                onClick={() => {
-                  if (tripType === 'one-way') {
-                    setSelectedOutbound(null);
-                    setBookingStep(1);
-                  } else {
-                    setSelectedReturn(null);
-                    setBookingStep(2);
-                  }
-                }}
-                className="btn btn-secondary"
-                style={{ minWidth: '150px' }}
-              >
-                Go Back
-              </button>
-
-              <button
-                onClick={handleConfirmBundle}
-                className="btn btn-primary"
-                style={{ minWidth: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-              >
-                <Check size={16} /> {tripType === 'one-way' ? 'Track One-Way Flight' : 'Track Roundtrip Bundle'}
-              </button>
-            </div>
-
-          </div>
-        )}
+          )}
 
       </div>
 

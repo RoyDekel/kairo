@@ -110,6 +110,63 @@ export class TicketmasterProvider extends EventProvider {
     }
   }
 
+  /** Formats classification hierarchy into normalized category and user-facing categoryLabel */
+  parseTicketmasterCategory(evt) {
+    const classification = evt.classifications?.[0];
+    const segment = classification?.segment?.name?.toLowerCase() || '';
+    const genre = classification?.genre?.name?.toLowerCase() || '';
+    const subGenre = classification?.subGenre?.name?.toLowerCase() || '';
+    const title = (evt.name || '').toLowerCase();
+
+    // Sports & Matches
+    if (segment.includes('sport') || genre.includes('sport') || title.includes(' vs') || title.includes('derby')) {
+      if (genre.includes('soccer') || genre.includes('football') || title.includes('fc ') || title.includes(' football')) {
+        return { category: 'sports', categoryLabel: 'Football ⚽' };
+      }
+      if (genre.includes('basket') || subGenre.includes('nba')) {
+        return { category: 'sports', categoryLabel: 'Basketball 🏀' };
+      }
+      if (genre.includes('tennis')) {
+        return { category: 'sports', categoryLabel: 'Tennis 🎾' };
+      }
+      if (genre.includes('racing') || genre.includes('motorsport') || genre.includes('formula') || genre.includes('f1')) {
+        return { category: 'sports', categoryLabel: 'Motorsport 🏎️' };
+      }
+      return { category: 'sports', categoryLabel: 'Sports 🏆' };
+    }
+
+    // Comedy
+    if (genre.includes('comedy') || subGenre.includes('comedy') || title.includes('comedy') || title.includes('stand-up')) {
+      return { category: 'culture', categoryLabel: 'Comedy 🎤' };
+    }
+
+    // Theatre, Musicals & Performing Arts
+    if (segment.includes('art') || segment.includes('theatre') || genre.includes('theatre') || genre.includes('musical') || genre.includes('ballet') || genre.includes('dance')) {
+      if (genre.includes('musical') || subGenre.includes('musical')) {
+        return { category: 'culture', categoryLabel: 'Musical 🎭' };
+      }
+      return { category: 'culture', categoryLabel: 'Arts & Theatre 🎭' };
+    }
+
+    // Festivals
+    if (genre.includes('festival') || subGenre.includes('festival') || title.includes('festival') || title.includes('fest')) {
+      return { category: 'festivals', categoryLabel: 'Festival 🎪' };
+    }
+
+    // Music Concerts
+    if (segment.includes('music') || genre.includes('music') || genre.includes('rock') || genre.includes('pop') || genre.includes('hip-hop') || genre.includes('electronic') || genre.includes('metal') || genre.includes('jazz')) {
+      return { category: 'music', categoryLabel: 'Music 🎵' };
+    }
+
+    // Film & Cinema
+    if (segment.includes('film') || genre.includes('film') || genre.includes('cinema')) {
+      return { category: 'culture', categoryLabel: 'Film 🎬' };
+    }
+
+    // Default Fallback
+    return { category: 'culture', categoryLabel: 'Event 🎟️' };
+  }
+
   /** Maps the Discovery payload onto the normalized shape, deduplicating by title. */
   format(rawEvents, airportCode) {
     const seenTitles = new Set();
@@ -125,12 +182,7 @@ export class TicketmasterProvider extends EventProvider {
 
       const idx = events.length;
       const venue = evt._embedded?.venues?.[0]?.name || 'Major Stadium / Arena';
-      const category = evt.classifications?.[0]?.segment?.name?.toLowerCase() || 'entertainment';
-      const categoryLabel = category.includes('music')
-        ? 'Music 🎵'
-        : category.includes('sport')
-        ? 'Sports ⚽'
-        : 'Event 🎟️';
+      const { category, categoryLabel } = this.parseTicketmasterCategory(evt);
 
       const priceMin = evt.priceRanges?.[0]?.min || 55;
       const priceMax = evt.priceRanges?.[0]?.max || 220;

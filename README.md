@@ -10,7 +10,7 @@
 * **CartoDB Dark Matter Visualization**: Powered by Leaflet.js (`react-leaflet`), featuring dynamic geodesic flight paths, animated aircraft icons, and auto-bounding viewport adjustment (`fitBounds`).
 * **Real-Time Telemetry Simulator HUD**: Live flight status tracker (Scheduled → Boarding → Takeoff → Cruising → Descending → Landed) with adjustable simulation speeds (1x, 5x, 20x) and interactive flight phase controls.
 
-### 🤖 Event-Driven AI Intelligence ("Where to Go" Explorer)
+### 🤖 Event-Driven AI Intelligence ("When to Go" Explorer)
 * **Live Event Integration**: Aggregates live sports fixtures (API-Sports) and entertainment/concerts (Ticketmaster) to identify high-demand event occasions.
 * **Event-Driven Price Insights**: Highlights pricing pressure indicators, match schedules, and event impact badges for popular destinations.
 * **Smart Destination Discovery**: Batch-prices up to 32 destinations concurrently via server-side fan-out, aligning fare estimates with cached live quotes.

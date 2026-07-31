@@ -9,36 +9,39 @@
   --bg-glass-hover: rgba(248, 250, 252, 0.9);
   --border-glass: rgba(15, 23, 42, 0.08);
   --border-glass-bright: rgba(15, 23, 42, 0.15);
-  
-  --primary: #0284c7;        /* Sky Blue */
+
+  --primary: #0284c7;
+  /* Sky Blue */
   --primary-glow: rgba(2, 132, 199, 0.25);
   --primary-glow-weak: rgba(2, 132, 199, 0.08);
-  --secondary: #2563eb;      /* Royal Blue */
-  --accent: #7c3aed;         /* Violet */
+  --secondary: #2563eb;
+  /* Royal Blue */
+  --accent: #7c3aed;
+  /* Violet */
   --accent-glow: rgba(124, 58, 237, 0.2);
-  
+
   --success: #10b981;
   --success-glow: rgba(16, 185, 129, 0.15);
   --warning: #f59e0b;
   --warning-glow: rgba(245, 158, 11, 0.15);
   --danger: #ef4444;
   --danger-glow: rgba(239, 68, 68, 0.15);
-  
+
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #94a3b8;
   --text-on-primary: #ffffff;
-  
+
   --font-sans: 'Public Sans', system-ui, -apple-system, sans-serif;
   --font-heading: 'Outfit', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
   --font-num: var(--font-mono);
-  
+
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.12);
   --shadow-glow: 0 0 20px var(--primary-glow);
-  
+
   --radius-sm: 8px;
   --radius-md: 16px;
   --radius-lg: 24px;
@@ -54,26 +57,32 @@
   --bg-glass-hover: rgba(27, 35, 54, 0.85);
   --border-glass: rgba(255, 255, 255, 0.08);
   --border-glass-bright: rgba(255, 255, 255, 0.15);
-  
-  --primary: #00f2fe;        /* Neon Cyan */
+
+  --primary: #00f2fe;
+  /* Neon Cyan */
   --primary-glow: rgba(0, 242, 254, 0.35);
   --primary-glow-weak: rgba(0, 242, 254, 0.1);
-  --secondary: #4facfe;      /* Vivid Blue */
-  --accent: #a18cd1;         /* Muted Purple */
+  --secondary: #4facfe;
+  /* Vivid Blue */
+  --accent: #a18cd1;
+  /* Muted Purple */
   --accent-glow: rgba(161, 140, 209, 0.3);
-  
-  --success: #059669;        /* Emerald */
+
+  --success: #059669;
+  /* Emerald */
   --success-glow: rgba(5, 150, 105, 0.2);
-  --warning: #d97706;        /* Amber */
+  --warning: #d97706;
+  /* Amber */
   --warning-glow: rgba(217, 119, 6, 0.2);
-  --danger: #dc2626;         /* Crimson */
+  --danger: #dc2626;
+  /* Crimson */
   --danger-glow: rgba(220, 38, 38, 0.2);
-  
+
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
   --text-on-primary: #0b0f19;
-  
+
   --shadow-sm: 0 2px 8px -1px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
@@ -98,11 +107,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-input, select, button, textarea {
+input,
+select,
+button,
+textarea {
   font-variant-numeric: tabular-nums lining-nums;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-heading);
   font-variant-numeric: tabular-nums lining-nums;
   letter-spacing: -0.03em;
@@ -127,13 +144,16 @@ pre {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--bg-primary);
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--bg-tertiary);
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
@@ -247,7 +267,12 @@ pre {
 }
 
 /* Typography styles */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-heading);
   color: var(--text-primary);
   font-weight: 700;
@@ -382,10 +407,13 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Mini Animations */
 @keyframes pulse-glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 8px var(--primary-glow-weak);
     transform: scale(1);
   }
+
   50% {
     box-shadow: 0 0 20px var(--primary-glow);
     transform: scale(1.05);
@@ -401,6 +429,7 @@ h1, h2, h3, h4, h5, h6 {
     opacity: 0;
     transform: translateY(15px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -528,7 +557,7 @@ h1, h2, h3, h4, h5, h6 {
   transform: rotate(45deg);
 }
 
-.auth-logo-icon > * {
+.auth-logo-icon>* {
   transform: rotate(-45deg);
 }
 
@@ -655,7 +684,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .auth-spinner {
@@ -778,6 +809,7 @@ h1, h2, h3, h4, h5, h6 {
     transform: translateX(-100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -789,7 +821,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ============================================================
-   DESTINATION CARD ("Where to Go" results)
+   DESTINATION CARD ("When to Go" results)
    Compact two-column layout: the decision (left) and what's on
    while you're there (right). Uses CSS classes rather than inline
    styles because the column collapse needs a media query.
@@ -815,6 +847,7 @@ h1, h2, h3, h4, h5, h6 {
     grid-template-columns: 1fr;
     gap: 20px;
   }
+
   .dest-card-events {
     border-top: 1px solid var(--border-glass);
     padding-top: 16px;
@@ -1012,9 +1045,17 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-.verdict-main { grid-area: main; }
-.verdict-stats { grid-area: stats; }
-.verdict-rationale { grid-area: rationale; }
+.verdict-main {
+  grid-area: main;
+}
+
+.verdict-stats {
+  grid-area: stats;
+}
+
+.verdict-rationale {
+  grid-area: rationale;
+}
 
 .verdict-label {
   display: flex;
@@ -1090,9 +1131,14 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--primary);
 }
 
-.details-toggle { width: 100%; justify-content: space-between; }
+.details-toggle {
+  width: 100%;
+  justify-content: space-between;
+}
 
-.verdict-rationale-body { padding-top: 12px; }
+.verdict-rationale-body {
+  padding-top: 12px;
+}
 
 /* Evidence list — concrete reasons, colour-coded by which way each one argues. */
 .evidence-list {
@@ -1112,9 +1158,17 @@ h1, h2, h3, h4, h5, h6 {
   border-left-width: 3px;
 }
 
-.evidence-buy { border-left-color: var(--success); }
-.evidence-wait { border-left-color: var(--warning); }
-.evidence-neutral { border-left-color: var(--text-muted); }
+.evidence-buy {
+  border-left-color: var(--success);
+}
+
+.evidence-wait {
+  border-left-color: var(--warning);
+}
+
+.evidence-neutral {
+  border-left-color: var(--text-muted);
+}
 
 .evidence-icon {
   flex-shrink: 0;
@@ -1122,9 +1176,17 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
 }
 
-.evidence-buy .evidence-icon { color: var(--success); }
-.evidence-wait .evidence-icon { color: var(--warning); }
-.evidence-neutral .evidence-icon { color: var(--text-muted); }
+.evidence-buy .evidence-icon {
+  color: var(--success);
+}
+
+.evidence-wait .evidence-icon {
+  color: var(--warning);
+}
+
+.evidence-neutral .evidence-icon {
+  color: var(--text-muted);
+}
 
 .evidence-headline {
   font-size: 0.82rem;
@@ -1170,7 +1232,9 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
 }
 
-.sim-panel-header:hover { background: var(--bg-glass-hover); }
+.sim-panel-header:hover {
+  background: var(--bg-glass-hover);
+}
 
 .sim-panel-body {
   padding: 4px 16px 16px;
@@ -1202,7 +1266,12 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
 }
 
-.sim-play { flex-grow: 1; height: 38px; padding: 0; font-size: 0.83rem; }
+.sim-play {
+  flex-grow: 1;
+  height: 38px;
+  padding: 0;
+  font-size: 0.83rem;
+}
 
 .sim-speeds {
   display: flex;
@@ -1224,7 +1293,10 @@ h1, h2, h3, h4, h5, h6 {
   cursor: pointer;
 }
 
-.sim-speed.is-active { background: var(--bg-secondary); color: var(--primary); }
+.sim-speed.is-active {
+  background: var(--bg-secondary);
+  color: var(--primary);
+}
 
 /* Outbound / return leg toggle */
 .leg-toggle {
@@ -1253,7 +1325,9 @@ h1, h2, h3, h4, h5, h6 {
   transition: all 0.15s ease;
 }
 
-.leg-toggle-btn:hover { color: var(--text-primary); }
+.leg-toggle-btn:hover {
+  color: var(--text-primary);
+}
 
 .leg-toggle-btn.is-active {
   background: var(--bg-secondary);
@@ -1304,8 +1378,14 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--accent-glow);
 }
 
-.occasion-rare { border-left-color: var(--accent); }
-.occasion-notable { border-left-color: var(--text-muted); background: var(--bg-tertiary); }
+.occasion-rare {
+  border-left-color: var(--accent);
+}
+
+.occasion-notable {
+  border-left-color: var(--text-muted);
+  background: var(--bg-tertiary);
+}
 
 .occasion-tag {
   font-size: 0.68rem;
@@ -1316,7 +1396,9 @@ h1, h2, h3, h4, h5, h6 {
   white-space: nowrap;
 }
 
-.occasion-notable .occasion-tag { color: var(--text-muted); }
+.occasion-notable .occasion-tag {
+  color: var(--text-muted);
+}
 
 .occasion-text {
   font-size: 0.8rem;

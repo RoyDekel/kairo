@@ -85,7 +85,7 @@ app.get('/api/events', requireAuth, async (req, res) => {
 /**
  * Batched Event Intelligence Endpoint (Protected)
  *
- * Backs the "Where to Go" discovery page. The client used to hold the Ticketmaster key
+ * Backs the "When to Go" discovery page. The client used to hold the Ticketmaster key
  * and issue one request per airport; it now sends the whole destination list here and
  * the server fans out in parallel, keeping the credential server-side.
  */
@@ -152,7 +152,7 @@ app.get('/api/events/batch', requireAuth, async (req, res) => {
 /**
  * Broad Fare Estimates Endpoint (Protected)
  *
- * Prices many destinations at once for the "Where to Go" discovery page, through the
+ * Prices many destinations at once for the "When to Go" discovery page, through the
  * SAME FlightSearchService that /api/flights uses — the client no longer runs a pricing
  * algorithm of its own.
  *
@@ -307,7 +307,7 @@ app.get('/api/flights', requireAuth, async (req, res) => {
     }));
 
     // Record the cheapest fare so /api/flights/estimates can serve this exact number to
-    // the discovery page instead of a simulated one. This is what keeps "Where to Go"
+    // the discovery page instead of a simulated one. This is what keeps "When to Go"
     // and "Search & Compare" in agreement for any route the user has actually opened.
     const cheapestOutbound = cheapestFlight(outboundWithInsights);
     if (cheapestOutbound) {

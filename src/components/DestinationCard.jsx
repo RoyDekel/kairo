@@ -13,7 +13,7 @@ function formatEventDate(dateStr) {
 }
 
 /**
- * A single "Where to Go" result.
+ * A single "Whento Go" result.
  *
  * Structured around the two questions a user actually has — "is this fare good?" on the
  * left, "what's on while I'm there?" on the right. The previous layout stacked a verbose
@@ -140,7 +140,27 @@ export default function DestinationCard({
         {visibleEvents.map((evt) => (
           <div key={evt.id} className="dest-card-event">
             <div style={{ minWidth: 0 }}>
-              <div className="dest-card-event-title">{evt.title}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span className="dest-card-event-title">{evt.title}</span>
+                {evt.categoryLabel && (
+                  <span
+                    style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      padding: '2px 7px',
+                      borderRadius: '12px',
+                      background: 'var(--primary-glow-weak, rgba(2, 132, 199, 0.12))',
+                      color: 'var(--primary, #0284c7)',
+                      border: '1px solid var(--border-glass, rgba(255, 255, 255, 0.1))',
+                      whiteSpace: 'nowrap',
+                      display: 'inline-flex',
+                      alignItems: 'center'
+                    }}
+                  >
+                    {evt.categoryLabel}
+                  </span>
+                )}
+              </div>
               <div className="dest-card-event-meta">
                 {evt.venue}
                 {evt.date ? ` · ${formatEventDate(evt.date)}` : ''}
