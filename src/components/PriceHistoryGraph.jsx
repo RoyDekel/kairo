@@ -228,11 +228,13 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
         </svg>
       </div>
 
-      {/* FOOTER METRIC BREAKDOWN (3 COLUMNS) */}
+      {/* FOOTER METRIC BREAKDOWN */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '12px',
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '12px 16px',
         marginTop: '16px',
         paddingTop: '14px',
         borderTop: '1px solid var(--border-glass)'
@@ -247,12 +249,12 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
           <div className="num" style={{ fontSize: '1rem', fontWeight: 600, color: '#059669', marginTop: '2px' }}>${minPrice}</div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }}>
+        <div>
           <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Today</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', flexWrap: 'nowrap', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
             <span className="num" style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>${todayPrice}</span>
             <span className="num" style={{
-              fontSize: '0.72rem',
+              fontSize: '0.7rem',
               fontWeight: 700,
               padding: '2px 8px',
               borderRadius: '12px',
