@@ -83,62 +83,60 @@ export default function DestinationCard({
   return (
     <div className="glass-panel dest-card">
       {/* LEFT: THE FARE DECISION */}
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-        <div>
-          <div className="dest-card-headline">
-            <div className="dest-card-avatar flight-destination-icon" aria-hidden="true" title={`${rec.destination.city} landmark`}>
-              <CityLandmarkIcon cityCode={rec.destCode} cityName={rec.destination.city} size={22} />
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', gap: '14px', padding: '4px 0' }}>
+        <div className="dest-card-headline">
+          <div className="dest-card-avatar flight-destination-icon" aria-hidden="true" title={`${rec.destination.city} landmark`}>
+            <CityLandmarkIcon cityCode={rec.destCode} cityName={rec.destination.city} size={22} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h3 className="dest-card-city" style={{ margin: 0 }}>{rec.destination.city}</h3>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  background: 'rgba(16, 185, 129, 0.14)',
+                  color: '#10b981',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  whiteSpace: 'nowrap'
+                }}
+                title={`KAIRO match score: ${rec.matchScore} out of 100`}
+              >
+                ★ {rec.matchScore}% match
+              </span>
             </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h3 className="dest-card-city" style={{ margin: 0 }}>{rec.destination.city}</h3>
-                <span
-                  style={{
-                    fontSize: '0.72rem',
-                    fontWeight: 800,
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                    background: 'rgba(16, 185, 129, 0.14)',
-                    color: '#10b981',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '3px',
-                    whiteSpace: 'nowrap'
-                  }}
-                  title={`KAIRO match score: ${rec.matchScore} out of 100`}
-                >
-                  ★ {rec.matchScore}% match
-                </span>
-              </div>
-              <div className="dest-card-sub" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 800,
-                    fontSize: '0.72rem',
-                    padding: '2px 7px',
-                    borderRadius: '6px',
-                    background: 'rgba(2, 132, 199, 0.14)',
-                    color: 'var(--primary, #0284c7)',
-                    border: '1px solid rgba(2, 132, 199, 0.3)',
-                    letterSpacing: '0.05em'
-                  }}
-                >
-                  {rec.destCode}
-                </span>
-                <span style={{ fontSize: '0.86rem', display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--text-secondary)' }}>
-                  <span style={{ fontSize: '1rem', lineHeight: 1 }}>
-                    {getCountryFlag(rec.destination.countryCode, rec.destination.country)}
-                  </span>
-                  <span>{rec.destination.country}</span>
-                </span>
-              </div>
+            <div className="dest-card-sub" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 800,
+                  fontSize: '0.72rem',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: 'rgba(2, 132, 199, 0.14)',
+                  color: 'var(--primary, #0284c7)',
+                  border: '1px solid rgba(2, 132, 199, 0.3)',
+                  letterSpacing: '0.05em'
+                }}
+              >
+                {rec.destCode}
+              </span>
+              <span
+                style={{ fontSize: '1.25rem', lineHeight: 1 }}
+                title={rec.destination.country}
+              >
+                {getCountryFlag(rec.destination.countryCode, rec.destination.country)}
+              </span>
             </div>
           </div>
         </div>
 
-        <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
+        <div>
           <div className="dest-card-price-row" style={{ margin: '0 0 6px 0' }}>
             <div className="dest-card-price">
               ${rec.roundtripPrice}
