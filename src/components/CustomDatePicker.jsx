@@ -144,25 +144,31 @@ export default function CustomDatePicker({
 
       {/* CALENDAR POPOVER MODAL */}
       {isOpen && (
-        <div
-          className="animate-fade-in"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            left: isReturnDate ? 'auto' : 0,
-            right: isReturnDate ? 0 : 'auto',
-            zIndex: 1000,
-            width: '310px',
-            background: 'var(--bg-secondary, #1e293b)',
-            border: '1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.25))',
-            borderRadius: '16px',
-            boxShadow: 'var(--shadow-lg, 0 20px 40px rgba(0, 0, 0, 0.4))',
-            padding: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}
-        >
+        <>
+          <div
+            className="mobile-only-backdrop"
+            onClick={() => setIsOpen(false)}
+          />
+          <div
+            className="animate-fade-in date-picker-popover"
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 6px)',
+              left: isReturnDate ? 'auto' : 0,
+              right: isReturnDate ? 0 : 'auto',
+              zIndex: 10000,
+              width: '310px',
+              maxWidth: 'calc(100vw - 32px)',
+              background: 'var(--bg-secondary, #1e293b)',
+              border: '1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.25))',
+              borderRadius: '16px',
+              boxShadow: 'var(--shadow-lg, 0 20px 40px rgba(0, 0, 0, 0.4))',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}
+          >
           {/* HEADER: MONTH & YEAR SELECTORS + PREV/NEXT BUTTONS */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
             <button
@@ -327,6 +333,7 @@ export default function CustomDatePicker({
             })}
           </div>
         </div>
+        </>
       )}
     </div>
   );

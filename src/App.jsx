@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, Sun, Moon, LogIn, LogOut, Zap } from 'lucide-react';
+import { Bell, Sun, Moon, LogIn, LogOut, Zap, Compass, Search, Sparkles, Bookmark } from 'lucide-react';
 import {
   AIRPORTS,
   generateFlightsForRoute,
@@ -824,6 +824,54 @@ export default function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />
+
+      {/* MOBILE BOTTOM DOCK NAVIGATION */}
+      <nav className="mobile-bottom-nav">
+        <button
+          type="button"
+          className={`mobile-nav-item ${activeTab === 'ai-explorer' ? 'active' : ''}`}
+          onClick={() => setActiveTab('ai-explorer')}
+        >
+          <Compass size={18} />
+          <span>When to Go</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-item ${activeTab === 'alternative' ? 'active' : ''}`}
+          onClick={() => setActiveTab('alternative')}
+        >
+          <Search size={18} />
+          <span>Search</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          <Sparkles size={18} />
+          <span>Verdict</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-item ${activeTab === 'watchlist' ? 'active' : ''}`}
+          onClick={() => setActiveTab('watchlist')}
+        >
+          <Bookmark size={18} />
+          <span>Saved ({watchlist.length})</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-item ${activeTab === 'alerts' ? 'active' : ''}`}
+          onClick={() => setActiveTab('alerts')}
+        >
+          <Bell size={18} />
+          <span>Alerts</span>
+        </button>
+      </nav>
 
     </div>
   );
