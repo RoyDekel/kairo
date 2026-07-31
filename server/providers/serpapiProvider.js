@@ -131,14 +131,6 @@ export class SerpApiProvider extends FlightProvider {
         else if (reqStr === '3' || reqStr.includes('business')) cabinClass = 'Business';
         else if (reqStr === '4' || reqStr.includes('first')) cabinClass = 'First';
       }
-        cabinClass = 'Premium Economy';
-      } else if (cabinStr === '3' || cabinStr.includes('business')) {
-        cabinClass = 'Business';
-      } else if (cabinStr === '4' || cabinStr.includes('first')) {
-        cabinClass = 'First';
-      } else {
-        cabinClass = 'Economy';
-      }
 
       const originCode = firstSegment.departure_airport?.id || depTimeStr;
       const destinationCode = lastSegment.arrival_airport?.id || arrTimeStr;
