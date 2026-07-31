@@ -14,41 +14,35 @@ function formatEventDate(dateStr) {
   return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
-/** Convert ISO country code or country name to flag emoji */
-function getCountryFlag(countryCode, countryName = '') {
-  if (countryCode && countryCode.length === 2) {
-    const codePoints = countryCode
-      .toUpperCase()
-      .split('')
-      .map((char) => 127397 + char.charCodeAt(0));
-    return String.fromCodePoint(...codePoints);
-  }
+/** Convert ISO country code or country name to 2-letter lowercase code for flag image */
+function getCountryCode(countryCode, countryName = '') {
+  if (countryCode && countryCode.length === 2) return countryCode.toLowerCase();
   const name = (countryName || '').toLowerCase();
-  if (name.includes('uk') || name.includes('united kingdom') || name.includes('britain')) return '🇬🇧';
-  if (name.includes('spain')) return '🇪🇸';
-  if (name.includes('france')) return '🇫🇷';
-  if (name.includes('germany')) return '🇩🇪';
-  if (name.includes('italy')) return '🇮🇹';
-  if (name.includes('united states') || name.includes('usa')) return '🇺🇸';
-  if (name.includes('israel')) return '🇮🇱';
-  if (name.includes('japan')) return '🇯🇵';
-  if (name.includes('thailand')) return '🇹🇭';
-  if (name.includes('netherlands')) return '🇳🇱';
-  if (name.includes('poland')) return '🇵🇱';
-  if (name.includes('greece')) return '🇬🇷';
-  if (name.includes('singapore')) return '🇸🇬';
-  if (name.includes('australia')) return '🇦🇺';
-  if (name.includes('austria')) return '🇦🇹';
-  if (name.includes('czech')) return '🇨🇿';
-  if (name.includes('hungary')) return '🇭🇺';
-  if (name.includes('portugal')) return '🇵🇹';
-  if (name.includes('ireland')) return '🇮🇪';
-  if (name.includes('switzerland')) return '🇨🇭';
-  if (name.includes('korea')) return '🇰🇷';
-  if (name.includes('denmark')) return '🇩🇰';
-  if (name.includes('brazil')) return '🇧🇷';
-  if (name.includes('emirates') || name.includes('uae')) return '🇦🇪';
-  return '🌐';
+  if (name.includes('uk') || name.includes('united kingdom') || name.includes('britain')) return 'gb';
+  if (name.includes('spain')) return 'es';
+  if (name.includes('france')) return 'fr';
+  if (name.includes('germany')) return 'de';
+  if (name.includes('italy')) return 'it';
+  if (name.includes('united states') || name.includes('usa')) return 'us';
+  if (name.includes('israel')) return 'il';
+  if (name.includes('japan')) return 'jp';
+  if (name.includes('thailand')) return 'th';
+  if (name.includes('netherlands')) return 'nl';
+  if (name.includes('poland')) return 'pl';
+  if (name.includes('greece')) return 'gr';
+  if (name.includes('singapore')) return 'sg';
+  if (name.includes('australia')) return 'au';
+  if (name.includes('austria')) return 'at';
+  if (name.includes('czech')) return 'cz';
+  if (name.includes('hungary')) return 'hu';
+  if (name.includes('portugal')) return 'pt';
+  if (name.includes('ireland')) return 'ie';
+  if (name.includes('switzerland')) return 'ch';
+  if (name.includes('korea')) return 'kr';
+  if (name.includes('denmark')) return 'dk';
+  if (name.includes('brazil')) return 'br';
+  if (name.includes('emirates') || name.includes('uae')) return 'ae';
+  return null;
 }
 
 /**
@@ -110,7 +104,7 @@ export default function DestinationCard({
                 ★ {rec.matchScore}% match
               </span>
             </div>
-            <div className="dest-card-sub" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="dest-card-sub" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <span
                 style={{
                   fontFamily: 'var(--font-mono)',
@@ -126,11 +120,23 @@ export default function DestinationCard({
               >
                 {rec.destCode}
               </span>
-              <span
-                style={{ fontSize: '1.25rem', lineHeight: 1 }}
-                title={rec.destination.country}
-              >
-                {getCountryFlag(rec.destination.countryCode, rec.destination.country)}
+              <span style={{ fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
+                {getCountryCode(rec.destination.countryCode, rec.destination.country) && (
+                  <img
+                    src={`https://flagcdn.com/w40/${getCountryCode(rec.destination.countryCode, rec.destination.country)}.png`}
+                    srcSet={`https://flagcdn.com/w80/${getCountryCode(rec.destination.countryCode, rec.destination.country)}.png 2x`}
+                    width="18"
+                    height="13"
+                    alt={rec.destination.country}
+                    style={{
+                      borderRadius: '2px',
+                      objectFit: 'cover',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      display: 'inline-block'
+                    }}
+                  />
+                )}
+                <span>{rec.destination.country}</span>
               </span>
             </div>
           </div>
