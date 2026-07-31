@@ -24,6 +24,23 @@ import { resetLimiters } from '../server/services/rateLimiter.js';
 vi.mock('./lib/supabaseClient', () => ({ supabase: null }));
 
 /*
+  The SERVER-side Supabase client, nulled for the same reason and one sharper one.
+
+  This was missed when the durable cache landed, and the consequence only appeared once a
+  real SUPABASE_SERVICE_KEY existed on the machine: getServerSupabase() started returning a
+  live client mid-test-run, so the daily-budget counter issued real rpc() calls against the
+  production project — inflating a real quota row and doubling every mocked fetch count.
+
+  That is the same defect this file was written to eliminate: a test whose behaviour depends
+  on which credentials the developer happens to have, passing for different reasons on
+  different machines. Tests that need a store inject their own fake.
+*/
+vi.mock('../server/services/supabaseServer.js', () => ({
+  getServerSupabase: () => null,
+  resetServerSupabase: () => {}
+}));
+
+/*
   Network: fail loudly rather than silently reaching the internet.
 
   A test that needs HTTP should stub fetch itself. Anything that doesn't gets a rejection

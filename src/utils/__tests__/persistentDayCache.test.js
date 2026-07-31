@@ -3,7 +3,14 @@ import { PersistentDayCache, ttlForDate } from '../../../server/services/persist
 import { ApiSportsProvider } from '../../../server/providers/apiSportsProvider.js';
 import { RateLimiter } from '../../../server/services/rateLimiter.js';
 import { snapshotForDate, shouldUseSnapshot } from '../../../server/providers/snapshots/apisportsFixtures.js';
-import { getServerSupabase, resetServerSupabase } from '../../../server/services/supabaseServer.js';
+
+/*
+  setupTests.js mocks this module to null for every test, so that a machine which happens to
+  have real credentials cannot let the suite reach the production project. These tests are
+  about the credential logic itself, so they load the genuine implementation on purpose.
+*/
+const realSupabaseServer = await vi.importActual('../../../server/services/supabaseServer.js');
+const { getServerSupabase, resetServerSupabase } = realSupabaseServer;
 
 /**
  * The fixture cache must survive the process.

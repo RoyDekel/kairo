@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { EventProvider } from './eventProvider.js';
 import { PROVIDER_LIMITS } from '../services/rateLimiter.js';
 import { PersistentDayCache } from '../services/persistentDayCache.js';
+import { DailyBudget } from '../services/dailyBudget.js';
 import { getServerSupabase } from '../services/supabaseServer.js';
 import { normalizeTeam } from '../services/eventMerge.js';
 import { airportForClub } from '../../shared/clubCities.js';
@@ -13,6 +14,15 @@ const BASE_URL = 'https://v3.football.api-sports.io';
 
 /** Bounds the fan-out for a long trip. */
 const MAX_DAYS = 10;
+
+/**
+ * Hard daily ceiling, set below the free plan's real 100.
+ *
+ * The headroom is the point: a miscount, a clock skew, or a second Render instance must not
+ * be able to walk us into the actual limit, and there needs to be room to test by hand
+ * without consequences. Override with APISPORTS_DAILY_LIMIT.
+ */
+const DEFAULT_DAILY_LIMIT = 80;
 
 /**
  * Statuses worth showing a traveller.
@@ -72,7 +82,7 @@ export class ApiSportsProvider extends EventProvider {
     return true;
   }
 
-  constructor({ apiKey, limiter, dayCache, useSnapshot } = {}) {
+  constructor({ apiKey, limiter, dayCache, useSnapshot, budget } = {}) {
     super({ limiter });
     this.apiKey = apiKey !== undefined ? apiKey : process.env.APISPORTS_API_KEY || '';
     this.baseUrl = BASE_URL;
@@ -96,6 +106,23 @@ export class ApiSportsProvider extends EventProvider {
       so nearly every search was a cold start paying full price.
     */
     this.dayCache = dayCache || new PersistentDayCache({ supabase: getServerSupabase() });
+
+    /*
+      The ceiling the rate limiter never enforced.
+
+      A limit of 10/minute controls how fast the daily allowance is spent, not whether it
+      runs out — during the original incident the limiter paced requests flawlessly, six
+      seconds apart, right past a hundred until the account was suspended.
+
+      Deliberately set below the real quota. The headroom means a miscount, a clock skew or
+      a second instance cannot walk us into the actual limit, and it leaves room to test by
+      hand without consequences.
+    */
+    this.budget = budget || new DailyBudget({
+      provider: ApiSportsProvider.key,
+      limit: Number(process.env.APISPORTS_DAILY_LIMIT) || DEFAULT_DAILY_LIMIT,
+      supabase: getServerSupabase()
+    });
 
     /*
       In-flight requests, keyed by date.
@@ -165,6 +192,25 @@ export class ApiSportsProvider extends EventProvider {
       const payload = { fixtures: snapshotForDate(date).response };
       await this.dayCache.set(date, payload);
       return payload;
+    }
+
+    /*
+      Spend from the daily budget before going near the network.
+
+      Note this sits AFTER the cache and the in-flight check, so a served-from-cache date
+      costs nothing. Only a real outbound call is charged.
+    */
+    const { allowed, used, remaining } = await this.budget.consume();
+    if (!allowed) {
+      /*
+        Report unavailable, never empty. A date we chose not to check is not a date with no
+        fixtures, and collapsing the two would make the discovery page announce that cities
+        are quiet because we ran out of quota.
+      */
+      return { error: 'daily-budget-exhausted' };
+    }
+    if (remaining <= 10) {
+      console.warn(`[apisports] ${remaining} calls left of today's ceiling (used ${used}).`);
     }
 
     let res;
