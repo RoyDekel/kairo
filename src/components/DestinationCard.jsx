@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Bookmark, CheckCircle, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowRight, Bookmark, CheckCircle, ExternalLink, ChevronDown, ChevronUp, Calendar, MapPin } from 'lucide-react';
 import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
 import CityLandmarkIcon from './CityLandmarkIcon';
 
@@ -52,24 +52,55 @@ export default function DestinationCard({
             <CityLandmarkIcon cityCode={rec.destCode} cityName={rec.destination.city} size={22} />
           </div>
           <div style={{ minWidth: 0 }}>
-            <h3 className="dest-card-city">{rec.destination.city}</h3>
-            <div className="dest-card-sub">
-              <span style={{ fontFamily: 'var(--font-mono)' }}>{rec.destCode}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h3 className="dest-card-city" style={{ margin: 0 }}>{rec.destination.city}</h3>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  background: 'rgba(16, 185, 129, 0.14)',
+                  color: '#10b981',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  whiteSpace: 'nowrap'
+                }}
+                title={`KAIRO match score: ${rec.matchScore} out of 100`}
+              >
+                ★ {rec.matchScore}% match
+              </span>
+            </div>
+            <div className="dest-card-sub" style={{ marginTop: '4px' }}>
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 800,
+                  fontSize: '0.72rem',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: 'rgba(2, 132, 199, 0.14)',
+                  color: 'var(--primary, #0284c7)',
+                  border: '1px solid rgba(2, 132, 199, 0.3)',
+                  letterSpacing: '0.05em'
+                }}
+              >
+                {rec.destCode}
+              </span>
               <span aria-hidden="true">·</span>
-              <span>{rec.destination.country}</span>
-              <span aria-hidden="true">·</span>
-              <span title={`KAIRO match score: ${rec.matchScore} out of 100`}>★ {rec.matchScore}% match</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{rec.destination.country}</span>
             </div>
           </div>
         </div>
 
-        <div className="dest-card-price-row">
+        <div className="dest-card-price-row" style={{ margin: '12px 0 6px 0' }}>
           <div className="dest-card-price">
-            {isEstimate && <span className="dest-card-price-est">est. </span>}
             ${rec.roundtripPrice}
           </div>
           {rec.savingsPercent > 0 && (
-            <span className="badge badge-success" style={{ textTransform: 'none', letterSpacing: 0 }}>
+            <span className="badge badge-success" style={{ textTransform: 'none', letterSpacing: 0, padding: '4px 10px', fontSize: '0.78rem' }}>
               {rec.savingsPercent}% below usual
             </span>
           )}
@@ -144,7 +175,10 @@ export default function DestinationCard({
           </div>
         )}
 
-        <div className="dest-card-events-label">While you're there</div>
+        <div className="dest-card-events-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Calendar size={14} style={{ color: 'var(--primary, #0284c7)' }} />
+          <span>While you're there</span>
+        </div>
 
         {visibleEvents.map((evt) => (
           <div key={evt.id} className="dest-card-event">
@@ -170,9 +204,9 @@ export default function DestinationCard({
                   </span>
                 )}
               </div>
-              <div className="dest-card-event-meta">
-                {evt.venue}
-                {evt.date ? ` · ${formatEventDate(evt.date)}` : ''}
+              <div className="dest-card-event-meta" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
+                <MapPin size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                <span>{evt.venue}{evt.date ? ` · ${formatEventDate(evt.date)}` : ''}</span>
               </div>
             </div>
             {evt.url ? (
