@@ -502,8 +502,7 @@ export default function App() {
             { id: 'ai-explorer', label: 'When to Go' },
             { id: 'alternative', label: 'Search & Compare' },
             { id: 'dashboard', label: 'Should I Book?' },
-            { id: 'watchlist', label: 'Watchlist' },
-            { id: 'alerts', label: 'Alerts' }
+            { id: 'watchlist', label: 'Watchlist' }
           ].map((item) => {
             const isActive = activeTab === item.id;
             const isSignedOut = !user;

@@ -47,12 +47,6 @@ export default function PriceChart({ activeFlight, theme }) {
     activeFlight?.price || 450
   );
 
-  // Unified single-source-of-truth recommendation engine
-  const priceInsight = getPriceConfidenceInsight(activeFlight, activeFlight.price);
-  const advice = priceInsight.actionHeadline;
-  const adviceDetails = priceInsight.summary;
-  const isBuyNow = priceInsight.recommendation === 'BUY_NOW';
-
   // Combine history and prediction labels
   const allLabels = [
     ...history.map(item => item.date),
@@ -200,39 +194,6 @@ export default function PriceChart({ activeFlight, theme }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ display: 'inline-block', width: '12px', height: '3px', borderTop: '2px dashed var(--accent)', borderRadius: '1px' }}></span>
             <span style={{ color: 'var(--text-secondary)' }}>Prediction</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Booking Advice Banner */}
-      <div style={{
-        background: isBuyNow ? 'rgba(5, 150, 105, 0.1)' : 'rgba(217, 119, 6, 0.1)',
-        border: `1px solid ${isBuyNow ? 'rgba(5, 150, 105, 0.3)' : 'rgba(217, 119, 6, 0.3)'}`,
-        borderRadius: 'var(--radius-sm)',
-        padding: '12px 16px',
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '12px'
-      }}>
-        <div style={{
-          backgroundColor: isBuyNow ? 'var(--success)' : 'var(--warning)',
-          color: '#0b0f19',
-          fontWeight: 800,
-          fontSize: '0.75rem',
-          padding: '4px 10px',
-          borderRadius: '4px',
-          textTransform: 'uppercase',
-          marginTop: '2px',
-          whiteSpace: 'nowrap'
-        }}>
-          {advice}
-        </div>
-        <div style={{ flexGrow: 1 }}>
-          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-            Recommendation Details
-          </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-            {adviceDetails}
           </div>
         </div>
       </div>
