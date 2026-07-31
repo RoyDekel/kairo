@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
-import { formatDateToYYYYMMDD, getTodayDateString, getTomorrowDateString } from '../utils/searchDefaults';
+import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getTodayDateString } from '../utils/searchDefaults';
 
-/** Formats ISO 'YYYY-MM-DD' date string into readable format, e.g. "Fri, 31 Jul" */
+/** Formats ISO 'YYYY-MM-DD' date string into readable format, e.g. "Fri, 31 Jul 2026" */
 function formatDisplayDate(dateStr) {
   if (!dateStr) return 'Select date';
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
   if (isNaN(date.getTime())) return dateStr;
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function CustomDatePicker({
@@ -24,7 +24,7 @@ export default function CustomDatePicker({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
-  // Parse current value into a Date object or fallback to today
+  // Initial view year and month based on value or today
   const initialDate = value ? new Date(value + 'T00:00:00') : new Date();
   const [viewYear, setViewYear] = useState(initialDate.getFullYear());
   const [viewMonth, setViewMonth] = useState(initialDate.getMonth()); // 0 - 11
@@ -40,20 +40,35 @@ export default function CustomDatePicker({
     }
   }, [value]);
 
-  // Close popover when clicking outside
+  // Close popover when clicking outside or pressing Escape
   useEffect(() => {
     function handleClickOutside(event) {
       if (containerRef.current && !containerRef.current.contains(event.target)) {
         setIsOpen(false);
       }
     }
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    }
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen]);
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear + i);
 
   const handlePrevMonth = (e) => {
     e.stopPropagation();
@@ -76,45 +91,16 @@ export default function CustomDatePicker({
   };
 
   const handleSelectDay = (dayNum) => {
-    const selectedDateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+    const monthStr = String(viewMonth + 1).padStart(2, '0');
+    const dayStr = String(dayNum).padStart(2, '0');
+    const selectedDateStr = `${viewYear}-${monthStr}-${dayStr}`;
     onChange(selectedDateStr);
     setIsOpen(false);
   };
 
-  // Preset Shortcut Handlers
-  const handleShortcut = (type) => {
-    const today = new Date();
-    let target = new Date();
-
-    if (type === 'today') {
-      target = today;
-    } else if (type === 'tomorrow') {
-      target.setDate(today.getDate() + 1);
-    } else if (type === 'weekend') {
-      // Find next Saturday
-      const day = today.getDay();
-      const diff = (6 - day + 7) % 7 || 7;
-      target.setDate(today.getDate() + diff);
-    } else if (type === '7days') {
-      target.setDate(today.getDate() + 7);
-    } else if (type === '14days') {
-      target.setDate(today.getDate() + 14);
-    }
-
-    const dateStr = formatDateToYYYYMMDD(target);
-    onChange(dateStr);
-    setIsOpen(false);
-  };
-
-  // Generate calendar days for current view month
   const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const todayStr = getTodayDateString();
-
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
 
   return (
     <div ref={containerRef} className="input-group" style={{ position: 'relative', width: '100%' }}>
@@ -131,7 +117,7 @@ export default function CustomDatePicker({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '8px',
+          gap: '10px',
           cursor: 'pointer',
           padding: '10px 14px',
           background: 'var(--bg-tertiary, rgba(255, 255, 255, 0.04))',
@@ -139,7 +125,8 @@ export default function CustomDatePicker({
           borderRadius: 'var(--radius-sm, 8px)',
           boxShadow: isOpen ? '0 0 12px var(--primary-glow-weak)' : 'none',
           transition: 'all 0.2s ease',
-          textAlign: 'left'
+          textAlign: 'left',
+          width: '100%'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
@@ -155,7 +142,7 @@ export default function CustomDatePicker({
         </div>
       </button>
 
-      {/* POPOVER CALENDAR */}
+      {/* CALENDAR POPOVER MODAL */}
       {isOpen && (
         <div
           className="animate-fade-in"
@@ -163,135 +150,112 @@ export default function CustomDatePicker({
             position: 'absolute',
             top: 'calc(100% + 6px)',
             left: 0,
-            zIndex: 900,
-            width: '300px',
+            zIndex: 999,
+            width: '320px',
             background: 'var(--bg-secondary, #1e293b)',
-            border: '1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.15))',
-            borderRadius: 'var(--radius-md, 16px)',
-            boxShadow: 'var(--shadow-lg, 0 16px 32px rgba(0,0,0,0.35))',
-            padding: '16px',
+            border: '1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.2))',
+            borderRadius: '16px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+            padding: '18px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '12px'
+            gap: '14px'
           }}
         >
-          {/* MONTH HEADER */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {/* HEADER: MONTH & YEAR SELECTORS + PREV/NEXT BUTTONS */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
             <button
               type="button"
               onClick={handlePrevMonth}
+              title="Previous month"
               style={{
                 background: 'var(--bg-tertiary)',
                 border: '1px solid var(--border-glass)',
                 borderRadius: '50%',
-                width: '28px',
-                height: '28px',
+                width: '32px',
+                height: '32px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'var(--text-primary)',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                flexShrink: 0
               }}
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={18} />
             </button>
 
-            <span style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-              {monthNames[viewMonth]} {viewYear}
-            </span>
+            {/* MONTH & YEAR DROPDOWNS */}
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <select
+                value={viewMonth}
+                onChange={(e) => setViewMonth(Number(e.target.value))}
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-glass)',
+                  borderRadius: '6px',
+                  color: 'var(--text-primary)',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                  padding: '4px 6px',
+                  cursor: 'pointer'
+                }}
+              >
+                {monthNames.map((mName, idx) => (
+                  <option key={mName} value={idx} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+                    {mName}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={viewYear}
+                onChange={(e) => setViewYear(Number(e.target.value))}
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-glass)',
+                  borderRadius: '6px',
+                  color: 'var(--text-primary)',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                  padding: '4px 6px',
+                  cursor: 'pointer'
+                }}
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <button
               type="button"
               onClick={handleNextMonth}
+              title="Next month"
               style={{
                 background: 'var(--bg-tertiary)',
                 border: '1px solid var(--border-glass)',
                 borderRadius: '50%',
-                width: '28px',
-                height: '28px',
+                width: '32px',
+                height: '32px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'var(--text-primary)',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                flexShrink: 0
               }}
             >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-
-          {/* QUICK PRESET SHORCUT CHIPS */}
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => handleShortcut('today')}
-              style={{
-                padding: '3px 8px',
-                fontSize: '0.72rem',
-                fontWeight: 600,
-                borderRadius: '12px',
-                border: '1px solid var(--border-glass)',
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer'
-              }}
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => handleShortcut('tomorrow')}
-              style={{
-                padding: '3px 8px',
-                fontSize: '0.72rem',
-                fontWeight: 600,
-                borderRadius: '12px',
-                border: '1px solid var(--border-glass)',
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer'
-              }}
-            >
-              Tomorrow
-            </button>
-            <button
-              type="button"
-              onClick={() => handleShortcut('weekend')}
-              style={{
-                padding: '3px 8px',
-                fontSize: '0.72rem',
-                fontWeight: 600,
-                borderRadius: '12px',
-                border: '1px solid var(--border-glass)',
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer'
-              }}
-            >
-              Weekend
-            </button>
-            <button
-              type="button"
-              onClick={() => handleShortcut('7days')}
-              style={{
-                padding: '3px 8px',
-                fontSize: '0.72rem',
-                fontWeight: 600,
-                borderRadius: '12px',
-                border: '1px solid var(--border-glass)',
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer'
-              }}
-            >
-              +7 Days
+              <ChevronRight size={18} />
             </button>
           </div>
 
           {/* DAY NAMES HEADER */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', gap: '2px' }}>
-            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
-              <span key={day} style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', padding: '2px 0' }}>
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <span key={day} style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', padding: '4px 0' }}>
                 {day}
               </span>
             ))}
@@ -307,13 +271,15 @@ export default function CustomDatePicker({
             {/* Days 1..N */}
             {Array.from({ length: daysInMonth }).map((_, idx) => {
               const dayNum = idx + 1;
-              const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+              const monthStr = String(viewMonth + 1).padStart(2, '0');
+              const dayStr = String(dayNum).padStart(2, '0');
+              const dateStr = `${viewYear}-${monthStr}-${dayStr}`;
 
               const isPast = minDate && dateStr < minDate;
               const isSelected = value === dateStr;
               const isToday = dateStr === todayStr;
 
-              // Check if inside departure-return range
+              // Check range highlight
               let isInRange = false;
               if (relatedDate && value) {
                 const start = isReturnDate ? relatedDate : value;
@@ -330,27 +296,28 @@ export default function CustomDatePicker({
                   disabled={isPast}
                   onClick={() => handleSelectDay(dayNum)}
                   style={{
-                    height: '32px',
+                    height: '34px',
                     borderRadius: '8px',
-                    border: isToday && !isSelected ? '1px solid var(--primary)' : 'none',
+                    border: isToday && !isSelected ? '1.5px solid var(--primary)' : 'none',
                     background: isSelected
                       ? 'linear-gradient(135deg, var(--primary), var(--secondary))'
                       : isInRange
                       ? 'var(--primary-glow-weak)'
-                      : 'transparent',
+                      : 'var(--bg-tertiary, rgba(255, 255, 255, 0.04))',
                     color: isSelected
                       ? '#ffffff'
                       : isPast
                       ? 'var(--text-muted)'
                       : 'var(--text-primary)',
-                    fontWeight: isSelected || isToday ? 800 : 500,
-                    fontSize: '0.82rem',
-                    opacity: isPast ? 0.35 : 1,
+                    fontWeight: isSelected || isToday ? 800 : 600,
+                    fontSize: '0.85rem',
+                    opacity: isPast ? 0.3 : 1,
                     cursor: isPast ? 'not-allowed' : 'pointer',
                     transition: 'all 0.15s ease',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    boxShadow: isSelected ? '0 2px 8px var(--primary-glow-weak)' : 'none'
                   }}
                 >
                   {dayNum}
