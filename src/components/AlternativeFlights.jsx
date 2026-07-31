@@ -526,49 +526,181 @@ export default function AlternativeFlights({
                   flexDirection: 'column',
                   gap: '12px'
                 }}>
+                  {/* Adults */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Adults</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Age 12+</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Adults</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Age 12+</div>
                     </div>
-                    <input
-                      type="number"
-                      min="1"
-                      max="9"
-                      value={localAdults}
-                      onChange={(e) => setLocalAdults(Math.max(1, Number(e.target.value)))}
-                      style={{ width: '50px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: '4px', color: '#fff', padding: '4px', textAlign: 'center' }}
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        type="button"
+                        disabled={localAdults <= 1}
+                        onClick={() => setLocalAdults((prev) => Math.max(1, prev - 1))}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          border: '1px solid var(--border-glass-bright)',
+                          background: 'var(--bg-tertiary)',
+                          color: 'var(--text-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: localAdults <= 1 ? 'not-allowed' : 'pointer',
+                          opacity: localAdults <= 1 ? 0.35 : 1,
+                          fontSize: '1rem',
+                          fontWeight: 700,
+                          userSelect: 'none'
+                        }}
+                      >
+                        -
+                      </button>
+                      <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                        {localAdults}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={localAdults >= 9}
+                        onClick={() => setLocalAdults((prev) => Math.min(9, prev + 1))}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          border: '1px solid var(--border-glass-bright)',
+                          background: 'var(--bg-tertiary)',
+                          color: 'var(--text-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: localAdults >= 9 ? 'not-allowed' : 'pointer',
+                          opacity: localAdults >= 9 ? 0.35 : 1,
+                          fontSize: '1rem',
+                          fontWeight: 700,
+                          userSelect: 'none'
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
 
+                  {/* Children */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Children</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Age 2-11</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Children</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Age 2-11</div>
                     </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="9"
-                      value={localChildren}
-                      onChange={(e) => setLocalChildren(Math.max(0, Number(e.target.value)))}
-                      style={{ width: '50px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: '4px', color: '#fff', padding: '4px', textAlign: 'center' }}
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        type="button"
+                        disabled={localChildren <= 0}
+                        onClick={() => setLocalChildren((prev) => Math.max(0, prev - 1))}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          border: '1px solid var(--border-glass-bright)',
+                          background: 'var(--bg-tertiary)',
+                          color: 'var(--text-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: localChildren <= 0 ? 'not-allowed' : 'pointer',
+                          opacity: localChildren <= 0 ? 0.35 : 1,
+                          fontSize: '1rem',
+                          fontWeight: 700,
+                          userSelect: 'none'
+                        }}
+                      >
+                        -
+                      </button>
+                      <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                        {localChildren}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={localChildren >= 9}
+                        onClick={() => setLocalChildren((prev) => Math.min(9, prev + 1))}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          border: '1px solid var(--border-glass-bright)',
+                          background: 'var(--bg-tertiary)',
+                          color: 'var(--text-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: localChildren >= 9 ? 'not-allowed' : 'pointer',
+                          opacity: localChildren >= 9 ? 0.35 : 1,
+                          fontSize: '1rem',
+                          fontWeight: 700,
+                          userSelect: 'none'
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
 
+                  {/* Infants */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Infants</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Under age 2</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Infants</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Under age 2</div>
                     </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="5"
-                      value={localInfants}
-                      onChange={(e) => setLocalInfants(Math.max(0, Number(e.target.value)))}
-                      style={{ width: '50px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', borderRadius: '4px', color: '#fff', padding: '4px', textAlign: 'center' }}
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        type="button"
+                        disabled={localInfants <= 0}
+                        onClick={() => setLocalInfants((prev) => Math.max(0, prev - 1))}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          border: '1px solid var(--border-glass-bright)',
+                          background: 'var(--bg-tertiary)',
+                          color: 'var(--text-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: localInfants <= 0 ? 'not-allowed' : 'pointer',
+                          opacity: localInfants <= 0 ? 0.35 : 1,
+                          fontSize: '1rem',
+                          fontWeight: 700,
+                          userSelect: 'none'
+                        }}
+                      >
+                        -
+                      </button>
+                      <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                        {localInfants}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={localInfants >= 5}
+                        onClick={() => setLocalInfants((prev) => Math.min(5, prev + 1))}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          border: '1px solid var(--border-glass-bright)',
+                          background: 'var(--bg-tertiary)',
+                          color: 'var(--text-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: localInfants >= 5 ? 'not-allowed' : 'pointer',
+                          opacity: localInfants >= 5 ? 0.35 : 1,
+                          fontSize: '1rem',
+                          fontWeight: 700,
+                          userSelect: 'none'
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
 
                   <button
