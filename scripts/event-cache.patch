@@ -1,0 +1,1069 @@
+diff --git a/server.js b/server.js
+index 717a0c5..569c801 100644
+--- a/server.js
++++ b/server.js
+@@ -103,6 +103,15 @@ app.get('/api/events/batch', requireAuth, async (req, res) => {
+   }
+ 
+   try {
++    /*
++      One database read for the whole page, before any per-destination work.
++
++      The durable cache would otherwise be consulted 31 times over the network for a
++      single discovery search. Warming first means a window the app has already looked up
++      costs one round trip in total and zero provider calls.
++    */
++    await eventSearchService.warmCache(codes, startDate, endDate);
++
+     const settled = await Promise.allSettled(
+       codes.map((code) => eventSearchService.fetchEvents(code, startDate, endDate))
+     );
+diff --git a/server/services/eventCache.js b/server/services/eventCache.js
+index eca0c87..4078b21 100644
+--- a/server/services/eventCache.js
++++ b/server/services/eventCache.js
+@@ -1,4 +1,5 @@
+ import { TtlCache } from './ttlCache.js';
++import { getServerSupabase } from './supabaseServer.js';
+ 
+ /**
+  * Cache of event lookups, keyed by destination and travel window.
+@@ -10,6 +11,23 @@ import { TtlCache } from './ttlCache.js';
+  * The key is (destination, start, end) rather than anything per-user, so two people
+  * searching the same dates share the same entry and only a cold window pays the
+  * rate-limited fan-out.
++ *
++ * -------------------------------------------------------------------------------------
++ * TWO TIERS
++ *
++ * Memory first (free, per-process), then Supabase (survives cold starts and deploys,
++ * shared by every instance and every user). The provider call is the expensive tier and
++ * is the last resort.
++ *
++ * The memory-only version advertised a six-hour TTL that was fiction in production:
++ * Render's free tier spins the service down after ~15 minutes idle and the Map goes with
++ * it, so a user re-running yesterday's search — or the same search after lunch — paid the
++ * full fan-out again for dates the app had already looked up.
++ *
++ * Supabase rather than Redis or SQLite for the same reason PersistentDayCache chose it:
++ * the project already has a Postgres, Render's free disk is ephemeral, and a second
++ * service is not worth running for something Postgres already does here.
++ * -------------------------------------------------------------------------------------
+  */
+ 
+ /** Event schedules change far more slowly than fares. */
+@@ -22,6 +40,9 @@ const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+  */
+ const FAILURE_TTL_MS = 60 * 1000; // 1 minute
+ 
++const HOUR_MS = 60 * 60 * 1000;
++const DAY_MS = 24 * HOUR_MS;
++
+ /** Outcome of an event lookup. */
+ export const EventStatus = {
+   /** Provider answered and there are events in the window. */
+@@ -32,10 +53,48 @@ export const EventStatus = {
+   UNAVAILABLE: 'unavailable'
+ };
+ 
++/**
++ * How long a durable row stays trustworthy.
++ *
++ * A flat six hours is wrong at the near end. Inside a couple of days a lineup firms up,
++ * kickoff times move and matches get postponed, and a row written before a postponement
++ * would keep advertising a cancelled match to every instance rather than just to the one
++ * process that fetched it — which is what making the cache durable costs us if the TTL
++ * doesn't account for it. Windows further out barely move and can be held for the full
++ * TTL.
++ */
++export const durableTtlMs = (startDate, { ttlMs = DEFAULT_TTL_MS, now = Date.now() } = {}) => {
++  const daysAway = (Date.parse(`${startDate}T00:00:00Z`) - now) / DAY_MS;
++  if (!Number.isFinite(daysAway)) return ttlMs;
++  return daysAway < 2 ? Math.min(HOUR_MS, ttlMs) : ttlMs;
++};
++
+ export class EventCache {
+-  constructor({ ttlMs = DEFAULT_TTL_MS, failureTtlMs = FAILURE_TTL_MS, maxEntries = 800, now = () => Date.now() } = {}) {
++  /**
++   * @param {object}   opts
++   * @param {object}   [opts.supabase]  Supabase client. Null (the default) is memory-only,
++   *                                    which is what every unit test wants.
++   * @param {string}   [opts.table]     Durable table name.
++   */
++  constructor({
++    ttlMs = DEFAULT_TTL_MS,
++    failureTtlMs = FAILURE_TTL_MS,
++    maxEntries = 800,
++    now = () => Date.now(),
++    supabase = null,
++    table = 'event_cache'
++  } = {}) {
+     this.successStore = new TtlCache({ ttlMs, maxEntries, now });
+     this.failureStore = new TtlCache({ ttlMs: failureTtlMs, maxEntries, now });
++    this.ttlMs = ttlMs;
++    this.now = now;
++    this.supabase = supabase;
++    this.table = table;
++  }
++
++  /** True when durable storage is wired up. */
++  get isPersistent() {
++    return Boolean(this.supabase);
+   }
+ 
+   static buildKey({ destination, startDate, endDate, provider = 'all' }) {
+@@ -43,21 +102,127 @@ export class EventCache {
+   }
+ 
+   /** Returns a cached result, or null on a miss. */
+-  get(keyParts) {
++  async get(keyParts) {
+     const key = EventCache.buildKey(keyParts);
+-    return this.successStore.get(key) ?? this.failureStore.get(key);
++
++    const local = this.successStore.get(key) ?? this.failureStore.get(key);
++    if (local) return local;
++
++    if (!this.supabase) return null;
++
++    try {
++      const { data, error } = await this.supabase
++        .from(this.table)
++        .select('payload, expires_at')
++        .eq('cache_key', key)
++        .maybeSingle();
++
++      // A cache miss is survivable; throwing here would fail the whole search.
++      if (error) {
++        console.warn(`[eventCache] Supabase read failed for ${key}: ${error.message}`);
++        return null;
++      }
++      if (!data) return null;
++      if (Date.parse(data.expires_at) <= this.now()) return null;
++
++      // Promote so the rest of this request — and this process — is free.
++      this.successStore.set(key, data.payload);
++      return data.payload;
++    } catch (err) {
++      console.warn(`[eventCache] Supabase unreachable for ${key}: ${err.message}`);
++      return null;
++    }
+   }
+ 
+   /**
+-   * Stores a result. UNAVAILABLE goes to the short-lived store so a throttled destination
+-   * gets retried soon rather than being written off for the full TTL.
++   * Loads many keys in ONE query and promotes the live ones into memory.
++   *
++   * The discovery page asks about ~31 destinations at once. Reading them one at a time
++   * would trade 31 provider calls for 31 database round trips, which on a cold start is
++   * most of the latency the cache exists to remove. Callers warm the memory tier with
++   * this, then read each destination normally.
++   *
++   * @returns {Promise<number>} how many keys were served from durable storage.
+    */
+-  set(keyParts, result) {
++  async prefetch(keyPartsList = []) {
++    if (!this.supabase || keyPartsList.length === 0) return 0;
++
++    const keys = keyPartsList
++      .map((parts) => EventCache.buildKey(parts))
++      .filter((key) => !this.successStore.has(key) && !this.failureStore.has(key));
++
++    if (keys.length === 0) return 0;
++
++    try {
++      const { data, error } = await this.supabase
++        .from(this.table)
++        .select('cache_key, payload, expires_at')
++        .in('cache_key', keys);
++
++      if (error) {
++        console.warn(`[eventCache] Supabase batch read failed: ${error.message}`);
++        return 0;
++      }
++
++      let promoted = 0;
++      for (const row of data || []) {
++        if (Date.parse(row.expires_at) <= this.now()) continue;
++        this.successStore.set(row.cache_key, row.payload);
++        promoted += 1;
++      }
++      return promoted;
++    } catch (err) {
++      console.warn(`[eventCache] Supabase unreachable during batch read: ${err.message}`);
++      return 0;
++    }
++  }
++
++  /**
++   * Stores a result.
++   *
++   * UNAVAILABLE goes to the short-lived memory store and is deliberately NEVER persisted:
++   * the point of its one-minute TTL is a fast retry, and writing a transient 429 to a
++   * table every instance reads would turn one throttled process into a product-wide
++   * outage for as long as the row lived.
++   */
++  async set(keyParts, result) {
+     const key = EventCache.buildKey(keyParts);
+-    const store = result.status === EventStatus.UNAVAILABLE ? this.failureStore : this.successStore;
+-    return store.set(key, result);
++
++    if (result.status === EventStatus.UNAVAILABLE) {
++      return this.failureStore.set(key, result);
++    }
++
++    this.successStore.set(key, result);
++    if (!this.supabase) return result;
++
++    const ttl = durableTtlMs(keyParts.startDate, { ttlMs: this.ttlMs, now: this.now() });
++    const expiresAt = new Date(this.now() + ttl).toISOString();
++
++    try {
++      const { error } = await this.supabase.from(this.table).upsert(
++        {
++          cache_key: key,
++          destination: String(keyParts.destination || '').toUpperCase(),
++          start_date: keyParts.startDate || null,
++          end_date: keyParts.endDate || null,
++          status: result.status,
++          payload: result,
++          expires_at: expiresAt,
++          updated_at: new Date(this.now()).toISOString()
++        },
++        { onConflict: 'cache_key' }
++      );
++
++      // Failing to WRITE the cache costs a future API call. It must never cost this search.
++      if (error) console.warn(`[eventCache] Supabase write failed for ${key}: ${error.message}`);
++    } catch (err) {
++      console.warn(`[eventCache] Supabase write unreachable for ${key}: ${err.message}`);
++    }
++
++    return result;
+   }
+ 
++  /** Drops the in-process tiers. Durable rows expire on their own. */
+   clear() {
+     this.successStore.clear();
+     this.failureStore.clear();
+@@ -68,4 +233,4 @@ export class EventCache {
+   }
+ }
+ 
+-export const eventCache = new EventCache();
++export const eventCache = new EventCache({ supabase: getServerSupabase() });
+diff --git a/server/services/eventSearchService.js b/server/services/eventSearchService.js
+index f4721e2..0638767 100644
+--- a/server/services/eventSearchService.js
++++ b/server/services/eventSearchService.js
+@@ -112,15 +112,45 @@ export class EventSearchService {
+       return { status: EventStatus.EMPTY, events: [], reason: 'unmapped-airport' };
+     }
+ 
+-    const cacheKey = { destination: airportCode, startDate, endDate, provider: 'merged' };
+-    const cached = this.cache.get(cacheKey);
++    const cacheKey = EventSearchService.cacheKeyFor(airportCode, startDate, endDate);
++
++    // Awaited because the cache is now two-tiered: a miss in memory falls through to
++    // Supabase, which survives the cold starts that used to erase the whole cache.
++    const cached = await this.cache.get(cacheKey);
+     if (cached) return { ...cached, cached: true };
+ 
+     const result = await this.#queryProviders(location, { startDate, endDate }, airportCode);
+-    this.cache.set(cacheKey, result);
++    await this.cache.set(cacheKey, result);
+     return result;
+   }
+ 
++  /** The cache identity of one lookup. Shared so warmCache and fetchEvents cannot drift. */
++  static cacheKeyFor(airportCode, startDate, endDate) {
++    return { destination: airportCode, startDate, endDate, provider: 'merged' };
++  }
++
++  /**
++   * Loads every destination's cached result in ONE database query.
++   *
++   * The discovery page asks about ~31 destinations at once. Without this, each
++   * fetchEvents() would issue its own Supabase read and the durable tier would trade ~31
++   * provider calls for ~31 round trips — most of the latency the cache exists to remove.
++   * Callers invoke this first; the fetchEvents() calls that follow then hit memory.
++   *
++   * Best-effort by design: a failure here costs a slower search, never a failed one.
++   */
++  async warmCache(airportCodes = [], startDate, endDate) {
++    if (typeof this.cache.prefetch !== 'function') return 0;
++
++    const keys = airportCodes.map((code) => EventSearchService.cacheKeyFor(code, startDate, endDate));
++    const promoted = await this.cache.prefetch(keys);
++
++    if (promoted > 0) {
++      console.log(`[EventSearchService] Warmed ${promoted}/${keys.length} destinations from durable cache.`);
++    }
++    return promoted;
++  }
++
+   async #queryProviders(location, window, airportCode) {
+     const settled = await Promise.allSettled(
+       this.providers.map((provider) => provider.fetchEvents(location, window, airportCode))
+diff --git a/src/setupTests.js b/src/setupTests.js
+index 909dacc..d47f3f6 100644
+--- a/src/setupTests.js
++++ b/src/setupTests.js
+@@ -61,6 +61,10 @@ const unmockedFetch = vi.fn((input) => {
+ */
+ beforeEach(() => {
+   window.localStorage.clear();
++  // The discovery page now caches events per destination in sessionStorage. jsdom keeps
++  // it for the whole file, so without this a search cached by one test would satisfy the
++  // next one and its fetch would never be called.
++  window.sessionStorage.clear();
+   globalThis.fetch = unmockedFetch;
+   unmockedFetch.mockClear();
+   eventCache.clear();
+diff --git a/src/utils/__tests__/discoveryEventCache.test.js b/src/utils/__tests__/discoveryEventCache.test.js
+new file mode 100644
+index 0000000..ff2df22
+--- /dev/null
++++ b/src/utils/__tests__/discoveryEventCache.test.js
+@@ -0,0 +1,162 @@
++import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
++import { readCachedEvents, writeCachedEvents, clearCachedEvents } from '../discoveryEventCache';
++import { fetchEventsForDestinations, DiscoveryUnavailableError } from '../aiDestinationEngine';
++
++/**
++ * The browser-side half of the event cache.
++ *
++ * The server cache stops the second search from reaching Ticketmaster; this stops it from
++ * reaching the server at all. On a backend that cold-starts behind a 12-second timeout,
++ * that is the difference the user actually feels.
++ */
++
++const window_ = { start: '2026-09-11', end: '2026-09-16' };
++
++const batchResponse = (eventsByDestination, statusByDestination = {}) => ({
++  ok: true,
++  status: 200,
++  json: async () => ({
++    eventsByDestination,
++    statusByDestination,
++    partial: false,
++    unavailableDestinations: []
++  })
++});
++
++const tmEvent = (title) => ({ id: title, title, venue: 'v', date: '2026-09-12', category: 'Music' });
++
++describe('discoveryEventCache', () => {
++  beforeEach(() => {
++    clearCachedEvents();
++    window.sessionStorage.clear();
++  });
++
++  test('reports which destinations are known and which must be fetched', () => {
++    writeCachedEvents({ BCN: [tmEvent('a')] }, { BCN: 'ok' }, window_.start, window_.end);
++
++    const { cached, misses } = readCachedEvents(['BCN', 'MAD'], window_.start, window_.end);
++
++    expect(cached.BCN).toHaveLength(1);
++    expect(misses).toEqual(['MAD']);
++  });
++
++  test('a different date window is a miss, not a wrong answer', () => {
++    writeCachedEvents({ BCN: [tmEvent('a')] }, { BCN: 'ok' }, window_.start, window_.end);
++
++    const { misses } = readCachedEvents(['BCN'], '2026-10-01', '2026-10-06');
++    expect(misses).toEqual(['BCN']);
++  });
++
++  test('an entry past its TTL is a miss', () => {
++    const t0 = Date.parse('2026-08-01T00:00:00Z');
++    writeCachedEvents({ BCN: [tmEvent('a')] }, { BCN: 'ok' }, window_.start, window_.end, { now: t0 });
++
++    const fresh = readCachedEvents(['BCN'], window_.start, window_.end, { now: t0 + 60_000 });
++    expect(fresh.misses).toEqual([]);
++
++    const stale = readCachedEvents(['BCN'], window_.start, window_.end, { now: t0 + 7 * 60 * 60 * 1000 });
++    expect(stale.misses).toEqual(['BCN']);
++  });
++
++  /*
++    "We couldn't check" must never be cached as "nothing is on" — that is the distinction
++    the server's per-destination status codes were introduced to preserve, and caching an
++    empty array for six hours would quietly undo it in the browser.
++  */
++  test('an unavailable destination is not cached', () => {
++    writeCachedEvents({ BCN: [], MAD: [tmEvent('b')] }, { BCN: 'unavailable', MAD: 'ok' }, window_.start, window_.end);
++
++    const { misses } = readCachedEvents(['BCN', 'MAD'], window_.start, window_.end);
++    expect(misses).toEqual(['BCN']);
++  });
++
++  test('an empty result IS cached, because it is an answer', () => {
++    writeCachedEvents({ BCN: [] }, { BCN: 'empty' }, window_.start, window_.end);
++
++    const { cached, misses } = readCachedEvents(['BCN'], window_.start, window_.end);
++    expect(misses).toEqual([]);
++    expect(cached.BCN).toEqual([]);
++  });
++
++  test('a corrupt entry is a miss rather than a crash', () => {
++    window.sessionStorage.setItem('kairo:events:v1|BCN|2026-09-11|2026-09-16', '{not json');
++
++    const { misses } = readCachedEvents(['BCN'], window_.start, window_.end);
++    expect(misses).toEqual(['BCN']);
++  });
++
++  test('survives a sessionStorage that refuses to store anything', () => {
++    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
++      throw new Error('QuotaExceededError');
++    });
++
++    expect(() =>
++      writeCachedEvents({ BCN: [tmEvent('a')] }, { BCN: 'ok' }, window_.start, window_.end)
++    ).not.toThrow();
++
++    setItem.mockRestore();
++  });
++});
++
++describe('fetchEventsForDestinations caching', () => {
++  beforeEach(() => {
++    clearCachedEvents();
++    window.sessionStorage.clear();
++  });
++
++  afterEach(() => {
++    vi.restoreAllMocks();
++  });
++
++  test('a repeated search makes no request at all', async () => {
++    const fetchMock = vi.fn().mockResolvedValue(batchResponse({ BCN: [tmEvent('a')] }, { BCN: 'ok' }));
++    globalThis.fetch = fetchMock;
++
++    const first = await fetchEventsForDestinations(['BCN'], window_.start, window_.end, 'token');
++    expect(first.BCN).toHaveLength(1);
++    expect(fetchMock).toHaveBeenCalledTimes(1);
++
++    const second = await fetchEventsForDestinations(['BCN'], window_.start, window_.end, 'token');
++    expect(second.BCN).toHaveLength(1);
++    expect(fetchMock).toHaveBeenCalledTimes(1);
++  });
++
++  /*
++    Raising the budget widens the destination list. Per-destination keys mean the request
++    covers only what is genuinely new; a whole-search key would refetch all of it.
++  */
++  test('a widened destination list asks only about the new destinations', async () => {
++    const fetchMock = vi
++      .fn()
++      .mockResolvedValueOnce(batchResponse({ BCN: [tmEvent('a')] }, { BCN: 'ok' }))
++      .mockResolvedValueOnce(batchResponse({ MAD: [tmEvent('b')] }, { MAD: 'ok' }));
++    globalThis.fetch = fetchMock;
++
++    await fetchEventsForDestinations(['BCN'], window_.start, window_.end, 'token');
++    const merged = await fetchEventsForDestinations(['BCN', 'MAD'], window_.start, window_.end, 'token');
++
++    expect(Object.keys(merged).sort()).toEqual(['BCN', 'MAD']);
++
++    const secondUrl = fetchMock.mock.calls[1][0];
++    expect(secondUrl).toContain('destinations=MAD');
++    expect(secondUrl).not.toContain('BCN');
++  });
++
++  /*
++    Holding half a page of cached results does not make a failed lookup succeed. Rendering
++    the cached subset would present an incomplete answer as a complete one.
++  */
++  test('a backend failure still surfaces, even with cached destinations in hand', async () => {
++    const fetchMock = vi
++      .fn()
++      .mockResolvedValueOnce(batchResponse({ BCN: [tmEvent('a')] }, { BCN: 'ok' }))
++      .mockRejectedValueOnce(new Error('network down'));
++    globalThis.fetch = fetchMock;
++
++    await fetchEventsForDestinations(['BCN'], window_.start, window_.end, 'token');
++
++    await expect(
++      fetchEventsForDestinations(['BCN', 'MAD'], window_.start, window_.end, 'token')
++    ).rejects.toBeInstanceOf(DiscoveryUnavailableError);
++  });
++});
+diff --git a/src/utils/__tests__/eventCachePersistence.test.js b/src/utils/__tests__/eventCachePersistence.test.js
+new file mode 100644
+index 0000000..f9f9b1b
+--- /dev/null
++++ b/src/utils/__tests__/eventCachePersistence.test.js
+@@ -0,0 +1,237 @@
++import { describe, test, expect, vi, beforeEach } from 'vitest';
++import { EventCache, EventStatus, durableTtlMs } from '../../../server/services/eventCache.js';
++import { EventSearchService } from '../../../server/services/eventSearchService.js';
++import { TicketmasterProvider } from '../../../server/providers/ticketmasterProvider.js';
++import { RateLimiter } from '../../../server/services/rateLimiter.js';
++
++/**
++ * The durable tier of the event cache.
++ *
++ * The behaviour under test is the one that only shows up in production: the process dies
++ * (Render spins the free tier down after ~15 minutes idle) and the next search for dates
++ * the app has ALREADY looked up must not go back to Ticketmaster. A memory-only cache
++ * passes every unit test and still fails that.
++ */
++
++const instantLimiter = () => new RateLimiter({ limit: 1e9, windowMs: 1, name: 'instant' });
++
++/** Minimal stand-in for the postgrest chain, backed by a Map so tests can inspect it. */
++function fakeSupabase({ failReads = false, failWrites = false } = {}) {
++  const rows = new Map();
++  const calls = { select: 0, upsert: 0, in: 0 };
++
++  const api = {
++    rows,
++    calls,
++    from() {
++      return {
++        select() {
++          calls.select += 1;
++          return {
++            eq(_col, key) {
++              return {
++                async maybeSingle() {
++                  if (failReads) return { data: null, error: { message: 'read exploded' } };
++                  return { data: rows.get(key) || null, error: null };
++                }
++              };
++            },
++            async in(_col, keys) {
++              calls.in += 1;
++              if (failReads) return { data: null, error: { message: 'read exploded' } };
++              return { data: keys.map((k) => rows.get(k)).filter(Boolean), error: null };
++            }
++          };
++        },
++        async upsert(row) {
++          calls.upsert += 1;
++          if (failWrites) return { error: { message: 'write exploded' } };
++          rows.set(row.cache_key, row);
++          return { error: null };
++        }
++      };
++    }
++  };
++
++  return api;
++}
++
++describe('EventCache durable tier', () => {
++  const key = { destination: 'BCN', startDate: '2026-09-11', endDate: '2026-09-16', provider: 'merged' };
++  let clock;
++
++  beforeEach(() => {
++    clock = Date.parse('2026-08-01T00:00:00Z');
++  });
++
++  const make = (supabase) =>
++    new EventCache({ ttlMs: 60_000, failureTtlMs: 1_000, supabase, now: () => clock });
++
++  test('a result written by one process is readable by the next one', async () => {
++    const supabase = fakeSupabase();
++
++    const first = make(supabase);
++    await first.set(key, { status: EventStatus.OK, events: [{ title: 'Primavera' }] });
++
++    // A different instance: same table, empty memory. This is the cold start.
++    const second = make(supabase);
++    const hit = await second.get(key);
++
++    expect(hit?.events?.[0]?.title).toBe('Primavera');
++  });
++
++  test('an expired durable row is a miss, not a stale answer', async () => {
++    const supabase = fakeSupabase();
++    await make(supabase).set(key, { status: EventStatus.OK, events: [{ title: 'old' }] });
++
++    clock += 60_001;
++    expect(await make(supabase).get(key)).toBeNull();
++  });
++
++  /*
++    The whole reason the failure store exists is a fast retry. Persisting a 429 would take
++    one throttled process and turn it into a product-wide blackout for every instance
++    reading the table.
++  */
++  test('an unavailable result is never persisted', async () => {
++    const supabase = fakeSupabase();
++    const cache = make(supabase);
++
++    await cache.set(key, { status: EventStatus.UNAVAILABLE, events: [], reason: 'rate-limited' });
++
++    expect(supabase.calls.upsert).toBe(0);
++    expect(await make(supabase).get(key)).toBeNull();
++  });
++
++  test('an empty window IS persisted, because it is an answer', async () => {
++    const supabase = fakeSupabase();
++    await make(supabase).set(key, { status: EventStatus.EMPTY, events: [] });
++
++    expect((await make(supabase).get(key))?.status).toBe(EventStatus.EMPTY);
++  });
++
++  /*
++    A cache is an optimisation. Every failure mode of the store must degrade to "slower",
++    never to "the search failed".
++  */
++  test('a database failure degrades to a miss rather than throwing', async () => {
++    const broken = fakeSupabase({ failReads: true, failWrites: true });
++    vi.spyOn(console, 'warn').mockImplementation(() => {});
++    const cache = make(broken);
++
++    await expect(cache.set(key, { status: EventStatus.OK, events: [] })).resolves.toBeDefined();
++    await expect(make(broken).get(key)).resolves.toBeNull();
++  });
++
++  test('prefetch loads a whole page of destinations in one query', async () => {
++    const supabase = fakeSupabase();
++    const codes = ['BCN', 'MAD', 'ROM'];
++
++    const writer = make(supabase);
++    for (const destination of codes) {
++      await writer.set({ ...key, destination }, { status: EventStatus.OK, events: [{ title: destination }] });
++    }
++
++    const reader = make(supabase);
++    const promoted = await reader.prefetch(codes.map((destination) => ({ ...key, destination })));
++
++    expect(promoted).toBe(3);
++    expect(supabase.calls.in).toBe(1);
++
++    // Promoted into memory, so the reads that follow cost nothing.
++    const before = supabase.calls.select;
++    expect((await reader.get({ ...key, destination: 'MAD' })).events[0].title).toBe('MAD');
++    expect(supabase.calls.select).toBe(before);
++  });
++
++  test('memory-only construction still works when Supabase is unconfigured', async () => {
++    const cache = make(null);
++    await cache.set(key, { status: EventStatus.OK, events: [{ title: 'x' }] });
++
++    expect(cache.isPersistent).toBe(false);
++    expect((await cache.get(key)).events).toHaveLength(1);
++  });
++});
++
++describe('durableTtlMs', () => {
++  const now = Date.parse('2026-08-01T00:00:00Z');
++  const ttlMs = 6 * 60 * 60 * 1000;
++
++  /*
++    Inside a couple of days kickoff times move and matches get postponed. Holding such a
++    window for six hours in a table every instance reads would broadcast a cancelled
++    match, which is a cost the memory-only cache never had.
++  */
++  test('a window starting within two days is held for an hour at most', () => {
++    expect(durableTtlMs('2026-08-02', { ttlMs, now })).toBe(60 * 60 * 1000);
++  });
++
++  test('a window further out gets the full TTL', () => {
++    expect(durableTtlMs('2026-10-01', { ttlMs, now })).toBe(ttlMs);
++  });
++
++  test('an unparseable date falls back to the full TTL rather than NaN', () => {
++    expect(durableTtlMs(undefined, { ttlMs, now })).toBe(ttlMs);
++  });
++});
++
++describe('EventSearchService with a durable cache', () => {
++  const supabaseResponse = (events) => ({
++    ok: true,
++    status: 200,
++    json: async () => ({ _embedded: { events } })
++  });
++
++  const ticketmasterEvent = {
++    id: 'tm-1',
++    name: 'Primavera Sound',
++    dates: { start: { localDate: '2026-09-12' } },
++    classifications: [{ segment: { name: 'Music' } }],
++    _embedded: { venues: [{ name: 'Parc del Forum' }] }
++  };
++
++  test('a cold process serves a previously-searched window without calling the provider', async () => {
++    const supabase = fakeSupabase();
++
++    const fetchMock = vi.fn().mockResolvedValue(supabaseResponse([ticketmasterEvent]));
++    globalThis.fetch = fetchMock;
++
++    const service = () =>
++      new EventSearchService({
++        providers: [new TicketmasterProvider({ apiKey: 'test-key', limiter: instantLimiter() })],
++        cache: new EventCache({ ttlMs: 60_000, supabase })
++      });
++
++    const first = await service().fetchEvents('BCN', '2026-09-11', '2026-09-16');
++    expect(first.status).toBe(EventStatus.OK);
++    expect(fetchMock).toHaveBeenCalledTimes(1);
++
++    // New process, empty memory — the situation after a Render spin-down.
++    const second = await service().fetchEvents('BCN', '2026-09-11', '2026-09-16');
++
++    expect(second.cached).toBe(true);
++    expect(second.events).toHaveLength(1);
++    expect(fetchMock).toHaveBeenCalledTimes(1);
++  });
++
++  test('warmCache reads every destination in one query before the fan-out', async () => {
++    const supabase = fakeSupabase();
++    const cache = new EventCache({ ttlMs: 60_000, supabase });
++
++    await cache.set(
++      EventSearchService.cacheKeyFor('BCN', '2026-09-11', '2026-09-16'),
++      { status: EventStatus.OK, events: [{ title: 'cached' }] }
++    );
++
++    const cold = new EventCache({ ttlMs: 60_000, supabase });
++    const service = new EventSearchService({
++      providers: [new TicketmasterProvider({ apiKey: 'test-key', limiter: instantLimiter() })],
++      cache: cold
++    });
++
++    const promoted = await service.warmCache(['BCN', 'MAD'], '2026-09-11', '2026-09-16');
++
++    expect(promoted).toBe(1);
++    expect(supabase.calls.in).toBe(1);
++  });
++});
+diff --git a/src/utils/__tests__/eventInfrastructure.test.js b/src/utils/__tests__/eventInfrastructure.test.js
+index 1b8b68d..14bbe09 100644
+--- a/src/utils/__tests__/eventInfrastructure.test.js
++++ b/src/utils/__tests__/eventInfrastructure.test.js
+@@ -158,47 +158,52 @@ describe('EventCache', () => {
+   let clock;
+   const key = { destination: 'BCN', startDate: '2026-08-11', endDate: '2026-08-16', provider: 'ticketmaster' };
+ 
++  // get()/set() are async because a memory miss now falls through to durable storage.
+   const make = () => new EventCache({ ttlMs: 60_000, failureTtlMs: 1_000, now: () => clock });
+ 
+   beforeEach(() => {
+     clock = 1_000_000;
+   });
+ 
+-  test('caches a successful lookup for the full TTL', () => {
++  test('caches a successful lookup for the full TTL', async () => {
+     const cache = make();
+-    cache.set(key, { status: EventStatus.OK, events: [{ title: 'x' }] });
++    await cache.set(key, { status: EventStatus.OK, events: [{ title: 'x' }] });
+ 
+     clock += 59_000;
+-    expect(cache.get(key).status).toBe(EventStatus.OK);
++    expect((await cache.get(key)).status).toBe(EventStatus.OK);
+   });
+ 
+   /*
+     An unavailable result must expire quickly. Holding a throttled destination for the
+     full six-hour TTL would hide it from the discovery page for the rest of the day.
+   */
+-  test('expires an unavailable result far sooner than a successful one', () => {
++  test('expires an unavailable result far sooner than a successful one', async () => {
+     const cache = make();
+-    cache.set(key, { status: EventStatus.UNAVAILABLE, events: [], reason: 'rate-limited' });
++    await cache.set(key, { status: EventStatus.UNAVAILABLE, events: [], reason: 'rate-limited' });
+ 
+-    expect(cache.get(key).status).toBe(EventStatus.UNAVAILABLE);
++    expect((await cache.get(key)).status).toBe(EventStatus.UNAVAILABLE);
+     clock += 1_001;
+-    expect(cache.get(key)).toBeNull();
++    expect(await cache.get(key)).toBeNull();
+   });
+ 
+-  test('an empty window is cached like a success, because it is an answer', () => {
++  test('an empty window is cached like a success, because it is an answer', async () => {
+     const cache = make();
+-    cache.set(key, { status: EventStatus.EMPTY, events: [] });
++    await cache.set(key, { status: EventStatus.EMPTY, events: [] });
+ 
+     clock += 59_000;
+-    expect(cache.get(key).status).toBe(EventStatus.EMPTY);
++    expect((await cache.get(key)).status).toBe(EventStatus.EMPTY);
+   });
+ 
+-  test('keys separate destinations and date windows', () => {
++  test('keys separate destinations and date windows', async () => {
+     const cache = make();
+-    cache.set(key, { status: EventStatus.OK, events: [{ title: 'bcn' }] });
++    await cache.set(key, { status: EventStatus.OK, events: [{ title: 'bcn' }] });
+ 
+-    expect(cache.get({ ...key, destination: 'MAD' })).toBeNull();
+-    expect(cache.get({ ...key, startDate: '2026-09-01' })).toBeNull();
++    expect(await cache.get({ ...key, destination: 'MAD' })).toBeNull();
++    expect(await cache.get({ ...key, startDate: '2026-09-01' })).toBeNull();
++  });
++
++  test('without a Supabase client it stays memory-only rather than refusing to work', () => {
++    expect(make().isPersistent).toBe(false);
+   });
+ });
+ 
+diff --git a/src/utils/aiDestinationEngine.js b/src/utils/aiDestinationEngine.js
+index 27c6b15..19164c5 100644
+--- a/src/utils/aiDestinationEngine.js
++++ b/src/utils/aiDestinationEngine.js
+@@ -1,5 +1,6 @@
+ import { AIRPORTS } from './flightSimulator';
+ import { getApiBase, authHeaders, fetchWithTimeout } from '../lib/apiBase';
++import { readCachedEvents, writeCachedEvents } from './discoveryEventCache';
+ import { detectTravelOccasion } from '../../shared/travelOccasion.js';
+ import {
+   DEFAULT_ORIGIN,
+@@ -29,12 +30,23 @@ export class DiscoveryUnavailableError extends Error {
+  *
+  * Batching also removes the old behaviour of issuing one sequential request per airport
+  * (~30 round trips) every time a filter changed.
++ *
++ * Destinations already answered for these exact dates are served from the session cache
++ * and left out of the request entirely, so re-running a search the user has already run
++ * costs no network at all. See discoveryEventCache.js for why the cache is per
++ * destination rather than per search.
+  */
+ export async function fetchEventsForDestinations(destinationCodes, startDateStr, endDateStr, accessToken) {
+   if (!destinationCodes?.length) return {};
+ 
++  const { cached, misses } = readCachedEvents(destinationCodes, startDateStr, endDateStr);
++
++  // Everything is known. Returning here is the whole point: no request, no spinner, and
++  // no exposure to a cold-starting backend for an answer we already have.
++  if (misses.length === 0) return cached;
++
+   const params = new URLSearchParams({
+-    destinations: destinationCodes.join(','),
++    destinations: misses.join(','),
+     startDate: startDateStr || '',
+     endDate: endDateStr || ''
+   });
+@@ -46,6 +58,13 @@ export async function fetchEventsForDestinations(destinationCodes, startDateStr,
+       headers: authHeaders(accessToken)
+     });
+   } catch (err) {
++    /*
++      Deliberately thrown even though `cached` holds usable results.
++
++      Rendering the cached subset would present a partial page as a complete answer, with
++      no way for the user to tell that half the destinations were never checked — the same
++      silent lie the per-destination status codes exist to prevent.
++    */
+     throw new DiscoveryUnavailableError(`Could not reach the event intelligence service: ${err.message}`);
+   }
+ 
+@@ -54,7 +73,11 @@ export async function fetchEventsForDestinations(destinationCodes, startDateStr,
+   }
+ 
+   const data = await res.json();
+-  return data?.eventsByDestination || {};
++  const fetched = data?.eventsByDestination || {};
++
++  writeCachedEvents(fetched, data?.statusByDestination || {}, startDateStr, endDateStr);
++
++  return { ...cached, ...fetched };
+ }
+ 
+ /**
+diff --git a/src/utils/discoveryEventCache.js b/src/utils/discoveryEventCache.js
+new file mode 100644
+index 0000000..172f03c
+--- /dev/null
++++ b/src/utils/discoveryEventCache.js
+@@ -0,0 +1,147 @@
++/**
++ * Browser-side cache of event lookups for the "When to Go" page.
++ *
++ * -------------------------------------------------------------------------------------
++ * WHY THIS EXISTS
++ *
++ * The server cache already stops a repeated search from reaching Ticketmaster, but the
++ * client still paid a full round trip — with a spinner, and a 12-second ceiling against a
++ * backend that cold-starts — to be told something it had just been told. Re-running the
++ * same dates after changing the budget slider, or coming back to the tab, re-fetched
++ * results the page had already rendered.
++ *
++ * Cached PER DESTINATION rather than per search. The destination list is derived from the
++ * budget filter, so a whole-search key would miss on every slider move; keyed per
++ * destination, raising the budget asks the backend only about the destinations it just
++ * admitted, and lowering it asks nothing at all.
++ *
++ * Events only. Fares are deliberately NOT cached here: "When to Go" and "Search & Compare"
++ * must quote the same number for the same route (see priceConsistency.test.js), and a
++ * client-held fare that outlives the server's 15-minute quote cache is exactly how those
++ * two pages start disagreeing.
++ *
++ * sessionStorage rather than localStorage: surviving a reload is the useful part, and
++ * scoping to the tab means a stale schedule cannot follow the user around for days.
++ * -------------------------------------------------------------------------------------
++ */
++
++/** Bumped when the cached shape changes, so old entries are ignored rather than parsed. */
++const NAMESPACE = 'kairo:events:v1';
++
++/** Mirrors the server's event TTL. Schedules move far more slowly than fares. */
++const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
++
++/**
++ * Fallback store for environments without a usable sessionStorage — Safari private mode
++ * throws on write, and a test renderer may not have one at all. Losing the cache is
++ * acceptable; throwing inside a search is not.
++ */
++const memoryFallback = new Map();
++
++function getStore() {
++  try {
++    if (typeof window === 'undefined' || !window.sessionStorage) return null;
++    // Touch it: presence is not permission in private browsing modes.
++    const probe = `${NAMESPACE}:probe`;
++    window.sessionStorage.setItem(probe, '1');
++    window.sessionStorage.removeItem(probe);
++    return window.sessionStorage;
++  } catch {
++    return null;
++  }
++}
++
++function buildKey(destination, startDate, endDate) {
++  return [NAMESPACE, String(destination || '').toUpperCase(), startDate || '', endDate || ''].join('|');
++}
++
++function readRaw(key) {
++  const store = getStore();
++  if (!store) return memoryFallback.get(key) ?? null;
++
++  const raw = store.getItem(key);
++  if (!raw) return null;
++
++  try {
++    return JSON.parse(raw);
++  } catch {
++    // A corrupt entry is a miss, not a crash.
++    store.removeItem(key);
++    return null;
++  }
++}
++
++function writeRaw(key, entry) {
++  const store = getStore();
++  if (!store) {
++    memoryFallback.set(key, entry);
++    return;
++  }
++
++  try {
++    store.setItem(key, JSON.stringify(entry));
++  } catch {
++    // Almost always a quota error. Drop our own entries and try once more; if that still
++    // fails, run without a cache rather than failing the search.
++    clearCachedEvents();
++    try {
++      store.setItem(key, JSON.stringify(entry));
++    } catch {
++      memoryFallback.set(key, entry);
++    }
++  }
++}
++
++/**
++ * Splits a destination list into what we already know and what must be fetched.
++ *
++ * @returns {{cached: Record<string, Array>, misses: string[]}}
++ */
++export function readCachedEvents(destinationCodes = [], startDate, endDate, { ttlMs = DEFAULT_TTL_MS, now = Date.now() } = {}) {
++  const cached = {};
++  const misses = [];
++
++  for (const code of destinationCodes) {
++    const entry = readRaw(buildKey(code, startDate, endDate));
++
++    if (!entry || !Array.isArray(entry.events) || now - entry.storedAt > ttlMs) {
++      misses.push(code);
++      continue;
++    }
++
++    cached[code] = entry.events;
++  }
++
++  return { cached, misses };
++}
++
++/**
++ * Records answers.
++ *
++ * A destination the backend reported as `unavailable` is skipped: an empty array cached
++ * for six hours would turn "we couldn't check" into "nothing is on", which is the exact
++ * confusion the server's status codes were introduced to end.
++ */
++export function writeCachedEvents(eventsByDestination = {}, statusByDestination = {}, startDate, endDate, { now = Date.now() } = {}) {
++  for (const [code, events] of Object.entries(eventsByDestination)) {
++    if (statusByDestination[code] === 'unavailable') continue;
++    if (!Array.isArray(events)) continue;
++
++    writeRaw(buildKey(code, startDate, endDate), { events, storedAt: now });
++  }
++}
++
++/** Drops every entry this module owns, leaving the rest of sessionStorage alone. */
++export function clearCachedEvents() {
++  memoryFallback.clear();
++
++  const store = getStore();
++  if (!store) return;
++
++  const doomed = [];
++  for (let i = 0; i < store.length; i += 1) {
++    const key = store.key(i);
++    if (key?.startsWith(NAMESPACE)) doomed.push(key);
++  }
++  doomed.forEach((key) => store.removeItem(key));
++}
+diff --git a/supabase/event_cache.sql b/supabase/event_cache.sql
+new file mode 100644
+index 0000000..2521773
+--- /dev/null
++++ b/supabase/event_cache.sql
+@@ -0,0 +1,42 @@
++-- Durable cache for merged event lookups ("When to Go" discovery page).
++--
++-- Run once in the Supabase SQL editor.
++--
++-- Why this table exists: EventCache lived only in process memory and advertised a
++-- six-hour TTL. On Render's free tier the service spins down after ~15 minutes idle, so
++-- the effective TTL was "until nobody uses the app for a quarter of an hour" -- and every
++-- wake-up re-ran the full Ticketmaster / API-Sports fan-out for dates a user had already
++-- searched. Against Ticketmaster's 5,000/day budget that is the most wasteful thing the
++-- product does.
++--
++-- One row per (provider, destination, window). The key deliberately contains nothing
++-- per-user, so two people searching Barcelona for the same dates share one row and only a
++-- genuinely cold window pays the rate-limited fan-out.
++--
++-- Only answers are stored: `ok` and `empty`. An `unavailable` result (rate limited,
++-- upstream 500) stays in process memory with its one-minute TTL, because sharing a
++-- transient failure across every instance and every user is exactly the wrong thing to
++-- make durable.
++
++create table if not exists public.event_cache (
++  cache_key   text        primary key,
++  destination text        not null,
++  start_date  date,
++  end_date    date,
++  status      text        not null,
++  payload     jsonb       not null,
++  expires_at  timestamptz not null,
++  updated_at  timestamptz not null default now()
++);
++
++-- Expiry is checked on read, but an index keeps cleanup cheap.
++create index if not exists event_cache_expires_at_idx
++  on public.event_cache (expires_at);
++
++-- This table is written only by the server using the service key, which bypasses RLS.
++-- Enabling RLS with no policy therefore denies every anon/authenticated client while
++-- leaving the server unaffected: browsers must never read or write the cache directly.
++alter table public.event_cache enable row level security;
++
++-- Optional housekeeping: drop rows that expired more than a week ago.
++--   delete from public.event_cache where expires_at < now() - interval '7 days';
