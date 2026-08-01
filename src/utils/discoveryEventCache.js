@@ -131,6 +131,24 @@ export function writeCachedEvents(eventsByDestination = {}, statusByDestination 
   }
 }
 
+/**
+ * How much of "what's on" the backend could see, cached alongside the events.
+ *
+ * A property of the deployment rather than of a search — it depends on which providers are
+ * configured — so one key covers every destination. When it is unknown the caller assumes
+ * the conservative answer, which can only lower a confidence label, never inflate one.
+ */
+const COVERAGE_KEY = `${NAMESPACE}|coverage`;
+
+export function readCachedCoverage() {
+  return readRaw(COVERAGE_KEY)?.coverage || null;
+}
+
+export function writeCachedCoverage(coverage) {
+  if (!coverage) return;
+  writeRaw(COVERAGE_KEY, { coverage });
+}
+
 /** Drops every entry this module owns, leaving the rest of sessionStorage alone. */
 export function clearCachedEvents() {
   memoryFallback.clear();

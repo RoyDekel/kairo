@@ -217,4 +217,69 @@ describe('AIDestinationExplorer Component', () => {
     fireEvent.click(screen.getByRole('button', { name: /Show fewer events/i }));
     expect(screen.queryByText('Franz Ferdinand')).not.toBeInTheDocument();
   });
+
+  /*
+    Ordering is a product claim, not a detail.
+
+    "When to Go" answers "where should I go on these dates", so its default order is best
+    match — the cheapest fare to a city with nothing on is not an answer to that question.
+    Cheapest stays one click away, mirroring the Search & Compare control.
+  */
+  describe('result ordering', () => {
+    const destination = (city, code, price, matchScore) => ({
+      id: `${code}-2026-08-11`,
+      originCode: 'BER',
+      destCode: code,
+      destination: { code, city, country: 'Spain' },
+      roundtripPrice: price,
+      priceSource: 'estimate',
+      matchScore,
+      matchBreakdown: [],
+      matchConfidence: { level: 'medium', gaps: ['Fare is modelled, not a live quote'] },
+      outboundFlight: { id: `FL-${code}-1`, price: price / 2, origin: 'BER', destination: code },
+      returnFlight: { id: `FL-${code}-2`, price: price / 2, origin: code, destination: 'BER' },
+      departureDate: '2026-08-11',
+      returnDate: '2026-08-16',
+      matchedEvents: [{ id: `ev-${code}`, title: 'Something on', category: 'music', venue: 'A venue', date: '2026-08-12' }]
+    });
+
+    const renderWithResults = async () => {
+      searchAIDestinations.mockResolvedValueOnce([
+        destination('Barcelona', 'BCN', 900, 88),
+        destination('Madrid', 'MAD', 300, 55)
+      ]);
+
+      render(
+        <AIDestinationExplorer
+          searchParams={mockSearchParams}
+          setSearchParams={mockSetSearchParams}
+          setActiveRoundtrip={mockSetActiveRoundtrip}
+          setActiveTab={mockSetActiveTab}
+          onToggleWatchlist={mockOnToggleWatchlist}
+          watchlist={[]}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /Search Routes/i }));
+      await waitFor(() => expect(screen.getByRole('heading', { name: 'Barcelona' })).toBeInTheDocument());
+    };
+
+    const renderedCities = () =>
+      screen.getAllByRole('heading', { name: /Barcelona|Madrid/ }).map((h) => h.textContent);
+
+    test('defaults to best match, even when it is the dearer destination', async () => {
+      await renderWithResults();
+      expect(renderedCities()).toEqual(['Barcelona', 'Madrid']);
+    });
+
+    test('Cheapest reorders by price', async () => {
+      await renderWithResults();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cheapest' }));
+      expect(renderedCities()).toEqual(['Madrid', 'Barcelona']);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Best match' }));
+      expect(renderedCities()).toEqual(['Barcelona', 'Madrid']);
+    });
+  });
 });

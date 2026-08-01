@@ -6,6 +6,7 @@ import { FlightSearchService } from './server/services/flightSearchService.js';
 import { EventSearchService, EventStatus } from './server/services/eventSearchService.js';
 import { computeEventDrivenInsights } from './server/services/insightsEngine.js';
 import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
+import { fareHistory, FareHistory } from './server/services/fareHistory.js';
 import { AIRPORTS } from './shared/catalog.js';
 
 dotenv.config();
@@ -148,6 +149,10 @@ app.get('/api/events/batch', requireAuth, async (req, res) => {
       count: codes.length,
       eventsByDestination,
       statusByDestination,
+      // Same field /api/events reports. The discovery page needs it to say how much of
+      // "what's on" it could actually see, rather than presenting a ticketing channel as
+      // the whole calendar.
+      coverage: eventSearchService.hasCoverage ? 'full' : 'ticketed-only',
       // Lets the UI admit the result set is incomplete rather than presenting it as final.
       partial: unavailable.length > 0,
       unavailableDestinations: unavailable
@@ -263,6 +268,22 @@ app.get('/api/flights/estimates', requireAuth, async (req, res) => {
       }
     });
 
+    /*
+      Attach the real historical position of each fare, in ONE query for the whole page.
+
+      This is what lets the discovery card say "cheaper than 80% of the fares we have seen
+      for this route" instead of the old fixed 26% saving against a baseline defined as the
+      fare times 1.35. Routes without enough observations report nulls, and the UI is
+      expected to say so rather than fill the gap.
+    */
+    const routeKeys = Object.keys(estimates).map((destination) => FareHistory.routeKey(originCode, destination));
+    const historyByRoute = await fareHistory.statsForRoutes(routeKeys);
+
+    for (const [destination, estimate] of Object.entries(estimates)) {
+      const entry = historyByRoute[FareHistory.routeKey(originCode, destination)];
+      Object.assign(estimate, fareHistory.summarise(estimate.roundtripPrice, entry));
+    }
+
     res.json({ origin: originCode, departureDate, returnDate, count: Object.keys(estimates).length, estimates });
   } catch (error) {
     console.error('Estimates endpoint failed:', error);
@@ -332,6 +353,23 @@ app.get('/api/flights', requireAuth, async (req, res) => {
           source: results.warning ? 'simulated' : flightSearchService.providerName
         }
       );
+
+      /*
+        Record the fare so "below the usual price" can eventually be measured instead of
+        asserted. Only real provider quotes are stored — FareHistory rejects simulated
+        ones — because a baseline built from the model would describe the model.
+
+        Awaited but never allowed to fail the response: a lost observation costs a slightly
+        thinner baseline, nothing more.
+      */
+      await fareHistory.record({
+        origin,
+        destination,
+        departureDate,
+        returnDate,
+        roundtripPrice: cheapestOutbound.price + (cheapestReturn ? cheapestReturn.price : 0),
+        provider: results.warning ? 'simulated' : flightSearchService.providerName
+      });
     }
 
     res.json({

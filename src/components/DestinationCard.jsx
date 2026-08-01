@@ -68,6 +68,22 @@ export default function DestinationCard({
     ? `drop of ~$${insight.expectedSavings} expected in ${insight.expectedDropDays}`
     : `near the 90-day low of $${insight.low90Day}`;
 
+  /*
+    The score explains itself.
+
+    A bare "81% match" was unfalsifiable — and, as it turned out, constant. Every component
+    now names the evidence it came from, so a user who disagrees with the number can see
+    which part they disagree with.
+  */
+  const matchBreakdown = rec.matchBreakdown || [];
+  const matchTooltip = matchBreakdown.length
+    ? [`KAIRO match score: ${rec.matchScore} out of 100`, ...matchBreakdown.map(
+        (c) => `• ${c.label} ${c.points}/${c.max} — ${c.detail}`
+      )].join('\n')
+    : `KAIRO match score: ${rec.matchScore} out of 100`;
+
+  const confidence = rec.matchConfidence || { level: 'high', gaps: [] };
+
   const totalEvents = rec.matchedEvents ? rec.matchedEvents.length : 0;
   const visibleEvents = isExpanded
     ? rec.matchedEvents
@@ -99,10 +115,34 @@ export default function DestinationCard({
                   gap: '3px',
                   whiteSpace: 'nowrap'
                 }}
-                title={`KAIRO match score: ${rec.matchScore} out of 100`}
+                title={matchTooltip}
               >
                 ★ {rec.matchScore}% match
               </span>
+              {/*
+                Confidence sits BESIDE the score rather than inside it. A 90 built on a live
+                fare and full event coverage and a 90 built on a modelled fare are the same
+                claim about the destination and different claims about what we know, and
+                blending them yields a number that answers neither question.
+              */}
+              {confidence.level !== 'high' && (
+                <span
+                  style={{
+                    fontSize: '0.66rem',
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: '12px',
+                    background: 'rgba(148, 163, 184, 0.14)',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))',
+                    whiteSpace: 'nowrap',
+                    cursor: 'help'
+                  }}
+                  title={`Based on partial evidence:\n• ${confidence.gaps.join('\n• ')}`}
+                >
+                  {confidence.level === 'medium' ? 'partial evidence' : 'limited evidence'}
+                </span>
+              )}
             </div>
             <div className="dest-card-sub" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <span
@@ -147,8 +187,17 @@ export default function DestinationCard({
             <div className="dest-card-price">
               ${rec.roundtripPrice}
             </div>
+            {/*
+              Shown only when there is a recorded baseline to be below. The old badge was
+              always present and always said 26%, because "usual" was defined as this very
+              fare times 1.35.
+            */}
             {rec.savingsPercent > 0 && (
-              <span className="badge badge-success" style={{ textTransform: 'none', letterSpacing: 0, padding: '4px 10px', fontSize: '0.78rem' }}>
+              <span
+                className="badge badge-success"
+                style={{ textTransform: 'none', letterSpacing: 0, padding: '4px 10px', fontSize: '0.78rem' }}
+                title={`Typical fare $${rec.typicalPrice}, median of ${rec.historicalSampleSize} recorded quotes for this route`}
+              >
                 {rec.savingsPercent}% below usual
               </span>
             )}
@@ -162,10 +211,12 @@ export default function DestinationCard({
               <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Roundtrip</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '12px', borderRight: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>${rec.averageMarketPrice}</span>
-              <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', fontWeight: 600 }}>usual</span>
-            </div>
+            {rec.typicalPrice && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '12px', borderRight: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>${rec.typicalPrice}</span>
+                <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', fontWeight: 600 }}>usual</span>
+              </div>
+            )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {isEstimate ? (

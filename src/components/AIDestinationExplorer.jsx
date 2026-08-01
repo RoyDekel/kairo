@@ -71,6 +71,13 @@ export default function AIDestinationExplorer({
 
   const [aiRecommendations, setAiRecommendations] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  /*
+    Match by default: the page's purpose is to answer "where should I go on these dates",
+    and the cheapest fare to a city with nothing on is not an answer to that. Cheapest is
+    one click away for users who are shopping on price, mirroring the Search & Compare
+    control so the two pages behave the same way.
+  */
+  const [sortKey, setSortKey] = useState('match'); // 'match' | 'price'
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [isBackendUnavailable, setIsBackendUnavailable] = useState(false);
@@ -192,8 +199,22 @@ export default function AIDestinationExplorer({
   };
 
   const ITEMS_PER_PAGE = 10;
-  const totalPages = Math.ceil(aiRecommendations.length / ITEMS_PER_PAGE);
-  const paginatedRecommendations = aiRecommendations.slice(
+
+  // Sorted before slicing, so page 1 holds the actual top of the chosen order rather than
+  // the first ten of the previous one.
+  const sortedRecommendations = [...aiRecommendations].sort((a, b) =>
+    sortKey === 'price'
+      ? a.roundtripPrice - b.roundtripPrice || b.matchScore - a.matchScore
+      : b.matchScore - a.matchScore || a.roundtripPrice - b.roundtripPrice
+  );
+
+  const changeSort = (key) => {
+    setSortKey(key);
+    setCurrentPage(1);
+  };
+
+  const totalPages = Math.ceil(sortedRecommendations.length / ITEMS_PER_PAGE);
+  const paginatedRecommendations = sortedRecommendations.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
@@ -438,6 +459,27 @@ export default function AIDestinationExplorer({
           </div>
         ) : (
           <>
+            {/* SORT CONTROL — same shape as the Search & Compare listings control. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', margin: '0 0 4px 2px' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>Sort:</span>
+              <div style={{ display: 'flex', background: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px solid var(--border-glass)', padding: '2px' }}>
+                <button
+                  onClick={() => changeSort('match')}
+                  aria-pressed={sortKey === 'match'}
+                  style={{ padding: '4px 10px', borderRadius: '4px', border: 'none', background: sortKey === 'match' ? 'var(--bg-secondary)' : 'transparent', color: sortKey === 'match' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem' }}
+                >
+                  Best match
+                </button>
+                <button
+                  onClick={() => changeSort('price')}
+                  aria-pressed={sortKey === 'price'}
+                  style={{ padding: '4px 10px', borderRadius: '4px', border: 'none', background: sortKey === 'price' ? 'var(--bg-secondary)' : 'transparent', color: sortKey === 'price' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem' }}
+                >
+                  Cheapest
+                </button>
+              </div>
+            </div>
+
             {paginatedRecommendations.map((rec) => (
               <DestinationCard
                 key={rec.id}

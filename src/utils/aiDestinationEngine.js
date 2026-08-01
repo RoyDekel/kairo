@@ -1,6 +1,7 @@
 import { AIRPORTS } from './flightSimulator';
 import { getApiBase, authHeaders, fetchWithTimeout } from '../lib/apiBase';
-import { readCachedEvents, writeCachedEvents } from './discoveryEventCache';
+import { readCachedEvents, writeCachedEvents, readCachedCoverage, writeCachedCoverage } from './discoveryEventCache';
+import { scoreDestination, fareRankPercentiles, savingsAgainstTypical } from './destinationMatchScore';
 import { detectTravelOccasion } from '../../shared/travelOccasion.js';
 import {
   DEFAULT_ORIGIN,
@@ -43,7 +44,9 @@ export async function fetchEventsForDestinations(destinationCodes, startDateStr,
 
   // Everything is known. Returning here is the whole point: no request, no spinner, and
   // no exposure to a cold-starting backend for an answer we already have.
-  if (misses.length === 0) return cached;
+  if (misses.length === 0) {
+    return { eventsByDestination: cached, coverage: readCachedCoverage() || 'ticketed-only' };
+  }
 
   const params = new URLSearchParams({
     destinations: misses.join(','),
@@ -74,10 +77,12 @@ export async function fetchEventsForDestinations(destinationCodes, startDateStr,
 
   const data = await res.json();
   const fetched = data?.eventsByDestination || {};
+  const coverage = data?.coverage || 'ticketed-only';
 
   writeCachedEvents(fetched, data?.statusByDestination || {}, startDateStr, endDateStr);
+  writeCachedCoverage(coverage);
 
-  return { ...cached, ...fetched };
+  return { eventsByDestination: { ...cached, ...fetched }, coverage };
 }
 
 /**
@@ -258,22 +263,37 @@ export async function searchAIDestinations({
       cheapestReturn: entry.return,
       totalRoundtripPrice: entry.roundtripPrice,
       priceSource: entry.source,
-      quotedAt: entry.quotedAt
+      quotedAt: entry.quotedAt,
+      // Real position of this fare in the route's own recorded history, or nulls when
+      // KAIRO has not seen the route enough times to have an opinion.
+      historicalPercentile: entry.historicalPercentile ?? null,
+      historicalSampleSize: entry.historicalSampleSize ?? 0,
+      typicalPrice: entry.typicalPrice ?? null
     }));
 
   if (!pricedRoutes.length) return [];
 
   // Step 2: one batched call for events, covering only affordable destinations.
-  const eventsByDestination = await fetchEventsForDestinations(
+  const { eventsByDestination, coverage } = await fetchEventsForDestinations(
     pricedRoutes.map((r) => r.destCode),
     departureDate,
     returnDate,
     accessToken
   );
 
+  /*
+    Rank every fare against the others in THIS search, before scoring any of them.
+
+    The fare component needs to know what the alternatives cost. Computing it per
+    destination in the loop below would give each one only its own price to compare
+    against — which is precisely how the old score ended up measuring nothing.
+  */
+  const rankByPrice = fareRankPercentiles(pricedRoutes.map((r) => r.totalRoundtripPrice));
+
   const results = [];
 
-  for (const { destCode, cheapestOutbound, cheapestReturn, totalRoundtripPrice, priceSource, quotedAt } of pricedRoutes) {
+  for (const route of pricedRoutes) {
+    const { destCode, cheapestOutbound, cheapestReturn, totalRoundtripPrice, priceSource, quotedAt } = route;
     const destinationInfo = AIRPORTS[destCode];
     const realEvents = dedupeByTitle(eventsByDestination[destCode] || [], destCode);
 
@@ -284,24 +304,38 @@ export async function searchAIDestinations({
     // Only surface a destination that has verified live events during the trip window.
     if (matchedEvents.length === 0) continue;
 
-    // Benchmark comparison price (simulate 25%-45% baseline market savings)
-    const averageMarketPrice = Math.round(totalRoundtripPrice * 1.35);
-    const savingsAmount = averageMarketPrice - totalRoundtripPrice;
-    const savingsPercent = Math.round((savingsAmount / averageMarketPrice) * 100);
+    const { score: matchScore, components: matchBreakdown, confidence } = scoreDestination({
+      fareRank: rankByPrice.get(totalRoundtripPrice) ?? 50,
+      historicalPercentile: route.historicalPercentile,
+      historicalSampleSize: route.historicalSampleSize,
+      events: matchedEvents,
+      interests,
+      departureDate,
+      returnDate,
+      priceSource,
+      coverage
+    });
 
-    // Calculate AI Recommendation Match Score (0 to 100)
-    const priceScore = Math.min(50, savingsPercent * 1.2);
-    const eventScore = Math.min(30, matchedEvents.length * 15);
-    const interestBonus = interests.some((i) => matchedEvents.some((e) => e.category === i)) ? 20 : 5;
+    /*
+      A saving is claimed only against fares KAIRO has actually recorded.
 
-    const matchScore = Math.min(99, Math.round(priceScore + eventScore + interestBonus));
+      The old card always showed "26% below usual" struck through a benchmark of
+      price * 1.35 — a number invented from the price it was supposedly judging. Null here
+      means the card shows a fare and no claim, which is the honest state for a route we
+      have not priced enough times.
+    */
+    const savings = savingsAgainstTypical(totalRoundtripPrice, route.typicalPrice, route.historicalSampleSize);
 
     // Rare timing, derived only from events a provider actually returned.
     const occasion = detectTravelOccasion({ city: destinationInfo.city, events: matchedEvents });
 
     const topEvent = matchedEvents[0];
     const fareWording = priceSource === 'live' ? 'Live fare' : 'Estimated fare';
-    const aiInsight = `${destinationInfo.city} has verified live events during your dates! ${fareWording} is ${savingsPercent}% below historical average ($${totalRoundtripPrice} roundtrip). Catch "${topEvent.title}" at ${topEvent.venue} during your trip.`;
+    const priceClaim = savings
+      ? `${fareWording} of $${totalRoundtripPrice} is ${savings.savingsPercent}% below the $${savings.typicalPrice} typical of the ${savings.sampleSize} fares KAIRO has recorded for this route.`
+      : `${fareWording} of $${totalRoundtripPrice} roundtrip. Not enough recorded fares for this route yet to say how that compares.`;
+
+    const aiInsight = `${destinationInfo.city} has verified live events during your dates. ${priceClaim} Catch "${topEvent.title}" at ${topEvent.venue} during your trip.`;
 
     results.push({
       id: `ai-dest-${destCode}`,
@@ -311,13 +345,16 @@ export async function searchAIDestinations({
       roundtripPrice: totalRoundtripPrice,
       priceSource,
       quotedAt,
-      averageMarketPrice,
-      savingsPercent,
-      savingsAmount,
+      typicalPrice: savings ? savings.typicalPrice : null,
+      savingsPercent: savings ? savings.savingsPercent : null,
+      savingsAmount: savings ? savings.savingsAmount : null,
+      historicalSampleSize: route.historicalSampleSize,
       outboundFlight: cheapestOutbound,
       returnFlight: cheapestReturn,
       matchedEvents,
       matchScore,
+      matchBreakdown,
+      matchConfidence: confidence,
       occasion,
       aiInsight,
       departureDate,
@@ -325,6 +362,6 @@ export async function searchAIDestinations({
     });
   }
 
-  // Sort results by AI Match Score descending
+  // Default order is best match. The page offers Cheapest as an alternative.
   return results.sort((a, b) => b.matchScore - a.matchScore);
 }

@@ -18,6 +18,7 @@ const batchResponse = (eventsByDestination, statusByDestination = {}) => ({
   json: async () => ({
     eventsByDestination,
     statusByDestination,
+    coverage: 'ticketed-only',
     partial: false,
     unavailableDestinations: []
   })
@@ -113,11 +114,11 @@ describe('fetchEventsForDestinations caching', () => {
     globalThis.fetch = fetchMock;
 
     const first = await fetchEventsForDestinations(['BCN'], window_.start, window_.end, 'token');
-    expect(first.BCN).toHaveLength(1);
+    expect(first.eventsByDestination.BCN).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const second = await fetchEventsForDestinations(['BCN'], window_.start, window_.end, 'token');
-    expect(second.BCN).toHaveLength(1);
+    expect(second.eventsByDestination.BCN).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -135,7 +136,7 @@ describe('fetchEventsForDestinations caching', () => {
     await fetchEventsForDestinations(['BCN'], window_.start, window_.end, 'token');
     const merged = await fetchEventsForDestinations(['BCN', 'MAD'], window_.start, window_.end, 'token');
 
-    expect(Object.keys(merged).sort()).toEqual(['BCN', 'MAD']);
+    expect(Object.keys(merged.eventsByDestination).sort()).toEqual(['BCN', 'MAD']);
 
     const secondUrl = fetchMock.mock.calls[1][0];
     expect(secondUrl).toContain('destinations=MAD');
