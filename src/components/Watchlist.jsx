@@ -167,7 +167,7 @@ export default function Watchlist({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', padding: '8px 12px', borderRadius: '4px' }}>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{flight.departureTime}</div>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>TLV</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{flight.origin || 'TLV'}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{flight.duration}</span>
@@ -176,7 +176,7 @@ export default function Watchlist({
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{flight.arrivalTime}</div>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>KRK</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{flight.destination || 'KRK'}</div>
                   </div>
                 </div>
 
