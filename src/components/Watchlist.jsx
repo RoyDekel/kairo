@@ -45,7 +45,9 @@ export default function Watchlist({
 
   // Format date helper
   const formatDateShort = (dateStr) => {
+    if (!dateStr) return 'Flexible';
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
@@ -95,8 +97,8 @@ export default function Watchlist({
             const airline = AIRLINES[flight.airlineCode] || { name: 'Unknown', logo: '✈️', color: 'var(--primary)' };
             const isActive = activeFlight.id === flight.id;
             
-            // Extract date from flight ID (format was id: CODE-NUM-YYYY-MM-DD)
-            const dateStr = flight.id.split('-').slice(-3).join('-');
+            // Prefer explicit flight.departureDate first; fallback to ID timestamp
+            const dateStr = flight.departureDate || (flight.id ? flight.id.split('-').slice(-3).join('-') : '');
 
             return (
               <div

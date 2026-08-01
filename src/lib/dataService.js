@@ -25,16 +25,25 @@ export async function loadWatchlist(userId) {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (error || !data) {
-      if (error) console.error('Failed to load watchlist from Supabase:', error.message);
+    if (error) {
+      console.error('Failed to load watchlist from Supabase:', error.message);
       const saved = localStorage.getItem('watchlist');
       return saved ? JSON.parse(saved) : [];
     }
 
-    return data.map((row) => ({
+    const items = (data || []).map((row) => ({
       ...row.flight_data,
       _supabaseId: row.id,
     }));
+
+    // Cache loaded user watchlist to localStorage for session fast access
+    try {
+      localStorage.setItem('watchlist', JSON.stringify(items));
+    } catch {
+      // Silent catch
+    }
+
+    return items;
   } catch (err) {
     console.error('Watchlist fetch error:', err);
     const saved = localStorage.getItem('watchlist');
@@ -43,15 +52,19 @@ export async function loadWatchlist(userId) {
 }
 
 export async function saveWatchlistItem(userId, flight) {
-  if (!supabase || !userId) {
+  // Always update local session cache immediately
+  try {
     const saved = localStorage.getItem('watchlist');
     const list = saved ? JSON.parse(saved) : [];
     if (!list.some((w) => w.id === flight.id)) {
       list.push(flight);
       localStorage.setItem('watchlist', JSON.stringify(list));
     }
-    return;
+  } catch (e) {
+    console.warn('Failed to update local watchlist cache:', e);
   }
+
+  if (!supabase || !userId) return;
 
   const { error } = await supabase
     .from('watchlist')
@@ -65,17 +78,21 @@ export async function saveWatchlistItem(userId, flight) {
     );
 
   if (error) {
-    console.error('Failed to save watchlist item:', error.message);
+    console.error('Failed to save watchlist item to Supabase:', error.message);
   }
 }
 
 export async function removeWatchlistItem(userId, flightId) {
-  if (!supabase || !userId) {
+  // Always remove from local session cache immediately
+  try {
     const saved = localStorage.getItem('watchlist');
     const list = saved ? JSON.parse(saved) : [];
     localStorage.setItem('watchlist', JSON.stringify(list.filter((w) => w.id !== flightId)));
-    return;
+  } catch (e) {
+    console.warn('Failed to update local watchlist cache:', e);
   }
+
+  if (!supabase || !userId) return;
 
   const { error } = await supabase
     .from('watchlist')
@@ -84,7 +101,7 @@ export async function removeWatchlistItem(userId, flightId) {
     .eq('flight_id', flightId);
 
   if (error) {
-    console.error('Failed to remove watchlist item:', error.message);
+    console.error('Failed to remove watchlist item from Supabase:', error.message);
   }
 }
 
@@ -128,13 +145,13 @@ export async function loadAlerts(userId) {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (error || !data) {
-      if (error) console.error('Failed to load alerts from Supabase:', error.message);
+    if (error) {
+      console.error('Failed to load alerts from Supabase:', error.message);
       const saved = localStorage.getItem('alerts');
-      return saved ? JSON.parse(saved) : DEFAULT_ALERTS;
+      return saved ? JSON.parse(saved) : [];
     }
 
-    return data.map((row) => ({
+    const items = (data || []).map((row) => ({
       id: row.id,
       flightNumber: row.flight_number,
       flightId: row.flight_id,
@@ -146,10 +163,18 @@ export async function loadAlerts(userId) {
         minute: '2-digit',
       }),
     }));
+
+    try {
+      localStorage.setItem('alerts', JSON.stringify(items));
+    } catch {
+      // Silent catch
+    }
+
+    return items;
   } catch (err) {
     console.error('Alerts fetch error:', err);
     const saved = localStorage.getItem('alerts');
-    return saved ? JSON.parse(saved) : DEFAULT_ALERTS;
+    return saved ? JSON.parse(saved) : [];
   }
 }
 
