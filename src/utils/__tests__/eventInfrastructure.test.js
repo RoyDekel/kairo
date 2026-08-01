@@ -158,47 +158,52 @@ describe('EventCache', () => {
   let clock;
   const key = { destination: 'BCN', startDate: '2026-08-11', endDate: '2026-08-16', provider: 'ticketmaster' };
 
+  // get()/set() are async because a memory miss now falls through to durable storage.
   const make = () => new EventCache({ ttlMs: 60_000, failureTtlMs: 1_000, now: () => clock });
 
   beforeEach(() => {
     clock = 1_000_000;
   });
 
-  test('caches a successful lookup for the full TTL', () => {
+  test('caches a successful lookup for the full TTL', async () => {
     const cache = make();
-    cache.set(key, { status: EventStatus.OK, events: [{ title: 'x' }] });
+    await cache.set(key, { status: EventStatus.OK, events: [{ title: 'x' }] });
 
     clock += 59_000;
-    expect(cache.get(key).status).toBe(EventStatus.OK);
+    expect((await cache.get(key)).status).toBe(EventStatus.OK);
   });
 
   /*
     An unavailable result must expire quickly. Holding a throttled destination for the
     full six-hour TTL would hide it from the discovery page for the rest of the day.
   */
-  test('expires an unavailable result far sooner than a successful one', () => {
+  test('expires an unavailable result far sooner than a successful one', async () => {
     const cache = make();
-    cache.set(key, { status: EventStatus.UNAVAILABLE, events: [], reason: 'rate-limited' });
+    await cache.set(key, { status: EventStatus.UNAVAILABLE, events: [], reason: 'rate-limited' });
 
-    expect(cache.get(key).status).toBe(EventStatus.UNAVAILABLE);
+    expect((await cache.get(key)).status).toBe(EventStatus.UNAVAILABLE);
     clock += 1_001;
-    expect(cache.get(key)).toBeNull();
+    expect(await cache.get(key)).toBeNull();
   });
 
-  test('an empty window is cached like a success, because it is an answer', () => {
+  test('an empty window is cached like a success, because it is an answer', async () => {
     const cache = make();
-    cache.set(key, { status: EventStatus.EMPTY, events: [] });
+    await cache.set(key, { status: EventStatus.EMPTY, events: [] });
 
     clock += 59_000;
-    expect(cache.get(key).status).toBe(EventStatus.EMPTY);
+    expect((await cache.get(key)).status).toBe(EventStatus.EMPTY);
   });
 
-  test('keys separate destinations and date windows', () => {
+  test('keys separate destinations and date windows', async () => {
     const cache = make();
-    cache.set(key, { status: EventStatus.OK, events: [{ title: 'bcn' }] });
+    await cache.set(key, { status: EventStatus.OK, events: [{ title: 'bcn' }] });
 
-    expect(cache.get({ ...key, destination: 'MAD' })).toBeNull();
-    expect(cache.get({ ...key, startDate: '2026-09-01' })).toBeNull();
+    expect(await cache.get({ ...key, destination: 'MAD' })).toBeNull();
+    expect(await cache.get({ ...key, startDate: '2026-09-01' })).toBeNull();
+  });
+
+  test('without a Supabase client it stays memory-only rather than refusing to work', () => {
+    expect(make().isPersistent).toBe(false);
   });
 });
 

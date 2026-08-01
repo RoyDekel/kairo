@@ -103,6 +103,15 @@ app.get('/api/events/batch', requireAuth, async (req, res) => {
   }
 
   try {
+    /*
+      One database read for the whole page, before any per-destination work.
+
+      The durable cache would otherwise be consulted 31 times over the network for a
+      single discovery search. Warming first means a window the app has already looked up
+      costs one round trip in total and zero provider calls.
+    */
+    await eventSearchService.warmCache(codes, startDate, endDate);
+
     const settled = await Promise.allSettled(
       codes.map((code) => eventSearchService.fetchEvents(code, startDate, endDate))
     );

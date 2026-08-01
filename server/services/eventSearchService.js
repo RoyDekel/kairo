@@ -112,13 +112,43 @@ export class EventSearchService {
       return { status: EventStatus.EMPTY, events: [], reason: 'unmapped-airport' };
     }
 
-    const cacheKey = { destination: airportCode, startDate, endDate, provider: 'merged' };
-    const cached = this.cache.get(cacheKey);
+    const cacheKey = EventSearchService.cacheKeyFor(airportCode, startDate, endDate);
+
+    // Awaited because the cache is now two-tiered: a miss in memory falls through to
+    // Supabase, which survives the cold starts that used to erase the whole cache.
+    const cached = await this.cache.get(cacheKey);
     if (cached) return { ...cached, cached: true };
 
     const result = await this.#queryProviders(location, { startDate, endDate }, airportCode);
-    this.cache.set(cacheKey, result);
+    await this.cache.set(cacheKey, result);
     return result;
+  }
+
+  /** The cache identity of one lookup. Shared so warmCache and fetchEvents cannot drift. */
+  static cacheKeyFor(airportCode, startDate, endDate) {
+    return { destination: airportCode, startDate, endDate, provider: 'merged' };
+  }
+
+  /**
+   * Loads every destination's cached result in ONE database query.
+   *
+   * The discovery page asks about ~31 destinations at once. Without this, each
+   * fetchEvents() would issue its own Supabase read and the durable tier would trade ~31
+   * provider calls for ~31 round trips — most of the latency the cache exists to remove.
+   * Callers invoke this first; the fetchEvents() calls that follow then hit memory.
+   *
+   * Best-effort by design: a failure here costs a slower search, never a failed one.
+   */
+  async warmCache(airportCodes = [], startDate, endDate) {
+    if (typeof this.cache.prefetch !== 'function') return 0;
+
+    const keys = airportCodes.map((code) => EventSearchService.cacheKeyFor(code, startDate, endDate));
+    const promoted = await this.cache.prefetch(keys);
+
+    if (promoted > 0) {
+      console.log(`[EventSearchService] Warmed ${promoted}/${keys.length} destinations from durable cache.`);
+    }
+    return promoted;
   }
 
   async #queryProviders(location, window, airportCode) {

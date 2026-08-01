@@ -1,5 +1,6 @@
 import { AIRPORTS } from './flightSimulator';
 import { getApiBase, authHeaders, fetchWithTimeout } from '../lib/apiBase';
+import { readCachedEvents, writeCachedEvents } from './discoveryEventCache';
 import { detectTravelOccasion } from '../../shared/travelOccasion.js';
 import {
   DEFAULT_ORIGIN,
@@ -29,12 +30,23 @@ export class DiscoveryUnavailableError extends Error {
  *
  * Batching also removes the old behaviour of issuing one sequential request per airport
  * (~30 round trips) every time a filter changed.
+ *
+ * Destinations already answered for these exact dates are served from the session cache
+ * and left out of the request entirely, so re-running a search the user has already run
+ * costs no network at all. See discoveryEventCache.js for why the cache is per
+ * destination rather than per search.
  */
 export async function fetchEventsForDestinations(destinationCodes, startDateStr, endDateStr, accessToken) {
   if (!destinationCodes?.length) return {};
 
+  const { cached, misses } = readCachedEvents(destinationCodes, startDateStr, endDateStr);
+
+  // Everything is known. Returning here is the whole point: no request, no spinner, and
+  // no exposure to a cold-starting backend for an answer we already have.
+  if (misses.length === 0) return cached;
+
   const params = new URLSearchParams({
-    destinations: destinationCodes.join(','),
+    destinations: misses.join(','),
     startDate: startDateStr || '',
     endDate: endDateStr || ''
   });
@@ -46,6 +58,13 @@ export async function fetchEventsForDestinations(destinationCodes, startDateStr,
       headers: authHeaders(accessToken)
     });
   } catch (err) {
+    /*
+      Deliberately thrown even though `cached` holds usable results.
+
+      Rendering the cached subset would present a partial page as a complete answer, with
+      no way for the user to tell that half the destinations were never checked — the same
+      silent lie the per-destination status codes exist to prevent.
+    */
     throw new DiscoveryUnavailableError(`Could not reach the event intelligence service: ${err.message}`);
   }
 
@@ -54,7 +73,11 @@ export async function fetchEventsForDestinations(destinationCodes, startDateStr,
   }
 
   const data = await res.json();
-  return data?.eventsByDestination || {};
+  const fetched = data?.eventsByDestination || {};
+
+  writeCachedEvents(fetched, data?.statusByDestination || {}, startDateStr, endDateStr);
+
+  return { ...cached, ...fetched };
 }
 
 /**

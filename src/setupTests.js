@@ -61,6 +61,10 @@ const unmockedFetch = vi.fn((input) => {
 */
 beforeEach(() => {
   window.localStorage.clear();
+  // The discovery page now caches events per destination in sessionStorage. jsdom keeps
+  // it for the whole file, so without this a search cached by one test would satisfy the
+  // next one and its fetch would never be called.
+  window.sessionStorage.clear();
   globalThis.fetch = unmockedFetch;
   unmockedFetch.mockClear();
   eventCache.clear();
