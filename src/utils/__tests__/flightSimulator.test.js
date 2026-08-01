@@ -83,17 +83,25 @@ describe('flightSimulator logic and math calculations', () => {
   });
 
   describe('getFlightTelemetry (Timeline interpolation)', () => {
-    test('returns boarding status at progress 0', () => {
+    test('returns scheduled status at progress 0', () => {
       const tel = getFlightTelemetry(0, AIRPORTS.TLV.coords, AIRPORTS.KRK.coords);
       
-      expect(tel.status).toBe('Boarding');
+      expect(tel.status).toBe('Scheduled');
       expect(tel.altitude).toBe(0);
       expect(tel.speed).toBe(0);
       expect(tel.progress).toBe(0);
     });
 
-    test('returns takeoff status at early progress (e.g. 0.05)', () => {
-      const tel = getFlightTelemetry(0.05, AIRPORTS.TLV.coords, AIRPORTS.KRK.coords);
+    test('returns boarding status at early active progress (e.g. 0.02)', () => {
+      const tel = getFlightTelemetry(0.02, AIRPORTS.TLV.coords, AIRPORTS.KRK.coords);
+      
+      expect(tel.status).toBe('Boarding');
+      expect(tel.altitude).toBe(0);
+      expect(tel.speed).toBe(0);
+    });
+
+    test('returns takeoff status at early progress (e.g. 0.07)', () => {
+      const tel = getFlightTelemetry(0.07, AIRPORTS.TLV.coords, AIRPORTS.KRK.coords);
       
       expect(tel.status).toBe('Takeoff');
       expect(tel.altitude).toBeGreaterThan(0);

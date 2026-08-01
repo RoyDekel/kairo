@@ -220,13 +220,17 @@ export const getFlightTelemetry = (progress, originCoords, destinationCoords) =>
   let status = 'Scheduled';
 
   if (progress <= 0) {
+    status = 'Scheduled';
+    altitude = 0;
+    speed = 0;
+  } else if (progress < 0.05) {
     status = 'Boarding';
     altitude = 0;
     speed = 0;
-  } else if (progress < 0.08) {
+  } else if (progress < 0.10) {
     status = 'Takeoff';
-    altitude = Math.round(progress * 12.5 * 36000);
-    speed = Math.round(250 + progress * 12.5 * 550);
+    altitude = Math.round(progress * 10 * 36000);
+    speed = Math.round(250 + progress * 10 * 550);
   } else if (progress >= 0.08 && progress < 0.88) {
     status = 'In Flight';
     altitude = 36000 + Math.round(Math.sin(progress * Math.PI * 10) * 400);
