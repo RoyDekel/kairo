@@ -332,40 +332,42 @@ export default function AIDestinationExplorer({
 
         {/* INTEREST CATEGORY PILLS AND CTA BUTTON */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-              Filter by Event Category:
+          {hasSearched && !isLoading && aiRecommendations.length > 0 && (
+            <div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                Filter by Event Category:
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {[
+                  { id: 'music', label: 'Music & Concerts 🎵' },
+                  { id: 'sports', label: 'Sports & Football ⚽' },
+                  { id: 'festivals', label: 'Festivals & Nightlife 🎪' },
+                  { id: 'culture', label: 'Culture & Food 🏛️' }
+                ].map((cat) => {
+                  const isSelected = selectedInterests.includes(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => toggleInterest(cat.id)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-glass)',
+                        background: isSelected ? 'var(--primary-glow-weak)' : 'var(--bg-tertiary)',
+                        color: isSelected ? 'var(--primary)' : 'var(--text-secondary)',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {[
-                { id: 'music', label: 'Music & Concerts 🎵' },
-                { id: 'sports', label: 'Sports & Football ⚽' },
-                { id: 'festivals', label: 'Festivals & Nightlife 🎪' },
-                { id: 'culture', label: 'Culture & Food 🏛️' }
-              ].map((cat) => {
-                const isSelected = selectedInterests.includes(cat.id);
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => toggleInterest(cat.id)}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: '20px',
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-glass)',
-                      background: isSelected ? 'var(--primary-glow-weak)' : 'var(--bg-tertiary)',
-                      color: isSelected ? 'var(--primary)' : 'var(--text-secondary)',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    {cat.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          )}
 
           <button
             type="button"
@@ -382,7 +384,8 @@ export default function AIDestinationExplorer({
               fontWeight: 700,
               cursor: isLoading ? 'not-allowed' : 'pointer',
               opacity: isLoading ? 0.75 : 1,
-              boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)'
+              boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)',
+              marginLeft: 'auto'
             }}
           >
             <Search size={18} />
