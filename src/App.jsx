@@ -37,6 +37,12 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
+  const handleSignOut = async () => {
+    await signOut();
+    setActiveTab('landing');
+    setIsUserMenuOpen(false);
+  };
+
   // 0. Theme State
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'light';
@@ -581,10 +587,7 @@ export default function App() {
                 <div className="user-dropdown animate-fade-in">
                   <div className="user-dropdown-email">{user?.email || 'Signed In'}</div>
                   <button
-                    onClick={() => {
-                      signOut();
-                      setIsUserMenuOpen(false);
-                    }}
+                    onClick={handleSignOut}
                     className="user-dropdown-signout"
                   >
                     <LogOut size={14} />
