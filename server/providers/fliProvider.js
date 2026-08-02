@@ -97,6 +97,13 @@ function consentFetch(input, init = {}) {
   return fetch(input, { ...init, headers });
 }
 
+function parseTimeArray(arr, fallback = [0, 0]) {
+  if (!Array.isArray(arr) || arr.length === 0) return fallback;
+  const hour = typeof arr[0] === 'number' ? arr[0] : 0;
+  const min = typeof arr[1] === 'number' ? arr[1] : 0;
+  return [hour, min];
+}
+
 export class FliProvider extends FlightProvider {
   constructor({ search = null, currency = null } = {}) {
     super();
@@ -276,8 +283,8 @@ export class FliProvider extends FlightProvider {
       const durationMins = typeof leg[9] === 'number' ? leg[9] : null;
 
       const [year, month, day] = travelDate.split('-').map(Number);
-      const depT = Array.isArray(leg[5]) ? leg[5] : [0, 0];
-      const arrT = Array.isArray(leg[8]) ? leg[8] : [0, 0];
+      const depT = parseTimeArray(leg[5]);
+      const arrT = parseTimeArray(leg[8]);
 
       const mappedLegs = rawSegments.length > 0 ? rawSegments.map((seg) => {
         if (!Array.isArray(seg)) return null;
@@ -294,8 +301,8 @@ export class FliProvider extends FlightProvider {
           segAircraft = seg[17];
         }
 
-        const segDepT = Array.isArray(seg[5]) ? seg[5] : depT;
-        const segArrT = Array.isArray(seg[8]) ? seg[8] : arrT;
+        const segDepT = parseTimeArray(seg[8], depT);
+        const segArrT = parseTimeArray(seg[10], arrT);
 
         const segDepDate = new Date(Date.UTC(year, month - 1, day, segDepT[0], segDepT[1]));
         const segArrDate = new Date(Date.UTC(year, month - 1, day, segArrT[0], segArrT[1]));
