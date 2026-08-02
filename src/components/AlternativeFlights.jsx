@@ -1111,46 +1111,48 @@ export default function AlternativeFlights({
               </div>
             )}
 
-            {/* Skyscanner Aggregator Banner */}
-            <div style={{
-              background: 'rgba(0, 180, 216, 0.08)',
-              border: '1px solid rgba(0, 180, 216, 0.2)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '14px 16px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '12px'
-            }}>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <Globe size={20} style={{ color: '#00e1ff' }} />
-                <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>
-                    Compare on Skyscanner Aggregator
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    Search Skyscanner directly for {bookingStep === 1 ? searchParams.origin : searchParams.destination} → {bookingStep === 1 ? searchParams.destination : searchParams.origin} flights on {formatDateDMY(bookingStep === 1 ? searchParams.departureDate : searchParams.returnDate)}.
+            {/* Skyscanner Aggregator Banner - only show when searched & results retrieved */}
+            {searchParams.destination && !isLoading && (outboundFlights.length > 0 || returnFlights.length > 0) && (
+              <div style={{
+                background: 'rgba(0, 180, 216, 0.08)',
+                border: '1px solid rgba(0, 180, 216, 0.2)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '14px 16px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <Globe size={20} style={{ color: '#00e1ff' }} />
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                      Compare on Skyscanner Aggregator
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      Search Skyscanner directly for {bookingStep === 1 ? searchParams.origin : searchParams.destination} → {bookingStep === 1 ? searchParams.destination : searchParams.origin} flights on {formatDateDMY(bookingStep === 1 ? searchParams.departureDate : searchParams.returnDate)}.
+                    </div>
                   </div>
                 </div>
+                <a
+                  href={skyscannerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn"
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '0.8rem',
+                    background: 'linear-gradient(135deg, #00b4d8, #0077b6)',
+                    color: '#fff',
+                    fontWeight: 600,
+                    textDecoration: 'none'
+                  }}
+                >
+                  Compare on Skyscanner
+                </a>
               </div>
-              <a
-                href={skyscannerUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn"
-                style={{
-                  padding: '6px 14px',
-                  fontSize: '0.8rem',
-                  background: 'linear-gradient(135deg, #00b4d8, #0077b6)',
-                  color: '#fff',
-                  fontWeight: 600,
-                  textDecoration: 'none'
-                }}
-              >
-                Compare on Skyscanner
-              </a>
-            </div>
+            )}
 
             {/* LISTINGS FILTER CONTROLS */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', fontSize: '0.85rem' }}>
