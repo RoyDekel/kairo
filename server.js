@@ -463,6 +463,8 @@ app.get('/api/flights', requireAuth, async (req, res) => {
       provider: results.warning ? 'simulated' : flightSearchService.providerName,
       servedFromCache,
       currency: results.currency || FARE_CURRENCY
+      // `providerError` rides along in ...results when a fallback fired — see
+      // FlightSearchService.searchFlights.
     });
   } catch (error) {
     console.error("Endpoint search failed:", error.message || error);

@@ -153,7 +153,23 @@ export class FlightSearchService {
           const results = await this.providers.simulated.searchAsync(searchRequest);
           return {
             ...results,
-            warning: `${this.activeProviderName.toUpperCase()} provider error. Displaying simulated backup flights.`
+            warning: `${this.activeProviderName.toUpperCase()} provider error. Displaying simulated backup flights.`,
+            /*
+              Carry the actual reason back to the caller.
+
+              `warning` says a fallback happened; it never said why, so diagnosing a
+              provider outage meant correlating a user report against server logs by
+              timestamp. The message alone — "Could not reach Google Flights", "HTTP 429",
+              a parse failure — usually identifies the class of problem immediately.
+
+              Message only, never the stack: the stack carries file paths and internals
+              that have no business crossing the API boundary.
+            */
+            providerError: {
+              provider: this.activeProviderName,
+              message: error?.message || String(error),
+              at: new Date().toISOString()
+            }
           };
         } catch (simError) {
           console.error(`[FlightSearchService] Fallback provider also failed:`, simError);

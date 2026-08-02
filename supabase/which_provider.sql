@@ -9,9 +9,9 @@
 --
 --   FLI-...            the free Google Flights provider — Phase 1 is live
 --   SERPAPI-...        still on the paid provider
---   TRAVELPAYOUTS-...  the SIMULATED generator (generateFlightsWithBasePrice), which is
---                      what the simulated fallback emits. This one is the trap: the app
---                      looks completely normal while serving invented fares.
+--   SIMULATED-...      invented fares. The app looks completely normal while serving
+--                      these, which is exactly why this query exists.
+--   TRAVELPAYOUTS-...  the shared generator in constants.js
 --
 -- Note only real provider results are ever cached — server.js skips the write when
 -- `results.warning` is set. So a TRAVELPAYOUTS- row here means simulation was the ACTIVE
