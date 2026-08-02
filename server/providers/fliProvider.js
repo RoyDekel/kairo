@@ -269,32 +269,60 @@ export class FliProvider extends FlightProvider {
 
       const airlineCode = typeof leg[0] === 'string' ? leg[0] : '';
       const airlineName = Array.isArray(leg[1]) && leg[1][0] ? leg[1][0] : airlineCode;
-      const fromCode = leg[3] || from;
-      const destCode = leg[6] || to;
 
-      const depT = Array.isArray(leg[5]) ? leg[5] : [0, 0];
-      const arrT = Array.isArray(leg[8]) ? leg[8] : [0, 0];
+      const rawSegments = Array.isArray(leg[2]) ? leg[2] : [];
+      // TRUE stops count: number of segments minus 1 (e.g. 2 segments = 1 stop, 1 segment = 0 / Direct)
+      const stopsCount = Math.max(0, rawSegments.length - 1);
       const durationMins = typeof leg[9] === 'number' ? leg[9] : null;
-      const stopsCount = typeof leg[12] === 'number' ? leg[12] : 0;
 
       const [year, month, day] = travelDate.split('-').map(Number);
-      const depDate = new Date(Date.UTC(year, month - 1, day, depT[0], depT[1]));
-      const arrDate = new Date(Date.UTC(year, month - 1, day, arrT[0], arrT[1]));
-      if (arrDate < depDate) {
-        arrDate.setUTCDate(arrDate.getUTCDate() + 1);
-      }
+      const depT = Array.isArray(leg[5]) ? leg[5] : [0, 0];
+      const arrT = Array.isArray(leg[8]) ? leg[8] : [0, 0];
 
-      let flightNum = '';
-      let aircraft = null;
-      if (Array.isArray(leg[2]) && leg[2][0] && Array.isArray(leg[2][0])) {
-        const seg = leg[2][0];
+      const mappedLegs = rawSegments.length > 0 ? rawSegments.map((seg) => {
+        if (!Array.isArray(seg)) return null;
+        const segFrom = seg[3] || from;
+        const segTo = seg[6] || to;
+        const segAirline = seg[0] || airlineCode;
+
+        let segFlightNum = '';
         if (Array.isArray(seg[22]) && seg[22].length > 1) {
-          flightNum = seg[22][1];
+          segFlightNum = String(seg[22][1]);
         }
+        let segAircraft = null;
         if (typeof seg[17] === 'string') {
-          aircraft = seg[17];
+          segAircraft = seg[17];
         }
-      }
+
+        const segDepT = Array.isArray(seg[5]) ? seg[5] : depT;
+        const segArrT = Array.isArray(seg[8]) ? seg[8] : arrT;
+
+        const segDepDate = new Date(Date.UTC(year, month - 1, day, segDepT[0], segDepT[1]));
+        const segArrDate = new Date(Date.UTC(year, month - 1, day, segArrT[0], segArrT[1]));
+        if (segArrDate < segDepDate) {
+          segArrDate.setUTCDate(segArrDate.getUTCDate() + 1);
+        }
+
+        return {
+          airline: segAirline,
+          flight_number: segFlightNum,
+          aircraft: segAircraft,
+          departure_airport: segFrom,
+          arrival_airport: segTo,
+          departure_datetime: segDepDate,
+          arrival_datetime: segArrDate
+        };
+      }).filter(Boolean) : [
+        {
+          airline: airlineCode,
+          flight_number: '',
+          aircraft: null,
+          departure_airport: from,
+          arrival_airport: to,
+          departure_datetime: new Date(Date.UTC(year, month - 1, day, depT[0], depT[1])),
+          arrival_datetime: new Date(Date.UTC(year, month - 1, day, arrT[0], arrT[1]))
+        }
+      ];
 
       offers.push({
         price,
@@ -303,17 +331,7 @@ export class FliProvider extends FlightProvider {
         stops: stopsCount,
         primary_airline: airlineCode,
         primary_airline_name: airlineName,
-        legs: [
-          {
-            airline: airlineCode,
-            flight_number: flightNum,
-            aircraft,
-            departure_airport: fromCode,
-            arrival_airport: destCode,
-            departure_datetime: depDate,
-            arrival_datetime: arrDate
-          }
-        ]
+        legs: mappedLegs
       });
     }
 
