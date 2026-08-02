@@ -1245,7 +1245,7 @@ export default function AlternativeFlights({
                         <div style={{ overflow: 'hidden' }}>
                           <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{flight.airlineName}</div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
-                            <span>{flight.flightNumber} • {flight.planeType}</span>
+                            <span>{[flight.flightNumber, flight.planeType].filter(Boolean).join(' • ')}</span>
                             {flight.cabinClass && (
                               <span
                                 style={{

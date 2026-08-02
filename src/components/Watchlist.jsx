@@ -158,7 +158,7 @@ export default function Watchlist({
                       {flight.flightNumber}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      {flight.airlineName} • {flight.planeType}
+                      {[flight.airlineName, flight.planeType].filter(Boolean).join(' • ')}
                     </div>
                   </div>
                 </div>

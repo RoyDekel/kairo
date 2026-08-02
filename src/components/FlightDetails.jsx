@@ -114,8 +114,10 @@ export default function FlightDetails({
               {activeFlight.flightNumber}
               <span className="badge badge-info" style={{ fontSize: '0.62rem' }}>{activeFlight.cabinClass}</span>
             </div>
+            {/* Aircraft type is not always reported; joining on filtered parts avoids a
+                dangling "EL AL Israel Airlines • " with nothing after the separator. */}
             <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              {activeFlight.airlineName} • {activeFlight.planeType}
+              {[activeFlight.airlineName, activeFlight.planeType].filter(Boolean).join(' • ')}
             </div>
           </div>
         </div>
@@ -203,30 +205,46 @@ export default function FlightDetails({
 
         {showDetails && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '14px' }}>
+            {/*
+              Not every provider reports every field.
+
+              Google Flights' shopping response carries no baggage allowance, no on-time
+              rating and no seat count, so the fli provider sends null rather than
+              inventing plausible-looking values. These render "Not reported" instead.
+
+              The seat-count line in particular must not fall through to the numeric
+              comparison: `null <= 3` is true in JavaScript, which painted a red
+              "null seats left" scarcity warning on flights whose availability we simply
+              do not know.
+            */}
             <div className="spec-grid">
               <div>
                 <div className="spec-label">Luggage allowance</div>
-                <div className="spec-value">{activeFlight.baggage}</div>
+                <div className="spec-value">{activeFlight.baggage || 'Not reported'}</div>
               </div>
               <div>
                 <div className="spec-label">Reliability rating</div>
                 <div className="spec-value" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Award size={13} style={{ color: 'var(--warning)' }} />
-                  {activeFlight.reliability}
+                  {activeFlight.reliability || 'Not reported'}
                 </div>
               </div>
               <div>
                 <div className="spec-label">Terminals</div>
-                <div className="spec-value">{activeFlight.terminal}</div>
+                <div className="spec-value">{activeFlight.terminal || 'Not reported'}</div>
               </div>
               <div>
                 <div className="spec-label">Seat availability</div>
-                <div
-                  className="spec-value"
-                  style={{ color: activeFlight.seatsRemaining <= 3 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}
-                >
-                  {activeFlight.seatsRemaining} seats left
-                </div>
+                {typeof activeFlight.seatsRemaining === 'number' ? (
+                  <div
+                    className="spec-value"
+                    style={{ color: activeFlight.seatsRemaining <= 3 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}
+                  >
+                    {activeFlight.seatsRemaining} seats left
+                  </div>
+                ) : (
+                  <div className="spec-value">Not reported</div>
+                )}
               </div>
             </div>
 
