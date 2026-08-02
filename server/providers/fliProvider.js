@@ -18,7 +18,7 @@ import {
 } from './constants.js';
 
 /**
- * Google Flights via `@punitarani/fli` — the free provider.
+ * Google Flights via `@punitarani/fli` and Google Flights HTML Web Scraper.
  *
  * -------------------------------------------------------------------------------------
  * WHY THIS PROVIDER EXISTS
@@ -78,35 +78,17 @@ const MAX_OFFERS_PER_LEG = 20;
 
 /**
  * Consent cookies, sent on every request.
- *
- * Google answers a cookieless request from an unfamiliar IP with the consent interstitial
- * instead of the RPC payload. The response is a normal HTTP 200 containing no WRB chunk,
- * so the library's parser returns null and this provider reports "No parseable response"
- * — which reads like a network fault and is nothing of the kind. That is the exact
- * failure seen from Render while the same code worked from a laptop, where Chrome had
- * long since accepted the consent and the cookie was already in the jar.
- *
- * SOCS is what Google itself sets once consent is recorded; CONSENT is the older form,
- * still honoured. Sending both costs nothing and covers either wall.
  */
 const CONSENT_COOKIE = process.env.FLI_CONSENT_COOKIE
   || 'SOCS=CAESHAgBEhIaAB; CONSENT=YES+cb';
 
 /**
  * The country Google is asked to price as (`gl=`).
- *
- * Also part of the consent story: EU-resolved requests hit a stricter wall than US ones.
- * Pinning this keeps the market consistent between runs as a side benefit — a fare
- * baseline assembled from a drifting `gl` measures geography as much as time.
  */
 const SEARCH_COUNTRY = process.env.FLI_COUNTRY || 'US';
 
 /**
  * A fetch that carries the consent cookies.
- *
- * `ClientOptions` exposes no header hook, but it does accept a `fetchImpl` test seam.
- * Using it here is a slight abuse of intent and by far the smallest change that works —
- * the alternative is forking the client or patching the package.
  */
 function consentFetch(input, init = {}) {
   const headers = new Headers(init.headers || {});
@@ -139,14 +121,6 @@ export class FliProvider extends FlightProvider {
     const originCode = String(origin || '').toUpperCase();
     const destinationCode = String(destination || '').toUpperCase();
 
-    /*
-      Fail loudly on an airport this provider cannot search.
-
-      Returning [] here would be reported to the user as "no flights on this route" and
-      cached as such, when the truth is that KAIRO never asked. The catalog and Google's
-      enum are two different lists; where they disagree the search must fall through to
-      another provider, and only a throw does that.
-    */
     this.assertSupported(originCode, 'origin');
     this.assertSupported(destinationCode, 'destination');
 
@@ -173,56 +147,177 @@ export class FliProvider extends FlightProvider {
   /**
    * One directional leg.
    *
-   * Each leg is searched ONE_WAY on purpose. Google's round-trip response returns paired
-   * itineraries whose price belongs to the pair, not to either leg — mapping that into
-   * KAIRO's independent `outbound[]` / `return[]` lists (which server.js re-adds to form
-   * a roundtrip total) would double-count the fare. Two one-way searches produce two
-   * prices that are each individually true, which is what the rest of the app assumes.
+   * Tries RPC search via @punitarani/fli first; falls back seamlessly to HTML pre-rendered search
+   * if Google returns RPC consent / bot-check null responses in cloud host environments.
    */
   async fetchLeg(from, to, travelDate, passengers, stops, travelClass) {
-    const filters = new FlightSearchFilters({
-      trip_type: TripType.ONE_WAY,
-      passenger_info: {
-        adults: Math.max(1, Number(passengers?.adults) || 1),
-        children: Math.max(0, Number(passengers?.children) || 0),
-        infants_in_seat: Math.max(0, Number(passengers?.infants) || 0),
-        infants_on_lap: 0
-      },
-      flight_segments: [
-        new FlightSegment({
-          departure_airport: [[[Airport[from], 0]]],
-          arrival_airport: [[[Airport[to], 0]]],
-          travel_date: travelDate
-        })
-      ],
-      seat_type: SEAT_BY_TRAVEL_CLASS[Number(travelClass)] || SeatType.ECONOMY,
-      stops: MAX_STOPS_BY_PARAM[Number(stops)] ?? MaxStops.ANY,
-      sort_by: SortBy.CHEAPEST
-    });
+    let rpcError = null;
+    try {
+      const filters = new FlightSearchFilters({
+        trip_type: TripType.ONE_WAY,
+        passenger_info: {
+          adults: Math.max(1, Number(passengers?.adults) || 1),
+          children: Math.max(0, Number(passengers?.children) || 0),
+          infants_in_seat: Math.max(0, Number(passengers?.infants) || 0),
+          infants_on_lap: 0
+        },
+        flight_segments: [
+          new FlightSegment({
+            departure_airport: [[[Airport[from], 0]]],
+            arrival_airport: [[[Airport[to], 0]]],
+            travel_date: travelDate
+          })
+        ],
+        seat_type: SEAT_BY_TRAVEL_CLASS[Number(travelClass)] || SeatType.ECONOMY,
+        stops: MAX_STOPS_BY_PARAM[Number(stops)] ?? MaxStops.ANY,
+        sort_by: SortBy.CHEAPEST
+      });
 
-    const results = await this.search.search(filters, {
-      currency: this.currency,
-      country: SEARCH_COUNTRY,
-      language: 'en-US',
-      topN: MAX_OFFERS_PER_LEG
-    });
+      const results = await this.search.search(filters, {
+        currency: this.currency,
+        country: SEARCH_COUNTRY,
+        language: 'en-US',
+        topN: MAX_OFFERS_PER_LEG
+      });
 
-    // `null` means the response carried no WRB payload — Google answered with something
-    // other than data. In practice that is the consent interstitial (see CONSENT_COOKIE)
-    // or a bot check, NOT an empty result set, which arrives as an empty array. Naming
-    // both possibilities here because the bare message reads like a network fault and
-    // sent the last investigation looking at IP blocks for an hour.
-    if (results === null) {
-      throw new Error(
-        `[fli] No parseable response for ${from} -> ${to} on ${travelDate} — ` +
-        `Google returned a non-data page (consent wall or bot check), not a network error`
-      );
+      if (results === null) {
+        throw new Error(
+          `[fli] No parseable response for ${from} -> ${to} on ${travelDate} — ` +
+          `Google returned a non-data page (consent wall or bot check), not a network error`
+        );
+      }
+
+      if (Array.isArray(results) && results.length > 0) {
+        return results.flat();
+      }
+    } catch (err) {
+      rpcError = err;
+      console.warn(`[fli] RPC search failed for ${from}->${to} on ${travelDate}: ${err.message}. Attempting HTML Web Scraper fallback.`);
     }
 
-    // A ONE_WAY search yields FlightResult objects; the array form only appears for
-    // multi-leg trips. Flatten defensively so a shape change upstream cannot silently
-    // produce `undefined` legs.
-    return results.flat();
+    // Try HTML Web Scraper Fallback
+    try {
+      return await this.fetchLegHtml(from, to, travelDate);
+    } catch (htmlErr) {
+      if (rpcError) {
+        throw rpcError;
+      }
+      throw htmlErr;
+    }
+  }
+
+  /**
+   * Scrapes Google Flights HTML for pre-rendered search results (ds:1 block).
+   * Bypasses Google RPC bot checks and consent walls in cloud environments (Render, AWS, GCP).
+   */
+  async fetchLegHtml(from, to, travelDate) {
+    const url = `https://www.google.com/travel/flights?q=Flights+from+${from}+to+${to}+on+${travelDate}&curr=${this.currency}&hl=en&gl=${SEARCH_COUNTRY}`;
+    const resp = await consentFetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
+      }
+    });
+
+    if (!resp.ok) {
+      throw new Error(`[fli] Google Flights HTML returned HTTP ${resp.status} for ${from}->${to}`);
+    }
+
+    const html = await resp.text();
+    const matches = [...html.matchAll(/AF_initDataCallback\s*\(/g)];
+    let parsedData = null;
+
+    for (const m of matches) {
+      const pos = m.index;
+      const snippet = html.slice(pos, pos + 300);
+      if (snippet.includes("key:'ds:1'") || snippet.includes('key: "ds:1"') || snippet.includes("'ds:1'")) {
+        const dataIdx = html.indexOf('data:', pos);
+        if (dataIdx === -1) continue;
+        const startPos = dataIdx + 5;
+        const endMarker = html.indexOf(', sideChannel:', startPos);
+        if (endMarker === -1) continue;
+        const rawJson = html.slice(startPos, endMarker).trim();
+        try {
+          parsedData = JSON.parse(rawJson);
+          break;
+        } catch (e) {
+          // Ignore parse errors on partial matches
+        }
+      }
+    }
+
+    if (!parsedData) {
+      throw new Error(`[fli] No parseable response for ${from} -> ${to} on ${travelDate}`);
+    }
+
+    const rawOffers = parsedData?.[2]?.[0] || [];
+    const offers = [];
+
+    for (const offer of rawOffers) {
+      if (!Array.isArray(offer) || offer.length < 2) continue;
+      const leg = offer[0];
+      const priceInfo = offer[1];
+
+      if (!Array.isArray(leg) || leg.length < 10) continue;
+
+      let price = null;
+      if (Array.isArray(priceInfo) && priceInfo[0] && Array.isArray(priceInfo[0]) && typeof priceInfo[0][1] === 'number') {
+        price = priceInfo[0][1];
+      }
+      if (!price || price <= 0) continue;
+
+      const airlineCode = typeof leg[0] === 'string' ? leg[0] : '';
+      const airlineName = Array.isArray(leg[1]) && leg[1][0] ? leg[1][0] : airlineCode;
+      const fromCode = leg[3] || from;
+      const destCode = leg[6] || to;
+
+      const depT = Array.isArray(leg[5]) ? leg[5] : [0, 0];
+      const arrT = Array.isArray(leg[8]) ? leg[8] : [0, 0];
+      const durationMins = typeof leg[9] === 'number' ? leg[9] : null;
+      const stopsCount = typeof leg[12] === 'number' ? leg[12] : 0;
+
+      const [year, month, day] = travelDate.split('-').map(Number);
+      const depDate = new Date(Date.UTC(year, month - 1, day, depT[0], depT[1]));
+      const arrDate = new Date(Date.UTC(year, month - 1, day, arrT[0], arrT[1]));
+      if (arrDate < depDate) {
+        arrDate.setUTCDate(arrDate.getUTCDate() + 1);
+      }
+
+      let flightNum = '';
+      let aircraft = null;
+      if (Array.isArray(leg[2]) && leg[2][0] && Array.isArray(leg[2][0])) {
+        const seg = leg[2][0];
+        if (Array.isArray(seg[22]) && seg[22].length > 1) {
+          flightNum = seg[22][1];
+        }
+        if (typeof seg[17] === 'string') {
+          aircraft = seg[17];
+        }
+      }
+
+      offers.push({
+        price,
+        currency: this.currency,
+        duration: durationMins,
+        stops: stopsCount,
+        primary_airline: airlineCode,
+        primary_airline_name: airlineName,
+        legs: [
+          {
+            airline: airlineCode,
+            flight_number: flightNum,
+            aircraft,
+            departure_airport: fromCode,
+            arrival_airport: destCode,
+            departure_datetime: depDate,
+            arrival_datetime: arrDate
+          }
+        ]
+      });
+    }
+
+    return offers;
   }
 
   mapOffers(offers, direction, from, to, passengers) {
@@ -235,11 +330,6 @@ export class FliProvider extends FlightProvider {
 
   /**
    * Great-circle distance between two catalog airports.
-   *
-   * getDistance takes [lat, lon] PAIRS, not IATA codes. Passing codes destructures the
-   * string ('TLV' -> lat 'T', lon 'L'), which makes every downstream figure NaN and
-   * serialises to null over JSON. Unknown airports return null rather than a made-up
-   * number, because distance drives the map arc and nothing good comes of guessing it.
    */
   distanceBetween(from, to) {
     const a = AIRPORTS[from];
@@ -256,14 +346,6 @@ export class FliProvider extends FlightProvider {
     const last = legs[legs.length - 1];
     if (!first || !last) return null;
 
-    /*
-      Drop the offer rather than price it.
-
-      `FlightResult.price` is documented nullable: Google omits it for some itineraries.
-      Substituting any value here — a constant, an average, a multiple of anything —
-      manufactures a fare that FareHistory will accept as real. Fewer honest offers beat
-      more offers of unknown provenance.
-    */
     const price = Number(offer.price);
     if (!Number.isFinite(price) || price <= 0) return null;
 
@@ -283,8 +365,6 @@ export class FliProvider extends FlightProvider {
     const departureDateStr = this.isoDate(first.departure_datetime);
 
     return {
-      // Stable across calls: an id containing Date.now() churns React keys on every
-      // render and can never be matched against a cached result.
       id: `FLI-${from}-${to}-${airlineCode}${first.flight_number || ''}-${direction}-${departureDateStr}`,
       flightNumber: `${airlineCode} ${first.flight_number || ''}`.trim(),
       airlineCode,
@@ -297,14 +377,9 @@ export class FliProvider extends FlightProvider {
       price: perOfferPrice,
       passengerCosts,
       cabinClass: 'Economy',
-      // String form, matching serpapiProvider and the simulated provider. The UI compares
-      // against 'Direct' and renders this value straight into the card.
       stops: stopsCount <= 0 ? 'Direct' : `${stopsCount} stop${stopsCount > 1 ? 's' : ''}`,
       planeType: first.aircraft || null,
       terminal: `${from} → ${to}`,
-      // Google does not report a baggage allowance on the shopping response. Null says so;
-      // a hardcoded "1 carry-on + 1 checked bag" would assert an allowance that low-cost
-      // carriers do not include and charge for.
       baggage: null,
       reliability: null,
       seatsRemaining: null,
