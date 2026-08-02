@@ -1,5 +1,12 @@
 -- Phase 1 verification — run in the Supabase SQL editor after a live search.
 --
+-- PREREQUISITE: run supabase/00_preflight_schema.sql first.
+--
+-- If that reports anything MISSING, run the migration file it names before continuing.
+-- `column "currency" does not exist` here means supabase/fare_observations.sql was never
+-- applied — which also means the server has been silently failing to record every fare
+-- since Phase 0 deployed, because FareHistory catches its own write errors by design.
+--
 -- The point of these queries is that "the app looks normal" cannot distinguish a working
 -- fli provider from a silent fallback to the simulated one. The UI renders both the same
 -- way. fare_observations can tell them apart, because FareHistory refuses to record a
