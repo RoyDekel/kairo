@@ -18,20 +18,22 @@ export class SerpApiProvider extends FlightProvider {
       throw new Error("SerpAPI key is missing in environment.");
     }
 
-    console.log(`[SerpApiProvider] Querying outbound: ${origin} -> ${destination} on ${departureDate} (stops: ${stops}, travel_class: ${travelClass || 'ALL'})`);
-    const outboundOffers = await this.fetchSerpApiOffers(origin, destination, departureDate, stops, travelClass);
+    console.log(`[SerpApiProvider] Querying ${origin} -> ${destination} on ${departureDate}${returnDate ? ' (return ' + returnDate + ')' : ''} (stops: ${stops}, travel_class: ${travelClass || 'ALL'})`);
+
+    const [outboundOffers, returnOffers] = await Promise.all([
+      this.fetchSerpApiOffers(origin, destination, departureDate, stops, travelClass),
+      returnDate
+        ? this.fetchSerpApiOffers(destination, origin, returnDate, stops, travelClass)
+        : Promise.resolve([])
+    ]);
+
     const outboundFlights = outboundOffers
       .map(offer => this.mapSerpApiToFlight(offer, 'outbound', passengers, travelClass))
       .filter(Boolean);
 
-    let returnFlights = [];
-    if (returnDate) {
-      console.log(`[SerpApiProvider] Querying return: ${destination} -> ${origin} on ${returnDate} (stops: ${stops}, travel_class: ${travelClass || 'ALL'})`);
-      const returnOffers = await this.fetchSerpApiOffers(destination, origin, returnDate, stops, travelClass);
-      returnFlights = returnOffers
-        .map(offer => this.mapSerpApiToFlight(offer, 'return', passengers, travelClass))
-        .filter(Boolean);
-    }
+    const returnFlights = returnOffers
+      .map(offer => this.mapSerpApiToFlight(offer, 'return', passengers, travelClass))
+      .filter(Boolean);
 
     return {
       outbound: outboundFlights,

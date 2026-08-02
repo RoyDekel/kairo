@@ -217,7 +217,7 @@ export default function AlternativeFlights({
           travelClass: searchParams.travelClass || 'ALL'
         });
         const res = await fetchWithTimeout(`${getApiBase()}/api/flights?${queryParams.toString()}`, {
-          timeoutMs: 4000,
+          timeoutMs: 15000,
           headers: authHeaders(session?.access_token)
         });
 
