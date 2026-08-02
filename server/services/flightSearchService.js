@@ -2,6 +2,7 @@ import { SimulatedProvider } from '../providers/simulatedProvider.js';
 import { KiwiProvider } from '../providers/kiwiProvider.js';
 import { TravelPayoutsProvider } from '../providers/travelpayoutsProvider.js';
 import { SerpApiProvider } from '../providers/serpapiProvider.js';
+import { FliProvider } from '../providers/fliProvider.js';
 
 export class FlightSearchService {
   constructor() {
@@ -9,7 +10,8 @@ export class FlightSearchService {
       simulated: new SimulatedProvider(),
       kiwi: new KiwiProvider(),
       travelpayouts: new TravelPayoutsProvider(),
-      serpapi: new SerpApiProvider()
+      serpapi: new SerpApiProvider(),
+      fli: new FliProvider()
     };
 
     this.activeProviderName = this.determineActiveProvider();
@@ -29,7 +31,12 @@ export class FlightSearchService {
       return configProvider.toLowerCase();
     }
 
-    // 2. Autodetect based on available API Keys
+    // 2. Free open-source fli engine when enabled
+    if (process.env.FLI_ENABLED === 'true') {
+      return 'fli';
+    }
+
+    // 3. Autodetect based on available API Keys
     if (process.env.SERPAPI_KEY && process.env.SERPAPI_KEY.trim() !== '') {
       return 'serpapi';
     }
@@ -42,24 +49,39 @@ export class FlightSearchService {
       return 'travelpayouts';
     }
 
-    // 3. Fallback
+    // 4. Fallback
     return 'simulated';
   }
 
-  /** Name of the provider currently serving real searches (e.g. 'serpapi', 'simulated'). */
+  /** Name of the provider currently serving real searches (e.g. 'fli', 'serpapi', 'simulated'). */
   get providerName() {
     return this.activeProviderName;
   }
 
   /**
-   * Cheap breadth-first pricing for the discovery page.
+   * Breadth-first pricing for discovery.
    *
-   * Always uses the simulated provider: "When to Go" scans ~31 destinations at once and
-   * the paid providers bill per search. Results are explicitly estimates — callers must
-   * label them as such, and prefer a cached real quote whenever one exists.
+   * Uses a real provider when ESTIMATES_USE_REAL_PROVIDER=true or FLI_ENABLED=true,
+   * falling back safely to simulated results.
    */
   async estimateFlights(searchRequest) {
-    return await this.providers.simulated.searchAsync(searchRequest);
+    const useRealProvider =
+      process.env.ESTIMATES_USE_REAL_PROVIDER === 'true' ||
+      (this.activeProviderName !== 'simulated' && process.env.FLI_ENABLED === 'true');
+
+    if (useRealProvider) {
+      try {
+        const results = await this.activeProvider.searchAsync(searchRequest);
+        if (results && ((results.outbound && results.outbound.length > 0) || (results.return && results.return.length > 0))) {
+          return { ...results, providerUsed: this.activeProviderName };
+        }
+      } catch (err) {
+        console.warn(`[FlightSearchService] Real provider estimate failed for ${searchRequest.origin}->${searchRequest.destination}: ${err.message}`);
+      }
+    }
+
+    const simResults = await this.providers.simulated.searchAsync(searchRequest);
+    return { ...simResults, providerUsed: 'simulated' };
   }
 
   async searchFlights(searchRequest) {

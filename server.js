@@ -217,48 +217,59 @@ app.get('/api/flights/estimates', requireAuth, async (req, res) => {
   }
 
   try {
-    const settled = await Promise.allSettled(
-      destinationCodes.map(async (destination) => {
-        const keyParts = { origin: originCode, destination, departureDate, returnDate, passengers, stops };
+    // Process destinations in concurrent chunks (batch size 6) to avoid upstream rate limits
+    const CHUNK_SIZE = Number(process.env.ESTIMATES_MAX_CONCURRENCY) || 6;
+    const settled = [];
 
-        // Prefer a real quote we already paid for.
-        const cached = quoteCache.get(keyParts);
-        if (cached) {
+    for (let i = 0; i < destinationCodes.length; i += CHUNK_SIZE) {
+      const chunk = destinationCodes.slice(i, i + CHUNK_SIZE);
+      const chunkResults = await Promise.allSettled(
+        chunk.map(async (destination) => {
+          const keyParts = { origin: originCode, destination, departureDate, returnDate, passengers, stops };
+
+          // Prefer a real quote we already paid for.
+          const cached = quoteCache.get(keyParts);
+          if (cached) {
+            return {
+              destination,
+              roundtripPrice: cached.roundtripPrice,
+              outbound: cached.outbound,
+              return: cached.return,
+              source: 'live',
+              provider: cached.source,
+              quotedAt: cached.quotedAt
+            };
+          }
+
+          const results = await flightSearchService.estimateFlights({
+            origin: originCode,
+            destination,
+            departureDate,
+            returnDate,
+            passengers,
+            stops
+          });
+
+          const outbound = cheapestFlight(results.outbound);
+          const returnFlight = cheapestFlight(results.return);
+          if (!outbound) return null;
+
+          const providerUsed = results?.providerUsed || 'simulated';
+          const isSimulated = providerUsed === 'simulated';
+
           return {
             destination,
-            roundtripPrice: cached.roundtripPrice,
-            outbound: cached.outbound,
-            return: cached.return,
-            source: 'live',
-            provider: cached.source,
-            quotedAt: cached.quotedAt
+            roundtripPrice: outbound.price + (returnFlight ? returnFlight.price : 0),
+            outbound,
+            return: returnFlight,
+            source: isSimulated ? 'estimate' : 'live',
+            provider: providerUsed,
+            quotedAt: isSimulated ? null : new Date().toISOString()
           };
-        }
-
-        const results = await flightSearchService.estimateFlights({
-          origin: originCode,
-          destination,
-          departureDate,
-          returnDate,
-          passengers,
-          stops
-        });
-
-        const outbound = cheapestFlight(results.outbound);
-        const returnFlight = cheapestFlight(results.return);
-        if (!outbound) return null;
-
-        return {
-          destination,
-          roundtripPrice: outbound.price + (returnFlight ? returnFlight.price : 0),
-          outbound,
-          return: returnFlight,
-          source: 'estimate',
-          provider: 'simulated',
-          quotedAt: null
-        };
-      })
-    );
+        })
+      );
+      settled.push(...chunkResults);
+    }
 
     const estimates = {};
     settled.forEach((result, idx) => {
