@@ -1,6 +1,7 @@
 import {
   Airport,
   AIRLINE_NAMES,
+  Client,
   FlightSearchFilters,
   FlightSegment,
   MaxStops,
@@ -75,13 +76,52 @@ const MAX_STOPS_BY_PARAM = {
 /** Ceiling on offers mapped per leg. Google returns far more than the UI can show. */
 const MAX_OFFERS_PER_LEG = 20;
 
+/**
+ * Consent cookies, sent on every request.
+ *
+ * Google answers a cookieless request from an unfamiliar IP with the consent interstitial
+ * instead of the RPC payload. The response is a normal HTTP 200 containing no WRB chunk,
+ * so the library's parser returns null and this provider reports "No parseable response"
+ * — which reads like a network fault and is nothing of the kind. That is the exact
+ * failure seen from Render while the same code worked from a laptop, where Chrome had
+ * long since accepted the consent and the cookie was already in the jar.
+ *
+ * SOCS is what Google itself sets once consent is recorded; CONSENT is the older form,
+ * still honoured. Sending both costs nothing and covers either wall.
+ */
+const CONSENT_COOKIE = process.env.FLI_CONSENT_COOKIE
+  || 'SOCS=CAESHAgBEhIaAB; CONSENT=YES+cb';
+
+/**
+ * The country Google is asked to price as (`gl=`).
+ *
+ * Also part of the consent story: EU-resolved requests hit a stricter wall than US ones.
+ * Pinning this keeps the market consistent between runs as a side benefit — a fare
+ * baseline assembled from a drifting `gl` measures geography as much as time.
+ */
+const SEARCH_COUNTRY = process.env.FLI_COUNTRY || 'US';
+
+/**
+ * A fetch that carries the consent cookies.
+ *
+ * `ClientOptions` exposes no header hook, but it does accept a `fetchImpl` test seam.
+ * Using it here is a slight abuse of intent and by far the smallest change that works —
+ * the alternative is forking the client or patching the package.
+ */
+function consentFetch(input, init = {}) {
+  const headers = new Headers(init.headers || {});
+  const existing = headers.get('cookie');
+  headers.set('cookie', existing ? `${existing}; ${CONSENT_COOKIE}` : CONSENT_COOKIE);
+  return fetch(input, { ...init, headers });
+}
+
 export class FliProvider extends FlightProvider {
   constructor({ search = null, currency = null } = {}) {
     super();
     this.id = 'fli';
     this.name = 'Google Flights (fli)';
     // Injectable so tests exercise the mapping without reaching Google.
-    this.search = search || new SearchFlights();
+    this.search = search || new SearchFlights(new Client({ fetchImpl: consentFetch }));
     this.currency = (currency || process.env.FARE_CURRENCY || 'USD').toUpperCase();
   }
 
@@ -162,13 +202,21 @@ export class FliProvider extends FlightProvider {
 
     const results = await this.search.search(filters, {
       currency: this.currency,
+      country: SEARCH_COUNTRY,
+      language: 'en-US',
       topN: MAX_OFFERS_PER_LEG
     });
 
-    // `null` means Google returned nothing parseable — distinct from an empty itinerary
-    // list, and not a condition this provider can honestly describe as "no flights".
+    // `null` means the response carried no WRB payload — Google answered with something
+    // other than data. In practice that is the consent interstitial (see CONSENT_COOKIE)
+    // or a bot check, NOT an empty result set, which arrives as an empty array. Naming
+    // both possibilities here because the bare message reads like a network fault and
+    // sent the last investigation looking at IP blocks for an hour.
     if (results === null) {
-      throw new Error(`[fli] No parseable response for ${from} -> ${to} on ${travelDate}`);
+      throw new Error(
+        `[fli] No parseable response for ${from} -> ${to} on ${travelDate} — ` +
+        `Google returned a non-data page (consent wall or bot check), not a network error`
+      );
     }
 
     // A ONE_WAY search yields FlightResult objects; the array form only appears for
