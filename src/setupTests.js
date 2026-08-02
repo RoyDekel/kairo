@@ -3,6 +3,7 @@ import { vi, beforeEach } from 'vitest';
 import React from 'react';
 import { eventCache } from '../server/services/eventCache.js';
 import { quoteCache } from '../server/services/quoteCache.js';
+import { flightSearchCache } from '../server/services/flightSearchCache.js';
 import { resetLimiters } from '../server/services/rateLimiter.js';
 
 /*
@@ -69,6 +70,7 @@ beforeEach(() => {
   unmockedFetch.mockClear();
   eventCache.clear();
   quoteCache.clear();
+  flightSearchCache.clear();
   // Limiters are memoised per provider key at module scope; a spent budget would
   // otherwise make a later test wait on a limit an earlier one consumed.
   resetLimiters();

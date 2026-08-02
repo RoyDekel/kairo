@@ -6,6 +6,7 @@ import { FlightSearchService } from './server/services/flightSearchService.js';
 import { EventSearchService, EventStatus } from './server/services/eventSearchService.js';
 import { computeEventDrivenInsights } from './server/services/insightsEngine.js';
 import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
+import { flightSearchCache } from './server/services/flightSearchCache.js';
 import { fareHistory, FareHistory } from './server/services/fareHistory.js';
 import { AIRPORTS } from './shared/catalog.js';
 
@@ -323,8 +324,26 @@ app.get('/api/flights', requireAuth, async (req, res) => {
     travelClass
   };
 
+  const cacheKeyParts = { origin, destination, departureDate, returnDate, passengers: request.passengers, stops, travelClass };
+
   try {
-    const results = await flightSearchService.searchFlights(request);
+    let results = await flightSearchCache.get(cacheKeyParts);
+
+    if (results) {
+      console.log(`[api/flights] Cache hit for ${origin}->${destination} ${departureDate}; skipping ${flightSearchService.providerName.toUpperCase()} call.`);
+    } else {
+      results = await flightSearchService.searchFlights(request);
+
+      // Only cache a real, successful provider result. A simulated response -- whether
+      // simulation is the active strategy or a real provider just failed and this is the
+      // fallback -- must never be cached: it would keep serving a "provider is down"
+      // substitute long after the provider recovered, and it costs nothing to regenerate,
+      // so caching it buys nothing.
+      if (!results.warning && flightSearchService.providerName !== 'simulated') {
+        await flightSearchCache.set(cacheKeyParts, results);
+      }
+    }
+
     const events = await eventSearchService.getEventsForDestination(destination, departureDate, returnDate);
 
     // Enriched outbound and return flights with Event-Driven Insights
