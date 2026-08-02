@@ -203,7 +203,6 @@ export function assessConfidence({ priceSource, coverage, hasHistory }) {
   const gaps = [];
 
   if (priceSource !== 'live') gaps.push('Fare is modelled, not a live quote');
-  if (coverage !== 'full') gaps.push('Only ticketed events are visible — anything sold elsewhere is missing');
   if (!hasHistory) gaps.push('No price history for this route yet');
 
   const level = gaps.length === 0 ? 'high' : gaps.length === 1 ? 'medium' : 'low';

@@ -158,7 +158,7 @@ describe('confidence is reported beside the score, not blended into it', () => {
     const { level, gaps } = assessConfidence({ priceSource: 'estimate', coverage: 'ticketed-only', hasHistory: false });
 
     expect(level).toBe('low');
-    expect(gaps).toHaveLength(3);
+    expect(gaps).toHaveLength(2);
     expect(gaps.join(' ')).toContain('modelled');
   });
 

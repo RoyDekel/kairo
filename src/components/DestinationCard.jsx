@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Bookmark, CheckCircle, ExternalLink, ChevronDown, ChevronUp, Calendar, MapPin } from 'lucide-react';
+import { ArrowRight, Bookmark, CheckCircle, ExternalLink, ChevronDown, ChevronUp, Calendar, MapPin, Info } from 'lucide-react';
 import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
 import CityLandmarkIcon from './CityLandmarkIcon';
 
@@ -57,6 +57,7 @@ export default function DestinationCard({
   onToggleWatchlist
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showInfoPopover, setShowInfoPopover] = useState(false);
   const rec = recommendation;
   const isEstimate = rec.priceSource === 'estimate';
 
@@ -78,8 +79,8 @@ export default function DestinationCard({
   const matchBreakdown = rec.matchBreakdown || [];
   const matchTooltip = matchBreakdown.length
     ? [`KAIRO match score: ${rec.matchScore} out of 100`, ...matchBreakdown.map(
-        (c) => `• ${c.label} ${c.points}/${c.max} — ${c.detail}`
-      )].join('\n')
+      (c) => `• ${c.label} ${c.points}/${c.max} — ${c.detail}`
+    )].join('\n')
     : `KAIRO match score: ${rec.matchScore} out of 100`;
 
   const confidence = rec.matchConfidence || { level: 'high', gaps: [] };
@@ -125,23 +126,63 @@ export default function DestinationCard({
                 claim about the destination and different claims about what we know, and
                 blending them yields a number that answers neither question.
               */}
-              {confidence.level !== 'high' && (
-                <span
-                  style={{
-                    fontSize: '0.66rem',
-                    fontWeight: 700,
-                    padding: '2px 7px',
-                    borderRadius: '12px',
-                    background: 'rgba(148, 163, 184, 0.14)',
-                    color: 'var(--text-secondary)',
-                    border: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))',
-                    whiteSpace: 'nowrap',
-                    cursor: 'help'
-                  }}
-                  title={`Based on partial evidence:\n• ${confidence.gaps.join('\n• ')}`}
-                >
-                  {confidence.level === 'medium' ? 'partial evidence' : 'limited evidence'}
-                </span>
+              {confidence.level !== 'high' && confidence.gaps.length > 0 && (
+                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowInfoPopover((prev) => !prev)}
+                    style={{
+                      fontSize: '0.66rem',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      background: 'rgba(148, 163, 184, 0.14)',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))',
+                      whiteSpace: 'nowrap',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="Click to view evidence details"
+                  >
+                    <span>{confidence.level === 'Medium' || confidence.level === 'medium' ? 'Partial evidence' : 'Limited evidence'}</span>
+                    <Info size={11} style={{ color: 'var(--primary, #0284c7)', opacity: 0.9 }} />
+                  </button>
+
+                  {showInfoPopover && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 6px)',
+                        left: '0',
+                        zIndex: 100,
+                        minWidth: '220px',
+                        maxWidth: '280px',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        background: 'var(--bg-secondary, #1e293b)',
+                        border: '1px solid var(--border-glass, rgba(255, 255, 255, 0.2))',
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
+                        fontSize: '0.75rem',
+                        color: 'var(--text-primary)',
+                        backdropFilter: 'blur(12px)'
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, marginBottom: '6px', color: 'var(--text-primary)', fontSize: '0.78rem' }}>
+                        Based on partial evidence:
+                      </div>
+                      {confidence.gaps.map((gap, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginTop: '4px', color: 'var(--text-secondary)' }}>
+                          <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>•</span>
+                          <span>{gap}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             <div className="dest-card-sub" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -206,7 +247,7 @@ export default function DestinationCard({
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', margin: '6px 0 12px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '12px', borderRight: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-secondary)' }}>
-                <path d="M17 2 L21 6 L17 10"/><path d="M3 6 h18"/><path d="M7 22 L3 18 L7 14"/><path d="M21 18 H3"/>
+                <path d="M17 2 L21 6 L17 10" /><path d="M3 6 h18" /><path d="M7 22 L3 18 L7 14" /><path d="M21 18 H3" />
               </svg>
               <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Roundtrip</span>
             </div>
@@ -221,7 +262,7 @@ export default function DestinationCard({
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {isEstimate ? (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
-                  <path d="M3 3 v18 h18"/><path d="M7 15 l4-5 3 3 5-7"/>
+                  <path d="M3 3 v18 h18" /><path d="M7 15 l4-5 3 3 5-7" />
                 </svg>
               ) : (
                 <CheckCircle size={14} style={{ color: 'var(--success)' }} />
