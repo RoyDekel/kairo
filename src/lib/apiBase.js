@@ -9,8 +9,14 @@ export function getApiBase() {
     return import.meta.env.VITE_API_URL;
   }
 
-  if (typeof window !== 'undefined' && window.location?.origin && window.location.origin !== 'null') {
-    return window.location.origin;
+  if (typeof window !== 'undefined') {
+    const { hostname } = window.location;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:3001';
+    }
+    if (window.location.origin && window.location.origin !== 'null') {
+      return window.location.origin;
+    }
   }
 
   return 'http://localhost:3001';
