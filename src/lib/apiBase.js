@@ -14,11 +14,11 @@ export function getApiBase() {
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:3001';
     }
-    if (window.location.origin && window.location.origin !== 'null') {
-      return window.location.origin;
-    }
   }
 
+  // Fallback to local backend (or configured production VITE_API_URL).
+  // GitHub Pages (roydekel.github.io) is a static host without an Express backend,
+  // so querying window.location.origin results in 404 errors.
   return 'http://localhost:3001';
 }
 
