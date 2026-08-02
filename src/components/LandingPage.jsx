@@ -57,29 +57,6 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
         borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-lg)'
       }}>
-        {/* BRAND BADGE */}
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '6px 18px',
-          borderRadius: '20px',
-          background: 'var(--primary-glow-weak)',
-          border: '1px solid var(--primary-glow)',
-          color: 'var(--primary)',
-          fontSize: '0.85rem',
-          fontWeight: 800,
-          marginBottom: '24px',
-          letterSpacing: '0.05em'
-        }}>
-          <Sparkles size={16} /> FLIGHT PRICE TIMING
-        </div>
-
-        {/* OUTCOME-FOCUSED HERO HEADLINE & BRAND POSITIONING */}
-        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
-          "We don't help you find flights. We help you know when to buy them."
-        </div>
-
         <h1 style={{
           fontSize: '3.2rem',
           fontWeight: 800,
@@ -99,7 +76,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           lineHeight: 1.6,
           fontWeight: 500
         }}>
-          Get instant AI Buy or Wait decisions backed by 90-day price trends and 95% historical confidence.
+          AI tells you when to buy flights — and when to wait.
         </p>
 
         {/* HERO CTA BUTTONS — Displayed ONLY when user is NOT logged in */}
