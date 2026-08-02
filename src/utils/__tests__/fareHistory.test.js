@@ -33,6 +33,11 @@ function fakeSupabase({ rows = [], failReads = false, failWrites = false } = {})
               chain._keys = keys;
               return chain;
             },
+            eq(col, val) {
+              chain._eqCol = col;
+              chain._eqVal = val;
+              return chain;
+            },
             gte() {
               return chain;
             },
@@ -91,12 +96,37 @@ describe('medianOf', () => {
 });
 
 describe('FareHistory.record', () => {
-  test('stores a real provider quote', async () => {
+  test('stores a real provider quote with currency and collected_by defaults', async () => {
     const supabase = fakeSupabase();
     const history = new FareHistory({ supabase });
 
     await expect(history.record(quote())).resolves.toBe(true);
-    expect(supabase.inserted[0]).toMatchObject({ route: 'TLV-BCN', roundtrip_price: 480, provider: 'serpapi' });
+    expect(supabase.inserted[0]).toMatchObject({
+      route: 'TLV-BCN',
+      roundtrip_price: 480,
+      provider: 'serpapi',
+      currency: 'USD',
+      collected_by: 'user_search'
+    });
+  });
+
+  test('stores custom currency and collected_by values', async () => {
+    const supabase = fakeSupabase();
+    const history = new FareHistory({ supabase });
+
+    await expect(history.record(quote({ currency: 'EUR', collectedBy: 'collector' }))).resolves.toBe(true);
+    expect(supabase.inserted[0]).toMatchObject({
+      currency: 'EUR',
+      collected_by: 'collector'
+    });
+  });
+
+  test('refuses an invalid currency code', async () => {
+    const supabase = fakeSupabase();
+    const history = new FareHistory({ supabase });
+
+    await expect(history.record(quote({ currency: 'INVALID' }))).resolves.toBe(false);
+    expect(supabase.calls.insert).toBe(0);
   });
 
   /*

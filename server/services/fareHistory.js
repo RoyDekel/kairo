@@ -72,10 +72,13 @@ export class FareHistory {
    * rather than at the call site, so a future caller cannot poison the baseline by
    * forgetting the check.
    */
-  async record({ origin, destination, departureDate, returnDate, roundtripPrice, provider }) {
+  async record({ origin, destination, departureDate, returnDate, roundtripPrice, provider, currency = 'USD', collectedBy = 'user_search' }) {
     if (!this.supabase) return false;
     if (!provider || provider === 'simulated') return false;
     if (!Number.isFinite(roundtripPrice) || roundtripPrice <= 0) return false;
+    
+    const validCurrency = String(currency || 'USD').toUpperCase().trim();
+    if (!validCurrency || validCurrency.length !== 3) return false;
 
     const tripNights =
       departureDate && returnDate
@@ -92,6 +95,8 @@ export class FareHistory {
         trip_nights: Number.isFinite(tripNights) ? tripNights : null,
         roundtrip_price: roundtripPrice,
         provider,
+        currency: validCurrency,
+        collected_by: String(collectedBy || 'user_search'),
         observed_at: new Date(this.now()).toISOString()
       });
 
@@ -115,17 +120,19 @@ export class FareHistory {
    *
    * @returns {Promise<Record<string, {sampleSize: number, typicalPrice: number|null, prices: number[]}>>}
    */
-  async statsForRoutes(routeKeys = []) {
+  async statsForRoutes(routeKeys = [], currency = 'USD') {
     const stats = {};
     if (!this.supabase || routeKeys.length === 0) return stats;
 
     const since = new Date(this.now() - this.windowDays * 86_400_000).toISOString();
+    const validCurrency = String(currency || 'USD').toUpperCase().trim();
 
     try {
       const { data, error } = await this.supabase
         .from(this.table)
         .select('route, roundtrip_price')
         .in('route', [...new Set(routeKeys)])
+        .eq('currency', validCurrency)
         .gte('observed_at', since)
         .limit(MAX_ROWS);
 

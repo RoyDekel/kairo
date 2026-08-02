@@ -28,10 +28,10 @@ export const getServerSupabase = () => {
     configured, passes every startup check, and then has every cache write denied by RLS.
   */
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_KEY;
+  const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    const missing = [!url && 'SUPABASE_URL', !key && 'SUPABASE_SERVICE_KEY'].filter(Boolean);
+    const missing = [!url && 'SUPABASE_URL', !key && 'SUPABASE_SERVICE_KEY / SUPABASE_SERVICE_ROLE_KEY'].filter(Boolean);
     console.warn(
       `[supabase] ${missing.join(' and ')} not set — the fixture cache will be memory-only, ` +
       'and will be lost every time the service spins down.'
