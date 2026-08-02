@@ -122,48 +122,11 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           boxShadow: 'var(--shadow-lg)',
           textAlign: 'left'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Zap size={15} /> ZERO-CLICK LIVE AI PRICE DEMO
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(window.location.href);
-                  setToastMsg('KAIRO Deal link copied to clipboard! 📋');
-                  setTimeout(() => setToastMsg(null), 3000);
-                }}
-                className="btn btn-secondary"
-                style={{ padding: '4px 12px', fontSize: '0.78rem', gap: '6px' }}
-                title="Share this flight deal with friends"
-              >
-                <Share2 size={14} />
-                Share Deal
-              </button>
-
-              <div className="badge badge-info" style={{ fontSize: '0.75rem' }}>
-                Live AI Simulation
-              </div>
-            </div>
           </div>
-
-          {/* TOAST NOTIFICATION */}
-          {toastMsg && (
-            <div className="animate-fade-in" style={{
-              background: 'var(--success-glow)',
-              border: '1px solid var(--success)',
-              color: 'var(--success)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '8px 14px',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              marginBottom: '16px',
-              textAlign: 'center'
-            }}>
-              {toastMsg}
-            </div>
-          )}
 
           {/* DEMO METRICS GRID */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '20px' }}>
