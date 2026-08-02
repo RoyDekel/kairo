@@ -214,6 +214,31 @@ export class FliProvider extends FlightProvider {
   }
 
   /**
+   * Recursively scans Google Flights `ds:1` payload tree to collect all valid flight offers
+   * across both "Top flights" and "Other departing flights" sections.
+   */
+  collectAllOffers(node, rawOffers = []) {
+    if (!Array.isArray(node)) return rawOffers;
+
+    if (node.length >= 2 && Array.isArray(node[0]) && node[0].length >= 10) {
+      const leg = node[0];
+      const priceInfo = node[1];
+      if (typeof leg[0] === 'string' && Array.isArray(leg[1]) && leg[1].length > 0) {
+        if (Array.isArray(priceInfo) && priceInfo[0] && Array.isArray(priceInfo[0]) && typeof priceInfo[0][1] === 'number') {
+          rawOffers.push(node);
+          return rawOffers; // do not recurse deeper inside a matched offer
+        }
+      }
+    }
+
+    for (const child of node) {
+      this.collectAllOffers(child, rawOffers);
+    }
+
+    return rawOffers;
+  }
+
+  /**
    * Scrapes Google Flights HTML for pre-rendered search results (ds:1 block).
    * Bypasses Google RPC bot checks and consent walls in cloud environments (Render, AWS, GCP).
    */
@@ -258,7 +283,7 @@ export class FliProvider extends FlightProvider {
       throw new Error(`[fli] No parseable response for ${from} -> ${to} on ${travelDate}`);
     }
 
-    const rawOffers = parsedData?.[2]?.[0] || [];
+    const rawOffers = this.collectAllOffers(parsedData);
     const offers = [];
 
     for (const offer of rawOffers) {
