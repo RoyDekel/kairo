@@ -5,6 +5,19 @@ import {
   calculatePassengerCost
 } from './constants.js';
 
+/**
+ * How long to let a single SerpApi Google Flights request run before giving up.
+ *
+ * The fetch below had no timeout at all, so a slow (or hung) request would hold the
+ * connection open indefinitely — the frontend gives up after its own timeout, but the
+ * backend kept the search running to nowhere, tying up a connection until Node or Render
+ * itself finally cut it off. Google Flights is scraped live by SerpApi on an uncached
+ * query, and that can take a long time; this is generous specifically so a real search
+ * has a fair chance to finish, while still guaranteeing FlightSearchService's fallback to
+ * simulated results fires within a bounded time instead of never.
+ */
+const REQUEST_TIMEOUT_MS = 45000;
+
 export class SerpApiProvider extends FlightProvider {
   constructor() {
     super();
@@ -64,7 +77,21 @@ export class SerpApiProvider extends FlightProvider {
     const queryParams = new URLSearchParams(params);
 
     const url = `https://serpapi.com/search.json?${queryParams.toString()}`;
-    const response = await fetch(url);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let response;
+    try {
+      response = await fetch(url, { signal: controller.signal });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error(`SerpAPI request timed out after ${REQUEST_TIMEOUT_MS}ms for ${dep} -> ${arr} on ${dateStr}`, { cause: err });
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const errText = await response.text();

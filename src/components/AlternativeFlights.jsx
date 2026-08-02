@@ -216,8 +216,13 @@ export default function AlternativeFlights({
           stops: searchParams.stops || '0',
           travelClass: searchParams.travelClass || 'ALL'
         });
+        // Google Flights is scraped live by SerpApi on an uncached query, which can take
+        // a long time — the backend itself now gives up after 45s (serpapiProvider.js).
+        // This must stay comfortably above that so the backend's own timeout/fallback
+        // fires first and the client gets a real (if simulated) JSON response, instead of
+        // the client aborting first and discarding a search the backend was still running.
         const res = await fetchWithTimeout(`${getApiBase()}/api/flights?${queryParams.toString()}`, {
-          timeoutMs: 15000,
+          timeoutMs: 50000,
           headers: authHeaders(session?.access_token)
         });
 
@@ -1192,7 +1197,7 @@ export default function AlternativeFlights({
               ) : isLoading ? (
                 <div style={{ textAlign: 'center', padding: '50px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
                   <div className="pulse-target" style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'var(--primary)' }}></div>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Searching live itineraries from server...</span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Searching live itineraries from server... this can take up to 45s for a real-time fare check.</span>
                 </div>
               ) : apiError ? (
                 <div style={{ textAlign: 'center', padding: '30px', backgroundColor: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: 'var(--radius-sm)', color: '#f87171', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
