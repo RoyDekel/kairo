@@ -59,24 +59,39 @@ export class FlightSearchService {
   }
 
   /**
-   * Breadth-first pricing for discovery.
+   * Breadth-first pricing for the discovery page.
    *
-   * Uses a real provider when ESTIMATES_USE_REAL_PROVIDER=true or FLI_ENABLED=true,
-   * falling back safely to simulated results.
+   * Historically this always used the simulated provider, because the paid providers bill
+   * per search and "When to Go" prices ~31 destinations at once. A free provider removes
+   * the cost, not the load: one discovery search still becomes ~31 upstream searches.
+   *
+   * ESTIMATES_USE_REAL_PROVIDER is therefore its OWN flag, deliberately independent of
+   * whichever provider is active. Deriving it from FLI_ENABLED would mean switching the
+   * provider on also switches the fan-out on, and there would be no way to keep one
+   * without the other when the fan-out turns out to be the thing that breaks.
+   *
+   * `providerUsed` is returned so the caller can label `source` honestly instead of
+   * assuming. Callers MUST NOT report an estimate as a live quote.
    */
   async estimateFlights(searchRequest) {
     const useRealProvider =
-      process.env.ESTIMATES_USE_REAL_PROVIDER === 'true' ||
-      (this.activeProviderName !== 'simulated' && process.env.FLI_ENABLED === 'true');
+      process.env.ESTIMATES_USE_REAL_PROVIDER === 'true' &&
+      this.activeProviderName !== 'simulated';
 
     if (useRealProvider) {
       try {
         const results = await this.activeProvider.searchAsync(searchRequest);
-        if (results && ((results.outbound && results.outbound.length > 0) || (results.return && results.return.length > 0))) {
+        if (results?.outbound?.length || results?.return?.length) {
           return { ...results, providerUsed: this.activeProviderName };
         }
+        // An empty result from a working provider is a real answer ("nothing found"),
+        // but the discovery page needs a number for the card. Fall through to the
+        // simulated estimate, which the caller will label as an estimate.
       } catch (err) {
-        console.warn(`[FlightSearchService] Real provider estimate failed for ${searchRequest.origin}->${searchRequest.destination}: ${err.message}`);
+        console.warn(
+          `[FlightSearchService] Real provider estimate failed for ` +
+          `${searchRequest.origin}->${searchRequest.destination}: ${err.message}`
+        );
       }
     }
 

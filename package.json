@@ -19,6 +19,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@punitarani/fli": "0.0.3",
     "@supabase/supabase-js": "^2.110.8",
     "chart.js": "^4.5.1",
     "concurrently": "^10.0.3",

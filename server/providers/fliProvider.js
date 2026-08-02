@@ -1,6 +1,14 @@
-import { execFile } from 'node:child_process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import {
+  Airport,
+  AIRLINE_NAMES,
+  FlightSearchFilters,
+  FlightSegment,
+  MaxStops,
+  SearchFlights,
+  SeatType,
+  SortBy,
+  TripType
+} from '@punitarani/fli';
 import { FlightProvider } from './flightProvider.js';
 import {
   AIRPORTS,
@@ -8,18 +16,73 @@ import {
   calculatePassengerCost
 } from './constants.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const BRIDGE_PATH = path.join(__dirname, 'fliBridge.py');
+/**
+ * Google Flights via `@punitarani/fli` — the free provider.
+ *
+ * -------------------------------------------------------------------------------------
+ * WHY THIS PROVIDER EXISTS
+ *
+ * SerpApi bills per search, which is why `estimateFlights()` was hardwired to the
+ * simulated provider and the whole discovery page quoted invented prices. This provider
+ * costs nothing per call, so real fares can back the discovery page and — more
+ * importantly — the fare_observations baseline that every "below the usual price" claim
+ * depends on.
+ *
+ * -------------------------------------------------------------------------------------
+ * THE RULE THIS FILE MUST NOT BREAK
+ *
+ * Everything returned from here is written to `fare_observations` by server.js under a
+ * non-simulated provider name, which means FareHistory ACCEPTS it. There is no
+ * downstream guard. A fabricated number invented here becomes indistinguishable from a
+ * real quote for the lifetime of the table.
+ *
+ * Concretely:
+ *
+ *   1. `FlightResult.price` is nullable — Google does not always surface a price
+ *      (premium-cabin round trips, notably). An offer with no price is DROPPED. It is
+ *      never defaulted, never estimated, never substituted with a constant.
+ *   2. `price` is the PER-OFFER fare, matching serpapiProvider.mapSerpApiToFlight.
+ *      The per-passenger breakdown lives in `passengerCosts`. Putting the passenger
+ *      total in `price` would make rows from this provider incomparable with rows from
+ *      SerpApi, and the median in FareHistory would be measuring party size.
+ *   3. Failures THROW. FlightSearchService only falls back to the simulated provider on
+ *      a thrown error; returning `{outbound: [], return: []}` reads as a successful
+ *      empty result, which server.js then writes to flightSearchCache and serves for
+ *      the full TTL. An empty array must never be used to signal a failure.
+ * -------------------------------------------------------------------------------------
+ */
 
-/** Bounded execution timeout for Python fli bridge (15s). */
-const EXEC_TIMEOUT_MS = 15000;
+/** KAIRO's `travelClass` query param uses the same integers Google does. */
+const SEAT_BY_TRAVEL_CLASS = {
+  1: SeatType.ECONOMY,
+  2: SeatType.PREMIUM_ECONOMY,
+  3: SeatType.BUSINESS,
+  4: SeatType.FIRST
+};
+
+/**
+ * KAIRO's `stops` query param counts stops; Google's enum counts "at most N".
+ * '0' is KAIRO's "no preference" sentinel, not "non-stop" — /api/flights defaults it to
+ * '0' on every search, so reading it as NON_STOP would silently hide connecting flights
+ * from every user who never touched the filter.
+ */
+const MAX_STOPS_BY_PARAM = {
+  0: MaxStops.ANY,
+  1: MaxStops.ONE_STOP_OR_FEWER,
+  2: MaxStops.TWO_OR_FEWER_STOPS
+};
+
+/** Ceiling on offers mapped per leg. Google returns far more than the UI can show. */
+const MAX_OFFERS_PER_LEG = 20;
 
 export class FliProvider extends FlightProvider {
-  constructor() {
+  constructor({ search = null, currency = null } = {}) {
     super();
     this.id = 'fli';
     this.name = 'Google Flights (fli)';
+    // Injectable so tests exercise the mapping without reaching Google.
+    this.search = search || new SearchFlights();
+    this.currency = (currency || process.env.FARE_CURRENCY || 'USD').toUpperCase();
   }
 
   async searchAsync(searchRequest) {
@@ -29,120 +92,197 @@ export class FliProvider extends FlightProvider {
       departureDate,
       returnDate,
       passengers = { adults: 1, children: 0, infants: 0 },
-      currency = 'USD'
+      stops = '0',
+      travelClass = '1'
     } = searchRequest;
 
-    const payload = JSON.stringify({
-      origin: String(origin).toUpperCase(),
-      destination: String(destination).toUpperCase(),
-      departureDate,
-      returnDate: returnDate || null,
-      currency
-    });
+    const originCode = String(origin || '').toUpperCase();
+    const destinationCode = String(destination || '').toUpperCase();
 
-    try {
-      const output = await this.runBridge(payload);
-      if (!output || output.error) {
-        if (output?.error) {
-          console.warn(`[FliProvider] Bridge returned error for ${origin}->${destination}: ${output.error}`);
-        }
-        return { outbound: [], return: [] };
-      }
+    /*
+      Fail loudly on an airport this provider cannot search.
 
-      const rawFlights = output.flights || [];
-      const outboundFlights = [];
-      const returnFlights = [];
+      Returning [] here would be reported to the user as "no flights on this route" and
+      cached as such, when the truth is that KAIRO never asked. The catalog and Google's
+      enum are two different lists; where they disagree the search must fall through to
+      another provider, and only a throw does that.
+    */
+    this.assertSupported(originCode, 'origin');
+    this.assertSupported(destinationCode, 'destination');
 
-      const dist = getDistance(origin, destination);
+    const [outboundOffers, returnOffers] = await Promise.all([
+      this.fetchLeg(originCode, destinationCode, departureDate, passengers, stops, travelClass),
+      returnDate
+        ? this.fetchLeg(destinationCode, originCode, returnDate, passengers, stops, travelClass)
+        : Promise.resolve([])
+    ]);
 
-      for (const flightData of rawFlights) {
-        if (flightData.outbound) {
-          const mappedOutbound = this.mapLegToFlight(
-            flightData.outbound,
-            flightData.price,
-            'outbound',
-            origin,
-            destination,
-            dist,
-            passengers
-          );
-          if (mappedOutbound) outboundFlights.push(mappedOutbound);
-        }
+    return {
+      outbound: this.mapOffers(outboundOffers, 'outbound', originCode, destinationCode, passengers),
+      return: this.mapOffers(returnOffers, 'return', destinationCode, originCode, passengers),
+      currency: this.currency
+    };
+  }
 
-        if (flightData.return) {
-          const mappedReturn = this.mapLegToFlight(
-            flightData.return,
-            0, // Return leg price covered in roundtrip total
-            'return',
-            destination,
-            origin,
-            dist,
-            passengers
-          );
-          if (mappedReturn) returnFlights.push(mappedReturn);
-        }
-      }
-
-      return {
-        outbound: outboundFlights,
-        return: returnFlights
-      };
-    } catch (err) {
-      console.warn(`[FliProvider] Process execution failed for ${origin}->${destination}: ${err.message}`);
-      return { outbound: [], return: [] };
+  assertSupported(code, role) {
+    if (!Airport[code]) {
+      throw new Error(`[fli] Unsupported ${role} airport code: ${code || '(empty)'}`);
     }
   }
 
-  runBridge(payload) {
-    return new Promise((resolve) => {
-      execFile(
-        'python',
-        [BRIDGE_PATH, payload],
-        { timeout: EXEC_TIMEOUT_MS, maxBuffer: 10 * 1024 * 1024 },
-        (error, stdout) => {
-          if (error) {
-            resolve({ error: error.message, flights: [] });
-            return;
-          }
-          try {
-            const data = JSON.parse(stdout.trim());
-            resolve(data);
-          } catch (jsonErr) {
-            resolve({ error: `JSON parse error: ${jsonErr.message}`, flights: [] });
-          }
-        }
-      );
+  /**
+   * One directional leg.
+   *
+   * Each leg is searched ONE_WAY on purpose. Google's round-trip response returns paired
+   * itineraries whose price belongs to the pair, not to either leg — mapping that into
+   * KAIRO's independent `outbound[]` / `return[]` lists (which server.js re-adds to form
+   * a roundtrip total) would double-count the fare. Two one-way searches produce two
+   * prices that are each individually true, which is what the rest of the app assumes.
+   */
+  async fetchLeg(from, to, travelDate, passengers, stops, travelClass) {
+    const filters = new FlightSearchFilters({
+      trip_type: TripType.ONE_WAY,
+      passenger_info: {
+        adults: Math.max(1, Number(passengers?.adults) || 1),
+        children: Math.max(0, Number(passengers?.children) || 0),
+        infants_in_seat: Math.max(0, Number(passengers?.infants) || 0),
+        infants_on_lap: 0
+      },
+      flight_segments: [
+        new FlightSegment({
+          departure_airport: [[[Airport[from], 0]]],
+          arrival_airport: [[[Airport[to], 0]]],
+          travel_date: travelDate
+        })
+      ],
+      seat_type: SEAT_BY_TRAVEL_CLASS[Number(travelClass)] || SeatType.ECONOMY,
+      stops: MAX_STOPS_BY_PARAM[Number(stops)] ?? MaxStops.ANY,
+      sort_by: SortBy.CHEAPEST
     });
+
+    const results = await this.search.search(filters, {
+      currency: this.currency,
+      topN: MAX_OFFERS_PER_LEG
+    });
+
+    // `null` means Google returned nothing parseable — distinct from an empty itinerary
+    // list, and not a condition this provider can honestly describe as "no flights".
+    if (results === null) {
+      throw new Error(`[fli] No parseable response for ${from} -> ${to} on ${travelDate}`);
+    }
+
+    // A ONE_WAY search yields FlightResult objects; the array form only appears for
+    // multi-leg trips. Flatten defensively so a shape change upstream cannot silently
+    // produce `undefined` legs.
+    return results.flat();
   }
 
-  mapLegToFlight(leg, totalPrice, direction, origin, destination, distance, passengers) {
-    if (!leg) return null;
+  mapOffers(offers, direction, from, to, passengers) {
+    const distance = this.distanceBetween(from, to);
+    return offers
+      .map((offer) => this.mapToFlight(offer, direction, from, to, distance, passengers))
+      .filter(Boolean)
+      .slice(0, MAX_OFFERS_PER_LEG);
+  }
 
-    const basePrice = totalPrice > 0 ? totalPrice : 200;
-    const passengerCosts = calculatePassengerCost(basePrice, passengers);
+  /**
+   * Great-circle distance between two catalog airports.
+   *
+   * getDistance takes [lat, lon] PAIRS, not IATA codes. Passing codes destructures the
+   * string ('TLV' -> lat 'T', lon 'L'), which makes every downstream figure NaN and
+   * serialises to null over JSON. Unknown airports return null rather than a made-up
+   * number, because distance drives the map arc and nothing good comes of guessing it.
+   */
+  distanceBetween(from, to) {
+    const a = AIRPORTS[from];
+    const b = AIRPORTS[to];
+    if (!a?.coords || !b?.coords) return null;
+    return getDistance(a.coords, b.coords);
+  }
+
+  mapToFlight(offer, direction, from, to, distance, passengers) {
+    if (!offer) return null;
+
+    const legs = Array.isArray(offer.legs) ? offer.legs : [];
+    const first = legs[0];
+    const last = legs[legs.length - 1];
+    if (!first || !last) return null;
+
+    /*
+      Drop the offer rather than price it.
+
+      `FlightResult.price` is documented nullable: Google omits it for some itineraries.
+      Substituting any value here — a constant, an average, a multiple of anything —
+      manufactures a fare that FareHistory will accept as real. Fewer honest offers beat
+      more offers of unknown provenance.
+    */
+    const price = Number(offer.price);
+    if (!Number.isFinite(price) || price <= 0) return null;
+
+    const perOfferPrice = Math.round(price);
+    const passengerCosts = calculatePassengerCost(perOfferPrice, passengers);
+
+    const durationMins = Number.isFinite(offer.duration) ? offer.duration : null;
+    const stopsCount = Number.isFinite(offer.stops) ? offer.stops : Math.max(0, legs.length - 1);
+
+    const airlineCode = first.airline || offer.primary_airline || '';
+    const airlineName =
+      offer.primary_airline_name ||
+      AIRLINE_NAMES?.[airlineCode] ||
+      airlineCode ||
+      'Unknown airline';
+
+    const departureDateStr = this.isoDate(first.departure_datetime);
 
     return {
-      id: `fli-${direction}-${origin}-${destination}-${leg.flightNumber || '100'}-${Date.now()}`,
-      flightNumber: leg.flightNumber || 'GF-100',
-      airlineCode: leg.airlineCode || 'GF',
-      airlineName: leg.airline || 'Google Flights',
-      departureTime: leg.departureTime || '08:00',
-      arrivalTime: leg.arrivalTime || '11:00',
-      duration: leg.durationMinutes ? `${Math.floor(leg.durationMinutes / 60)}h ${leg.durationMinutes % 60}m` : '3h 0m',
-      durationVal: leg.durationMinutes || 180,
-      price: passengerCosts.total,
+      // Stable across calls: an id containing Date.now() churns React keys on every
+      // render and can never be matched against a cached result.
+      id: `FLI-${from}-${to}-${airlineCode}${first.flight_number || ''}-${direction}-${departureDateStr}`,
+      flightNumber: `${airlineCode} ${first.flight_number || ''}`.trim(),
+      airlineCode,
+      airlineName,
+      airlineLogo: '',
+      departureTime: this.hhmm(first.departure_datetime),
+      arrivalTime: this.hhmm(last.arrival_datetime),
+      duration: durationMins === null ? null : this.formatMinutes(durationMins),
+      durationVal: durationMins === null ? null : durationMins / 60,
+      price: perOfferPrice,
       passengerCosts,
-      cabinClass: 'ECONOMY',
-      stops: leg.stops || 0,
-      planeType: 'Boeing 737-800',
-      terminal: '1',
-      baggage: { cabin: '1x 8kg', checked: '1x 23kg' },
-      reliability: 95,
-      seatsRemaining: 7,
+      cabinClass: 'Economy',
+      // String form, matching serpapiProvider and the simulated provider. The UI compares
+      // against 'Direct' and renders this value straight into the card.
+      stops: stopsCount <= 0 ? 'Direct' : `${stopsCount} stop${stopsCount > 1 ? 's' : ''}`,
+      planeType: first.aircraft || null,
+      terminal: `${from} → ${to}`,
+      // Google does not report a baggage allowance on the shopping response. Null says so;
+      // a hardcoded "1 carry-on + 1 checked bag" would assert an allowance that low-cost
+      // carriers do not include and charge for.
+      baggage: null,
+      reliability: null,
+      seatsRemaining: null,
       direction,
-      origin: String(origin).toUpperCase(),
-      destination: String(destination).toUpperCase(),
-      distance
+      origin: from,
+      destination: to,
+      distance,
+      currency: offer.currency || this.currency,
+      bookingToken: offer.booking_token || null,
+      co2EmissionsG: Number.isFinite(offer.co2_emissions_g) ? offer.co2_emissions_g : null
     };
+  }
+
+  formatMinutes(mins) {
+    return `${Math.floor(mins / 60)}h ${Math.round(mins % 60)}m`;
+  }
+
+  hhmm(value) {
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+
+  isoDate(value) {
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return 'unknown';
+    return d.toISOString().slice(0, 10);
   }
 }

@@ -61,11 +61,17 @@ const unmockedFetch = vi.fn((input) => {
   live event" received two simulated events left over from an earlier case.
 */
 beforeEach(() => {
-  window.localStorage.clear();
-  // The discovery page now caches events per destination in sessionStorage. jsdom keeps
-  // it for the whole file, so without this a search cached by one test would satisfy the
-  // next one and its fetch would never be called.
-  window.sessionStorage.clear();
+  // Server-side suites (providers, services) declare `@vitest-environment node`, where
+  // there is no window. Guarding here keeps one shared setup file working for both
+  // environments; without it a node-environment suite fails on the first line of every
+  // test for a reason that has nothing to do with what it is testing.
+  if (typeof window !== 'undefined') {
+    window.localStorage.clear();
+    // The discovery page now caches events per destination in sessionStorage. jsdom keeps
+    // it for the whole file, so without this a search cached by one test would satisfy the
+    // next one and its fetch would never be called.
+    window.sessionStorage.clear();
+  }
   globalThis.fetch = unmockedFetch;
   unmockedFetch.mockClear();
   eventCache.clear();

@@ -15,6 +15,17 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+/**
+ * The single currency every fare is quoted and stored in.
+ *
+ * FareHistory computes medians and percentiles across rows; mixing currencies in that
+ * column makes the statistic meaningless and unrecoverable after the fact, because a row
+ * carries no record of what it should have been converted from. Providers are told which
+ * currency to quote, and the currency they actually returned is written alongside the
+ * fare so a future change here cannot silently reinterpret old rows.
+ */
+const FARE_CURRENCY = (process.env.FARE_CURRENCY || 'USD').toUpperCase();
+
 app.use(cors());
 app.use(express.json());
 
@@ -289,7 +300,7 @@ app.get('/api/flights/estimates', requireAuth, async (req, res) => {
       expected to say so rather than fill the gap.
     */
     const routeKeys = Object.keys(estimates).map((destination) => FareHistory.routeKey(originCode, destination));
-    const historyByRoute = await fareHistory.statsForRoutes(routeKeys);
+    const historyByRoute = await fareHistory.statsForRoutes(routeKeys, FARE_CURRENCY);
 
     for (const [destination, estimate] of Object.entries(estimates)) {
       const entry = historyByRoute[FareHistory.routeKey(originCode, destination)];
@@ -398,7 +409,11 @@ app.get('/api/flights', requireAuth, async (req, res) => {
         departureDate,
         returnDate,
         roundtripPrice: cheapestOutbound.price + (cheapestReturn ? cheapestReturn.price : 0),
-        provider: results.warning ? 'simulated' : flightSearchService.providerName
+        provider: results.warning ? 'simulated' : flightSearchService.providerName,
+        // Recorded, not assumed. A median over rows in mixed currencies measures the
+        // exchange rate rather than the market, and once the rows are written there is
+        // no way to tell which was which. The provider reports what it was quoted.
+        currency: results.currency || FARE_CURRENCY
       });
     }
 
