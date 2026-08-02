@@ -258,6 +258,29 @@ describe('FliProvider — search parameters actually reach Google', () => {
     expect(search.mock.calls[0][0].stops).toBe(0); // MaxStops.ANY
   });
 
+  /*
+    The "Direct flights only" checkbox sends stops='1'. An earlier mapping shifted that to
+    ONE_STOP_OR_FEWER, so the box could be ticked and one-stop itineraries still came
+    back — a filter that visibly did nothing.
+
+    KAIRO's scale is Google's, inherited via SerpApi, so each value must land on its
+    same-numbered enum member. Asserting the whole table rather than one case, because
+    the failure mode here is an off-by-one that only shows up at one end.
+  */
+  test.each([
+    ['0', 0, 'any number of stops'],
+    ['1', 1, 'non-stop only — the Direct flights checkbox'],
+    ['2', 2, 'one stop or fewer'],
+    ['3', 3, 'two stops or fewer']
+  ])('maps stops=%s to MaxStops %i (%s)', async (param, expected) => {
+    const search = vi.fn().mockResolvedValue([offer()]);
+    const provider = new FliProvider({ search: { search }, currency: 'USD' });
+
+    await provider.searchAsync({ ...request, stops: param });
+
+    expect(search.mock.calls[0][0].stops).toBe(expected);
+  });
+
   test('passes the real passenger counts upstream', async () => {
     const search = vi.fn().mockResolvedValue([offer()]);
     const provider = new FliProvider({ search: { search }, currency: 'USD' });

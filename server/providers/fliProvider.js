@@ -62,15 +62,31 @@ const SEAT_BY_TRAVEL_CLASS = {
 };
 
 /**
- * KAIRO's `stops` query param counts stops; Google's enum counts "at most N".
- * '0' is KAIRO's "no preference" sentinel, not "non-stop" — /api/flights defaults it to
- * '0' on every search, so reading it as NON_STOP would silently hide connecting flights
- * from every user who never touched the filter.
+ * KAIRO's `stops` query param, mapped to Google's MaxStops enum.
+ *
+ * The two scales are already identical — KAIRO inherited its values from SerpApi's
+ * google_flights `stops` parameter, and fli's MaxStops uses the same integers on the
+ * wire, because both are Google's:
+ *
+ *     0  any number of stops        (the default; NOT "non-stop")
+ *     1  non-stop only              ("Direct flights only" in the UI)
+ *     2  one stop or fewer
+ *     3  two stops or fewer
+ *
+ * This is written out rather than passed through so the correspondence is checked rather
+ * than assumed. An earlier version shifted 1 to ONE_STOP_OR_FEWER on the theory that
+ * KAIRO counted stops while Google capped them; the effect was that "Direct flights only"
+ * returned one-stop itineraries, and the filter appeared to do nothing at all.
+ *
+ * Note 0 really is "no preference": /api/flights defaults `stops` to '0' on every search,
+ * so reading it as NON_STOP would hide every connecting flight from users who never
+ * touched the checkbox — the opposite bug, and just as quiet.
  */
 const MAX_STOPS_BY_PARAM = {
   0: MaxStops.ANY,
-  1: MaxStops.ONE_STOP_OR_FEWER,
-  2: MaxStops.TWO_OR_FEWER_STOPS
+  1: MaxStops.NON_STOP,
+  2: MaxStops.ONE_STOP_OR_FEWER,
+  3: MaxStops.TWO_OR_FEWER_STOPS
 };
 
 /** Ceiling on offers mapped per leg. Google returns far more than the UI can show. */
