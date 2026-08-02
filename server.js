@@ -8,6 +8,7 @@ import { computeEventDrivenInsights } from './server/services/insightsEngine.js'
 import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
 import { flightSearchCache } from './server/services/flightSearchCache.js';
 import { fareHistory, FareHistory } from './server/services/fareHistory.js';
+import { verifySchema } from './server/services/schemaCheck.js';
 import { AIRPORTS } from './shared/catalog.js';
 
 dotenv.config();
@@ -72,9 +73,24 @@ const requireAuth = async (req, res, next) => {
 const flightSearchService = new FlightSearchService();
 const eventSearchService = new EventSearchService();
 
-// Health check endpoint for zero-downtime & cold-start warming (Public)
+/*
+  Health check for zero-downtime & cold-start warming (Public).
+
+  Also reports which flight provider this instance selected and why. Deliberately public
+  and credential-free: it names the provider and the deciding rule, never a key. This is
+  the cheapest way to answer "is the free provider actually live in production?" — one
+  curl, no login, no Supabase query, no reading id prefixes out of a network tab.
+*/
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'kairo-backend', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    service: 'kairo-backend',
+    timestamp: new Date().toISOString(),
+    flightProvider: flightSearchService.providerName,
+    flightProviderReason: flightSearchService.selectionReason,
+    fareCurrency: FARE_CURRENCY,
+    estimatesUseRealProvider: process.env.ESTIMATES_USE_REAL_PROVIDER === 'true'
+  });
 });
 
 // Ticketmaster Event Intelligence Endpoint (Protected)
@@ -350,8 +366,10 @@ app.get('/api/flights', requireAuth, async (req, res) => {
 
   try {
     let results = await flightSearchCache.get(cacheKeyParts);
+    let servedFromCache = false;
 
     if (results) {
+      servedFromCache = true;
       console.log(`[api/flights] Cache hit for ${origin}->${destination} ${departureDate}; skipping ${flightSearchService.providerName.toUpperCase()} call.`);
     } else {
       results = await flightSearchService.searchFlights(request);
@@ -400,28 +418,51 @@ app.get('/api/flights', requireAuth, async (req, res) => {
         asserted. Only real provider quotes are stored — FareHistory rejects simulated
         ones — because a baseline built from the model would describe the model.
 
+        NOT recorded on a cache hit. The cached payload is one quote; re-recording it on
+        every refresh within the 30-minute TTL writes N identical rows for one observation,
+        and FareHistory reads sampleSize as independent evidence. Five refreshes would
+        satisfy MIN_OBSERVATIONS and produce a percentile computed over five copies of the
+        same number — a confident-looking statistic backed by a single data point.
+
         Awaited but never allowed to fail the response: a lost observation costs a slightly
         thinner baseline, nothing more.
       */
-      await fareHistory.record({
-        origin,
-        destination,
-        departureDate,
-        returnDate,
-        roundtripPrice: cheapestOutbound.price + (cheapestReturn ? cheapestReturn.price : 0),
-        provider: results.warning ? 'simulated' : flightSearchService.providerName,
-        // Recorded, not assumed. A median over rows in mixed currencies measures the
-        // exchange rate rather than the market, and once the rows are written there is
-        // no way to tell which was which. The provider reports what it was quoted.
-        currency: results.currency || FARE_CURRENCY
-      });
+      if (!servedFromCache) {
+        await fareHistory.record({
+          origin,
+          destination,
+          departureDate,
+          returnDate,
+          roundtripPrice: cheapestOutbound.price + (cheapestReturn ? cheapestReturn.price : 0),
+          provider: results.warning ? 'simulated' : flightSearchService.providerName,
+          // Recorded, not assumed. A median over rows in mixed currencies measures the
+          // exchange rate rather than the market, and once the rows are written there is
+          // no way to tell which was which. The provider reports what it was quoted.
+          currency: results.currency || FARE_CURRENCY
+        });
+      }
     }
 
     res.json({
       ...results,
       outbound: outboundWithInsights,
       return: returnWithInsights,
-      events
+      events,
+      /*
+        Say who answered.
+
+        Without this, a working free provider and a silent fallback to the simulated one
+        are indistinguishable from the response: same shape, same fields, plausible
+        numbers. Confirming which had actually served meant reading flight id prefixes or
+        querying Supabase. `provider` makes it a field.
+
+        `servedFromCache` matters just as much — a cache hit reaches no provider at all, so
+        `provider` then describes who filled the cache up to 30 minutes ago, not who was
+        asked now.
+      */
+      provider: results.warning ? 'simulated' : flightSearchService.providerName,
+      servedFromCache,
+      currency: results.currency || FARE_CURRENCY
     });
   } catch (error) {
     console.error("Endpoint search failed:", error.message || error);
@@ -430,9 +471,15 @@ app.get('/api/flights', requireAuth, async (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`===============================================`);
   console.log(` KAIRO Backend Server listening on port ${PORT}`);
   console.log(` Target Endpoint: http://localhost:${PORT}`);
+  console.log(` Fare currency:   ${FARE_CURRENCY}`);
   console.log(`===============================================`);
+
+  // Awaited after listen() so a slow or unreachable Supabase delays the report, never the
+  // service. The result is logged, not acted on: an out-of-date schema costs observations,
+  // which is worth shouting about and not worth refusing to serve traffic over.
+  await verifySchema();
 });
