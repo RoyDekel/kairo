@@ -8,6 +8,7 @@ import { computeEventDrivenInsights } from './server/services/insightsEngine.js'
 import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
 import { flightSearchCache } from './server/services/flightSearchCache.js';
 import { fareHistory, FareHistory } from './server/services/fareHistory.js';
+import { startFareCollector } from './server/jobs/fareCollector.js';
 import { verifySchema } from './server/services/schemaCheck.js';
 import { AIRPORTS } from './shared/catalog.js';
 
@@ -89,7 +90,8 @@ app.get('/api/health', (req, res) => {
     flightProvider: flightSearchService.providerName,
     flightProviderReason: flightSearchService.selectionReason,
     fareCurrency: FARE_CURRENCY,
-    estimatesUseRealProvider: process.env.ESTIMATES_USE_REAL_PROVIDER === 'true'
+    estimatesUseRealProvider: process.env.ESTIMATES_USE_REAL_PROVIDER === 'true',
+    collectorEnabled: process.env.COLLECTOR_ENABLED === 'true'
   });
 });
 
@@ -479,6 +481,8 @@ app.listen(PORT, async () => {
   console.log(` Target Endpoint: http://localhost:${PORT}`);
   console.log(` Fare currency:   ${FARE_CURRENCY}`);
   console.log(`===============================================`);
+
+  startFareCollector();
 
   // Awaited after listen() so a slow or unreachable Supabase delays the report, never the
   // service. The result is logged, not acted on: an out-of-date schema costs observations,
