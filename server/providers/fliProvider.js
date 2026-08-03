@@ -237,17 +237,20 @@ export class FliProvider extends FlightProvider {
       }
     } catch (err) {
       rpcError = err;
-      console.warn(`[fli] RPC search failed for ${from}->${to} on ${travelDate}: ${err.message}. Attempting HTML Web Scraper fallback.`);
+      // RPC failure is expected on cloud hosts (Render, AWS, GCP) where Google serves
+      // consent walls. The HTML fallback is the normal production path — only warn if
+      // both fail, otherwise the deploy log is nothing but noise.
     }
 
     // Try HTML Web Scraper Fallback
     try {
       return await this.fetchLegHtml(from, to, travelDate);
     } catch (htmlErr) {
-      if (rpcError) {
-        throw rpcError;
-      }
-      throw htmlErr;
+      // Both paths failed — NOW it's worth shouting about.
+      console.warn(`[fli] Both RPC and HTML fallback failed for ${from}->${to} on ${travelDate}.`);
+      console.warn(`  RPC error: ${rpcError?.message}`);
+      console.warn(`  HTML error: ${htmlErr.message}`);
+      throw rpcError || htmlErr;
     }
   }
 
