@@ -492,18 +492,22 @@ export class FliProvider extends FlightProvider {
     const durationMins = Number.isFinite(offer.duration) ? offer.duration : null;
     const stopsCount = Number.isFinite(offer.stops) ? offer.stops : Math.max(0, legs.length - 1);
 
-    let airlineCode = first.airline || offer.primary_airline || '';
+    let airlineCode = String(first.airline || offer.primary_airline || '');
 
     // Final safety net: "multi" is not a real IATA code. Resolve to the first segment
     // that has a real carrier, regardless of which upstream path (RPC or HTML) produced it.
     if (airlineCode.toLowerCase() === 'multi') {
-      const realCarrier = legs.find((l) => l.airline && l.airline.toLowerCase() !== 'multi');
-      if (realCarrier) airlineCode = realCarrier.airline;
+      const realCarrier = legs.find((l) => {
+        const code = String(l.airline || '');
+        return code && code.toLowerCase() !== 'multi';
+      });
+      if (realCarrier) airlineCode = String(realCarrier.airline);
     }
 
+    const rawName = offer.primary_airline_name;
     const airlineName =
-      (offer.primary_airline_name && offer.primary_airline_name.toLowerCase() !== 'multi')
-        ? offer.primary_airline_name
+      (typeof rawName === 'string' && rawName && rawName.toLowerCase() !== 'multi')
+        ? rawName
         : AIRLINE_NAMES?.[airlineCode] ||
           airlineCode ||
           'Unknown airline';
