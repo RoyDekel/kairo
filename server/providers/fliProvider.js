@@ -93,6 +93,28 @@ const MAX_STOPS_BY_PARAM = {
 const MAX_OFFERS_PER_LEG = 20;
 
 /**
+ * Most stops an itinerary may have, per KAIRO's `stops` param. `null` means no limit.
+ *
+ * Google is SENT the filter (the encoded payload demonstrably differs between ANY and
+ * NON_STOP) and then ignores it: TLV->BKK returns an identical mix of 1-stop and 2-stop
+ * itineraries either way. Rather than trust a reverse-engineered field to be honoured,
+ * the constraint the user asked for is enforced on what actually comes back.
+ */
+const MAX_STOPS_ALLOWED = {
+  0: null,  // any
+  1: 0,     // non-stop only
+  2: 1,
+  3: 2
+};
+
+/*
+  On the ~20% of searches where the RPC path returns an unparseable page, fetchLeg already
+  falls back to the HTML scraper rather than failing. No retry constant is needed here —
+  the fallback IS the recovery, and adding a retry on top would triple the latency of the
+  slowest path for no benefit.
+*/
+
+/**
  * Consent cookies, sent on every request.
  */
 const CONSENT_COOKIE = process.env.FLI_CONSENT_COOKIE
@@ -155,8 +177,8 @@ export class FliProvider extends FlightProvider {
     ]);
 
     return {
-      outbound: this.mapOffers(outboundOffers, 'outbound', originCode, destinationCode, passengers),
-      return: this.mapOffers(returnOffers, 'return', destinationCode, originCode, passengers),
+      outbound: this.mapOffers(outboundOffers, 'outbound', originCode, destinationCode, passengers, stops),
+      return: this.mapOffers(returnOffers, 'return', destinationCode, originCode, passengers, stops),
       currency: this.currency
     };
   }
@@ -289,7 +311,7 @@ export class FliProvider extends FlightProvider {
         try {
           parsedData = JSON.parse(rawJson);
           break;
-        } catch (e) {
+        } catch {
           // Ignore parse errors on partial matches
         }
       }
@@ -386,12 +408,41 @@ export class FliProvider extends FlightProvider {
     return offers;
   }
 
-  mapOffers(offers, direction, from, to, passengers) {
+  /**
+   * Maps offers and enforces the stop limit, because nothing upstream does.
+   *
+   * Two separate reasons this has to happen here:
+   *
+   *   1. The RPC path SENDS the filter — the encoded payload demonstrably differs between
+   *      ANY and NON_STOP — and Google ignores it. TLV->BKK returns the same mix of 1-stop
+   *      and 2-stop itineraries either way.
+   *   2. The HTML fallback (fetchLegHtml) never receives `stops` at all, so a search that
+   *      falls back silently loses the constraint even if Google had honoured it.
+   *
+   * Filtering after mapping, not on the raw offer, so the count being filtered on is the
+   * same one the card displays. A "Direct flights only" result labelled "1 stop" is worse
+   * than no filter at all.
+   */
+  mapOffers(offers, direction, from, to, passengers, stops = '0') {
     const distance = this.distanceBetween(from, to);
-    return offers
+    const maxStops = MAX_STOPS_ALLOWED[Number(stops)] ?? null;
+
+    const mapped = offers
       .map((offer) => this.mapToFlight(offer, direction, from, to, distance, passengers))
-      .filter(Boolean)
-      .slice(0, MAX_OFFERS_PER_LEG);
+      .filter(Boolean);
+
+    const withinLimit = maxStops === null
+      ? mapped
+      : mapped.filter((flight) => flight.stopsCount <= maxStops);
+
+    if (maxStops !== null && withinLimit.length < mapped.length) {
+      console.log(
+        `[fli] ${from}->${to}: dropped ${mapped.length - withinLimit.length} of ${mapped.length} ` +
+        `offers over the ${maxStops}-stop limit (upstream did not apply it)`
+      );
+    }
+
+    return withinLimit.slice(0, MAX_OFFERS_PER_LEG);
   }
 
   /**
@@ -444,6 +495,10 @@ export class FliProvider extends FlightProvider {
       passengerCosts,
       cabinClass: 'Economy',
       stops: stopsCount <= 0 ? 'Direct' : `${stopsCount} stop${stopsCount > 1 ? 's' : ''}`,
+      // The numeric form the display string was derived from. mapOffers filters on this
+      // rather than re-parsing 'Direct' / '1 stop' back into a number, so the value the
+      // filter tests and the value the user reads can never disagree.
+      stopsCount,
       planeType: first.aircraft || null,
       terminal: `${from} → ${to}`,
       baggage: null,

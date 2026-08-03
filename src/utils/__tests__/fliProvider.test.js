@@ -280,6 +280,79 @@ describe('FliProvider — search parameters actually reach Google', () => {
 
     expect(search.mock.calls[0][0].stops).toBe(expected);
   });
+});
+
+describe('FliProvider — the stop limit is enforced on results, not just requested', () => {
+  /*
+    Sending the filter is not enough, and this is the bug the user actually reported.
+
+    Two independent reasons the constraint gets lost upstream:
+      - Google ignores it on the RPC path. TLV->BKK returns an identical mix of 1-stop and
+        2-stop itineraries whether ANY or NON_STOP is encoded, and the payloads provably
+        differ, so the request is not the problem.
+      - fetchLegHtml, the scraper fallback, is never given `stops` at all.
+
+    Either way "Direct flights only" returned connecting flights. These tests assert on the
+    RESULT, so they hold no matter which path served it or whether Google changes its mind.
+  */
+  const mixed = [
+    offer({ stops: 0, booking_token: 'a' }),
+    offer({ stops: 1, booking_token: 'b' }),
+    offer({ stops: 2, booking_token: 'c' })
+  ];
+
+  test('stops=1 returns only non-stop itineraries', async () => {
+    const provider = providerReturning(mixed);
+
+    const { outbound } = await provider.searchAsync({ ...request, stops: '1' });
+
+    expect(outbound).toHaveLength(1);
+    expect(outbound.map((f) => f.stops)).toEqual(['Direct']);
+  });
+
+  test('stops=2 allows one stop but not two', async () => {
+    const provider = providerReturning(mixed);
+
+    const { outbound } = await provider.searchAsync({ ...request, stops: '2' });
+
+    expect(outbound.map((f) => f.stops)).toEqual(['Direct', '1 stop']);
+  });
+
+  test('stops=0 filters nothing', async () => {
+    const provider = providerReturning(mixed);
+
+    const { outbound } = await provider.searchAsync({ ...request, stops: '0' });
+
+    expect(outbound).toHaveLength(3);
+  });
+
+  test('the return leg is filtered too, not just the outbound', async () => {
+    const provider = providerReturning(mixed);
+
+    const results = await provider.searchAsync({
+      ...request, stops: '1', returnDate: '2026-10-22'
+    });
+
+    expect(results.return.map((f) => f.stops)).toEqual(['Direct']);
+  });
+
+  /*
+    The filter must test the same number the card shows. Deriving one from the raw payload
+    and the other from the mapped flight is how you end up with a "Direct only" result
+    labelled "1 stop".
+  */
+  test('the filtered count and the displayed label come from the same value', async () => {
+    const provider = providerReturning(mixed);
+
+    const { outbound } = await provider.searchAsync({ ...request, stops: '0' });
+
+    for (const flight of outbound) {
+      const expected = flight.stopsCount === 0
+        ? 'Direct'
+        : `${flight.stopsCount} stop${flight.stopsCount > 1 ? 's' : ''}`;
+      expect(flight.stops).toBe(expected);
+    }
+  });
 
   test('passes the real passenger counts upstream', async () => {
     const search = vi.fn().mockResolvedValue([offer()]);
