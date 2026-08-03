@@ -492,12 +492,21 @@ export class FliProvider extends FlightProvider {
     const durationMins = Number.isFinite(offer.duration) ? offer.duration : null;
     const stopsCount = Number.isFinite(offer.stops) ? offer.stops : Math.max(0, legs.length - 1);
 
-    const airlineCode = first.airline || offer.primary_airline || '';
+    let airlineCode = first.airline || offer.primary_airline || '';
+
+    // Final safety net: "multi" is not a real IATA code. Resolve to the first segment
+    // that has a real carrier, regardless of which upstream path (RPC or HTML) produced it.
+    if (airlineCode.toLowerCase() === 'multi') {
+      const realCarrier = legs.find((l) => l.airline && l.airline.toLowerCase() !== 'multi');
+      if (realCarrier) airlineCode = realCarrier.airline;
+    }
+
     const airlineName =
-      offer.primary_airline_name ||
-      AIRLINE_NAMES?.[airlineCode] ||
-      airlineCode ||
-      'Unknown airline';
+      (offer.primary_airline_name && offer.primary_airline_name.toLowerCase() !== 'multi')
+        ? offer.primary_airline_name
+        : AIRLINE_NAMES?.[airlineCode] ||
+          airlineCode ||
+          'Unknown airline';
 
     const departureDateStr = this.isoDate(first.departure_datetime);
 
