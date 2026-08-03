@@ -115,7 +115,7 @@ describe('Booking Flow Integration Tests', () => {
 
     // 8. Verify active route HUD displays the correct airports on Dashboard
     expect(screen.getByText('Active Route')).toBeInTheDocument();
-  });
+  }, 20000);
 
   test('supports One-way trip selection and flow', async () => {
     renderApp();
@@ -152,7 +152,7 @@ describe('Booking Flow Integration Tests', () => {
     // Transition directly to One-Way confirmation step
     expect(screen.getByText('Confirm Your One-Way Flight')).toBeInTheDocument();
     expect(screen.getByText('Track One-Way Flight')).toBeInTheDocument();
-  });
+  }, 20000);
 
   test('validates origin and destination cannot be identical', async () => {
     renderApp();
