@@ -147,18 +147,14 @@ describe('FliProvider — failure must be distinguishable from emptiness', () =>
     await expect(provider.searchAsync(request)).rejects.toThrow(/Could not reach Google Flights/);
   });
 
-  test('a thrown provider error reaches the simulated fallback', async () => {
+  test('a thrown provider error is propagated loudly without fallback', async () => {
     const service = new FlightSearchService();
     service.activeProviderName = 'fli';
     service.activeProvider = {
       searchAsync: vi.fn().mockRejectedValue(new Error('[fli] upstream down'))
     };
 
-    const results = await service.searchFlights(request);
-
-    // The warning is what stops server.js caching this and what stops FareHistory
-    // recording it. An empty-array "success" would have produced neither.
-    expect(results.warning).toMatch(/FLI provider error/i);
+    await expect(service.searchFlights(request)).rejects.toThrow('[fli] upstream down');
   });
 });
 

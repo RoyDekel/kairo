@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, test, expect, vi } from 'vitest';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import App from '../App';
 import { AuthProvider } from '../contexts/AuthProvider';
 
@@ -25,6 +25,44 @@ const renderApp = () => {
 };
 
 describe('Booking Flow Integration Tests', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn((url) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/api/flights')) {
+        const mockFlights = Array.from({ length: 4 }, (_, i) => ({
+          id: `mock-flight-${i}`,
+          flightNumber: `LH ${100 + i}`,
+          airlineCode: 'LH',
+          airlineName: 'Lufthansa',
+          departureTime: '08:00',
+          arrivalTime: '12:00',
+          price: 200 + i * 10,
+          stopsCount: 0,
+          stops: 'Direct',
+          duration: '4h 0m',
+          cabinClass: 'Economy',
+          passengerCosts: { adults: 200 + i * 10, total: 200 + i * 10 },
+          planeType: 'Airbus A321neo',
+          departureDate: '2026-10-11'
+        }));
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            outbound: mockFlights,
+            return: mockFlights,
+            provider: 'fli',
+            currency: 'USD'
+          })
+        });
+      }
+      return Promise.reject(new Error(`Unmocked fetch in bookingFlow.test: ${urlStr}`));
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   test('successfully performs search and completes booking flow step-by-step', async () => {
     renderApp();
 

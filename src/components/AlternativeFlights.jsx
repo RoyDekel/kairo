@@ -146,28 +146,8 @@ export default function AlternativeFlights({
   const [currentPage, setCurrentPage] = useState(1);
 
   // State for flights retrieved from server
-  const [outboundFlights, setOutboundFlights] = useState(() =>
-    searchParams.destination
-      ? generateFlightsForRoute(
-        searchParams.origin,
-        searchParams.destination,
-        searchParams.departureDate,
-        'outbound',
-        searchParams.passengers
-      )
-      : []
-  );
-  const [returnFlights, setReturnFlights] = useState(() =>
-    searchParams.destination
-      ? generateFlightsForRoute(
-        searchParams.destination,
-        searchParams.origin,
-        searchParams.returnDate,
-        'return',
-        searchParams.passengers
-      )
-      : []
-  );
+  const [outboundFlights, setOutboundFlights] = useState([]);
+  const [returnFlights, setReturnFlights] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
 
@@ -227,7 +207,14 @@ export default function AlternativeFlights({
         });
 
         if (!res.ok) {
-          throw new Error(`Server returned status ${res.status}`);
+          let errMsg = `Server returned status ${res.status}`;
+          try {
+            const errData = await res.json();
+            if (errData && errData.error) {
+              errMsg = errData.error;
+            }
+          } catch (_) {}
+          throw new Error(errMsg);
         }
 
         const data = await res.json();
@@ -237,23 +224,10 @@ export default function AlternativeFlights({
         }
       } catch (err) {
         if (active) {
-          console.warn("Failed to fetch flights from server, falling back to local simulation:", err);
-          setOutboundFlights(generateFlightsForRoute(
-            searchParams.origin,
-            searchParams.destination,
-            searchParams.departureDate,
-            'outbound',
-            searchParams.passengers,
-            searchParams.travelClass
-          ));
-          setReturnFlights(generateFlightsForRoute(
-            searchParams.destination,
-            searchParams.origin,
-            searchParams.returnDate,
-            'return',
-            searchParams.passengers,
-            searchParams.travelClass
-          ));
+          console.error("Failed to fetch flights from server:", err);
+          setApiError(err.message || "Failed to fetch flights from the server.");
+          setOutboundFlights([]);
+          setReturnFlights([]);
         }
       } finally {
         if (active) {
