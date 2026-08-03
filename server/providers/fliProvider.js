@@ -340,10 +340,27 @@ export class FliProvider extends FlightProvider {
       }
       if (!price || price <= 0) continue;
 
-      const airlineCode = typeof leg[0] === 'string' ? leg[0] : '';
-      const airlineName = Array.isArray(leg[1]) && leg[1][0] ? leg[1][0] : airlineCode;
+      let airlineCode = typeof leg[0] === 'string' ? leg[0] : '';
+      let airlineName = Array.isArray(leg[1]) && leg[1][0] ? leg[1][0] : airlineCode;
 
       const rawSegments = Array.isArray(leg[2]) ? leg[2] : [];
+
+      // Google uses the literal string "multi" as the airline code for multi-carrier
+      // itineraries (codeshare / interline). That is not a real IATA code — avs.io and
+      // gstatic have no logo for it, and "multi 807" is not a flight number anyone can
+      // look up. Resolve to the first segment's operating carrier instead.
+      if (airlineCode.toLowerCase() === 'multi' && rawSegments.length > 0) {
+        const firstSeg = rawSegments[0];
+        if (Array.isArray(firstSeg) && typeof firstSeg[0] === 'string' && firstSeg[0]) {
+          airlineCode = firstSeg[0];
+          // Keep Google's display name (e.g. "ITA Airways") if it was provided and is
+          // not itself "multi", otherwise fall back to the resolved code.
+          if (!airlineName || airlineName.toLowerCase() === 'multi') {
+            airlineName = AIRLINE_NAMES?.[airlineCode] || airlineCode;
+          }
+        }
+      }
+
       // TRUE stops count: number of segments minus 1 (e.g. 2 segments = 1 stop, 1 segment = 0 / Direct)
       const stopsCount = Math.max(0, rawSegments.length - 1);
       const durationMins = typeof leg[9] === 'number' ? leg[9] : null;
