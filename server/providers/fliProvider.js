@@ -210,6 +210,8 @@ export class FliProvider extends FlightProvider {
    * if Google returns RPC consent / bot-check null responses in cloud host environments.
    */
   async fetchLeg(from, to, travelDate, passengers, stops, travelClass) {
+    const originAirport = AIRPORTS[from];
+    const gl = originAirport?.countryCode || SEARCH_COUNTRY;
     let rpcError = null;
     try {
       const filters = new FlightSearchFilters({
@@ -234,7 +236,7 @@ export class FliProvider extends FlightProvider {
 
       const results = await this.search.search(filters, {
         currency: this.currency,
-        country: SEARCH_COUNTRY,
+        country: gl,
         language: 'en-US',
         topN: MAX_OFFERS_PER_LEG
       });
@@ -258,7 +260,7 @@ export class FliProvider extends FlightProvider {
 
     // Try HTML Web Scraper Fallback
     try {
-      return await this.fetchLegHtml(from, to, travelDate);
+      return await this.fetchLegHtml(from, to, travelDate, gl);
     } catch (htmlErr) {
       // Both paths failed — NOW it's worth shouting about.
       console.warn(`[fli] Both RPC and HTML fallback failed for ${from}->${to} on ${travelDate}.`);
@@ -297,8 +299,9 @@ export class FliProvider extends FlightProvider {
    * Scrapes Google Flights HTML for pre-rendered search results (ds:1 block).
    * Bypasses Google RPC bot checks and consent walls in cloud environments (Render, AWS, GCP).
    */
-  async fetchLegHtml(from, to, travelDate) {
-    const url = `https://www.google.com/travel/flights?q=Flights+from+${from}+to+${to}+on+${travelDate}+one+way&curr=${this.currency}&hl=en&gl=${SEARCH_COUNTRY}`;
+  async fetchLegHtml(from, to, travelDate, gl) {
+    const targetGl = gl || SEARCH_COUNTRY;
+    const url = `https://www.google.com/travel/flights?q=Flights+from+${from}+to+${to}+on+${travelDate}+one+way&curr=${this.currency}&hl=en&gl=${targetGl}`;
     const resp = await consentFetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
