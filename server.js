@@ -10,6 +10,7 @@ import { flightSearchCache } from './server/services/flightSearchCache.js';
 import { fareHistory, FareHistory } from './server/services/fareHistory.js';
 import { forecastService } from './server/services/forecastService.js';
 import { openSkyProvider } from './server/providers/openSkyProvider.js';
+import { getServerSupabase } from './server/services/supabaseServer.js';
 import { startFareCollector } from './server/jobs/fareCollector.js';
 import { verifySchema } from './server/services/schemaCheck.js';
 import { AIRPORTS, FEATURED_HUBS } from './shared/catalog.js';
@@ -399,6 +400,85 @@ app.get('/api/flights/estimates', requireAuth, async (req, res) => {
     console.error('Estimates endpoint failed:', error);
     res.status(500).json({ error: 'Failed to compute destination fare estimates.' });
   }
+});
+
+// ─── Price Alerts CRUD (Protected by JWT Authentication) ─────────────────────
+
+app.post('/api/alerts', requireAuth, async (req, res) => {
+  const supabase = getServerSupabase();
+  if (!supabase) {
+    return res.status(503).json({ error: 'Alert storage unavailable — Supabase not configured.' });
+  }
+
+  const { origin, destination, targetPrice, channel = 'telegram', channelTarget } = req.body;
+
+  if (!origin || !destination || !targetPrice) {
+    return res.status(400).json({ error: 'Missing required fields: origin, destination, targetPrice' });
+  }
+
+  const route = `${origin.toUpperCase()}-${destination.toUpperCase()}`;
+
+  const { data, error } = await supabase
+    .from('price_alerts')
+    .insert({
+      user_id: req.user.id,
+      route,
+      origin: origin.toUpperCase(),
+      destination: destination.toUpperCase(),
+      target_price: Number(targetPrice),
+      channel,
+      channel_target: channelTarget || null
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[api/alerts] Insert failed:', error.message);
+    return res.status(500).json({ error: 'Failed to create alert.' });
+  }
+
+  res.status(201).json({ alert: data });
+});
+
+app.get('/api/alerts', requireAuth, async (req, res) => {
+  const supabase = getServerSupabase();
+  if (!supabase) {
+    return res.json({ alerts: [] });
+  }
+
+  const { data, error } = await supabase
+    .from('price_alerts')
+    .select('*')
+    .eq('user_id', req.user.id)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[api/alerts] Fetch failed:', error.message);
+    return res.status(500).json({ error: 'Failed to fetch alerts.' });
+  }
+
+  res.json({ alerts: data || [] });
+});
+
+app.delete('/api/alerts/:id', requireAuth, async (req, res) => {
+  const supabase = getServerSupabase();
+  if (!supabase) {
+    return res.status(503).json({ error: 'Alert storage unavailable.' });
+  }
+
+  const { error } = await supabase
+    .from('price_alerts')
+    .update({ is_active: false })
+    .eq('id', req.params.id)
+    .eq('user_id', req.user.id);
+
+  if (error) {
+    console.error('[api/alerts] Delete failed:', error.message);
+    return res.status(500).json({ error: 'Failed to deactivate alert.' });
+  }
+
+  res.json({ success: true });
 });
 
 // Live flight telemetry route (Protected by JWT Authentication)

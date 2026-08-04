@@ -884,6 +884,7 @@ export default function App() {
             setNotifications={setNotifications}
             activeFlight={activeFlight}
             flightDatabase={{}} // Not strictly required as inputs now read activeFlight dynamically
+            accessToken={session?.access_token}
           />
         )}
 

@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { FlightSearchService } from '../services/flightSearchService.js';
 import { fareHistory as defaultFareHistory } from '../services/fareHistory.js';
 import { cheapestFlight } from '../services/quoteCache.js';
+import { evaluateAlerts } from './alertEvaluator.js';
 import { AIRPORTS } from '../../shared/catalog.js';
 
 const DEFAULT_HORIZONS = [14, 30, 60, 90];
@@ -146,6 +147,14 @@ export class FareCollector {
 
     // Advance cursor so next sweep continues seamlessly
     this.cursorIndex = (this.cursorIndex + tasks.length) % tasks.length;
+
+    // Evaluate price alerts against freshly collected fares
+    try {
+      await evaluateAlerts();
+    } catch (err) {
+      console.warn(`[fareCollector] Alert evaluation failed: ${err.message}`);
+    }
+
     this.isRunning = false;
     console.log('[fareCollector] Sweep completed.');
   }
