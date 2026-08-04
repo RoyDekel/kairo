@@ -12,41 +12,14 @@
  * be imported from either runtime.
  */
 
-// Catalog of supported airports with coordinates, names, cities, and countries
-export const AIRPORTS = {
-  TLV: { code: 'TLV', name: 'Ben Gurion Airport', city: 'Tel Aviv', country: 'Israel', countryCode: 'IL', coords: [32.0114, 34.8867] },
-  KRK: { code: 'KRK', name: 'John Paul II Airport', city: 'Krakow', country: 'Poland', countryCode: 'PL', coords: [50.0777, 19.7848] },
-  LHR: { code: 'LHR', name: 'London Heathrow Airport', city: 'London', country: 'United Kingdom', countryCode: 'GB', coords: [51.4700, -0.4543] },
-  CDG: { code: 'CDG', name: 'Charles de Gaulle Airport', city: 'Paris', country: 'France', countryCode: 'FR', coords: [49.0097, 2.5479] },
-  JFK: { code: 'JFK', name: 'John F. Kennedy Intl Airport', city: 'New York', country: 'United States', countryCode: 'US', coords: [40.6413, -73.7781] },
-  DXB: { code: 'DXB', name: 'Dubai International Airport', city: 'Dubai', country: 'United Arab Emirates', countryCode: 'AE', coords: [25.2532, 55.3657] },
-  FCO: { code: 'FCO', name: 'Leonardo da Vinci Airport', city: 'Rome', country: 'Italy', countryCode: 'IT', coords: [41.8003, 12.2389] },
-  NRT: { code: 'NRT', name: 'Narita International Airport', city: 'Tokyo', country: 'Japan', countryCode: 'JP', coords: [35.7720, 140.3929] },
-  ATH: { code: 'ATH', name: 'Eleftherios Venizelos Airport', city: 'Athens', country: 'Greece', countryCode: 'GR', coords: [37.9356, 23.9484] },
-  LAX: { code: 'LAX', name: 'Los Angeles International Airport', city: 'Los Angeles', country: 'United States', countryCode: 'US', coords: [33.9416, -118.4085] },
-  SIN: { code: 'SIN', name: 'Singapore Changi Airport', city: 'Singapore', country: 'Singapore', countryCode: 'SG', coords: [1.3644, 103.9915] },
-  HND: { code: 'HND', name: 'Tokyo Haneda Airport', city: 'Tokyo', country: 'Japan', countryCode: 'JP', coords: [35.5494, 139.7798] },
-  AMS: { code: 'AMS', name: 'Amsterdam Airport Schiphol', city: 'Amsterdam', country: 'Netherlands', countryCode: 'NL', coords: [52.3105, 4.7683] },
-  SYD: { code: 'SYD', name: 'Sydney Kingsford Smith Airport', city: 'Sydney', country: 'Australia', countryCode: 'AU', coords: [-33.9461, 151.1772] },
-  BCN: { code: 'BCN', name: 'Josep Tarradellas Barcelona-El Prat Airport', city: 'Barcelona', country: 'Spain', countryCode: 'ES', coords: [41.2974, 2.0833] },
-  HKG: { code: 'HKG', name: 'Hong Kong International Airport', city: 'Hong Kong', country: 'China', countryCode: 'HK', coords: [22.3080, 113.9185] },
-  MAD: { code: 'MAD', name: 'Adolfo Suárez Madrid–Barajas Airport', city: 'Madrid', country: 'Spain', countryCode: 'ES', coords: [40.4839, -3.5680] },
-  BER: { code: 'BER', name: 'Berlin Brandenburg Airport', city: 'Berlin', country: 'Germany', countryCode: 'DE', coords: [52.3667, 13.5033] },
-  MUC: { code: 'MUC', name: 'Munich Airport', city: 'Munich', country: 'Germany', countryCode: 'DE', coords: [48.3538, 11.7861] },
-  VIE: { code: 'VIE', name: 'Vienna International Airport', city: 'Vienna', country: 'Austria', countryCode: 'AT', coords: [48.1103, 16.5697] },
-  PRG: { code: 'PRG', name: 'Václav Havel Airport Prague', city: 'Prague', country: 'Czech Republic', countryCode: 'CZ', coords: [50.1008, 14.2600] },
-  BUD: { code: 'BUD', name: 'Budapest Ferenc Liszt Intl Airport', city: 'Budapest', country: 'Hungary', countryCode: 'HU', coords: [47.4369, 19.2556] },
-  LIS: { code: 'LIS', name: 'Humberto Delgado Airport', city: 'Lisbon', country: 'Portugal', countryCode: 'PT', coords: [38.7756, -9.1354] },
-  DUB: { code: 'DUB', name: 'Dublin Airport', city: 'Dublin', country: 'Ireland', countryCode: 'IE', coords: [53.4264, -6.2499] },
-  MXP: { code: 'MXP', name: 'Milan Malpensa Airport', city: 'Milan', country: 'Italy', countryCode: 'IT', coords: [45.6301, 8.7255] },
-  ZRH: { code: 'ZRH', name: 'Zurich Airport', city: 'Zurich', country: 'Switzerland', countryCode: 'CH', coords: [47.4582, 8.5554] },
-  MIA: { code: 'MIA', name: 'Miami International Airport', city: 'Miami', country: 'United States', countryCode: 'US', coords: [25.7959, -80.2870] },
-  ICN: { code: 'ICN', name: 'Incheon International Airport', city: 'Seoul', country: 'South Korea', countryCode: 'KR', coords: [37.4602, 126.4407] },
-  BKK: { code: 'BKK', name: 'Suvarnabhumi Airport', city: 'Bangkok', country: 'Thailand', countryCode: 'TH', coords: [13.6900, 100.7501] },
-  CPH: { code: 'CPH', name: 'Copenhagen Airport', city: 'Copenhagen', country: 'Denmark', countryCode: 'DK', coords: [55.6180, 12.6508] },
-  EDI: { code: 'EDI', name: 'Edinburgh Airport', city: 'Edinburgh', country: 'United Kingdom', countryCode: 'GB', coords: [55.9500, -3.3725] },
-  GIG: { code: 'GIG', name: 'Rio de Janeiro/Galeão Airport', city: 'Rio de Janeiro', country: 'Brazil', countryCode: 'BR', coords: [-22.8089, -43.2436] }
-};
+import { GENERATED_AIRPORTS } from './catalog.generated.js';
+
+export const FEATURED_HUBS = (process.env.VITE_FEATURED_HUBS
+  || 'TLV,LHR,CDG,JFK,DXB,FCO,NRT,ATH,BCN,PRG,LIS').split(',');
+
+export const AIRPORTS = GENERATED_AIRPORTS;
+
+export const DISCOVERY_DESTINATIONS = FEATURED_HUBS.map(c => GENERATED_AIRPORTS[c]).filter(Boolean);
 
 // Airline Directory with appropriate colors and codes
 export const AIRLINES = {

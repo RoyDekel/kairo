@@ -10,7 +10,7 @@ import { flightSearchCache } from './server/services/flightSearchCache.js';
 import { fareHistory, FareHistory } from './server/services/fareHistory.js';
 import { startFareCollector } from './server/jobs/fareCollector.js';
 import { verifySchema } from './server/services/schemaCheck.js';
-import { AIRPORTS } from './shared/catalog.js';
+import { AIRPORTS, FEATURED_HUBS } from './shared/catalog.js';
 
 dotenv.config();
 
@@ -304,7 +304,7 @@ app.get('/api/flights/estimates', requireAuth, async (req, res) => {
     .map((code) => code.trim().toUpperCase())
     .filter(Boolean);
 
-  const destinationCodes = (requested.length > 0 ? requested : Object.keys(AIRPORTS))
+  const destinationCodes = (requested.length > 0 ? requested : FEATURED_HUBS)
     .filter((code) => code !== originCode && AIRPORTS[code])
     .slice(0, 60);
 

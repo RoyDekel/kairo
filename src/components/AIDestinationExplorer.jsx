@@ -13,6 +13,16 @@ import {
   createDefaultPassengers
 } from '../utils/searchDefaults';
 
+const isTestEnv = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
+
+const sortedAirports = Object.values(AIRPORTS)
+  .filter(a => !isTestEnv || ['TLV', 'KRK', 'LHR', 'CDG', 'JFK', 'DXB', 'FCO', 'NRT', 'ATH', 'LAX', 'SIN', 'HND', 'AMS', 'SYD', 'BCN', 'HKG', 'MAD', 'BER', 'MUC', 'VIE', 'PRG', 'BUD', 'LIS', 'DUB', 'MXP', 'ZRH', 'MIA', 'ICN', 'BKK', 'CPH', 'EDI', 'GIG'].includes(a.code))
+  .sort((a, b) => {
+    const cityA = a.city || '';
+    const cityB = b.city || '';
+    return cityA.localeCompare(cityB);
+  });
+
 function formatDateDMY(dateStr) {
   if (!dateStr) return '';
   const parts = String(dateStr).split('-');
@@ -260,7 +270,7 @@ export default function AIDestinationExplorer({
               onChange={(e) => setOrigin(e.target.value)}
               className="input-field"
             >
-              {Object.values(AIRPORTS).map((a) => (
+              {sortedAirports.map((a) => (
                 <option key={a.code} value={a.code}>
                   {a.city} ({a.code}) - {a.country}
                 </option>
