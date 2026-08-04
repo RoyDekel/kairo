@@ -1,3 +1,4 @@
+import { ProxyAgent } from 'undici';
 import {
   Airport,
   AIRLINE_NAMES,
@@ -125,6 +126,14 @@ const CONSENT_COOKIE = process.env.FLI_CONSENT_COOKIE
  */
 const SEARCH_COUNTRY = process.env.FLI_COUNTRY || 'US';
 
+// Support proxy configurations in Node environment via undici dispatcher
+const PROXY_URL = process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.FLI_PROXY;
+const proxyDispatcher = PROXY_URL ? new ProxyAgent(PROXY_URL) : undefined;
+
+if (proxyDispatcher) {
+  console.log(`[fliProvider] Proxy agent configured using: ${PROXY_URL.replace(/:[^@]+@/, ':****@')}`);
+}
+
 /**
  * A fetch that carries the consent cookies.
  */
@@ -132,7 +141,12 @@ function consentFetch(input, init = {}) {
   const headers = new Headers(init.headers || {});
   const existing = headers.get('cookie');
   headers.set('cookie', existing ? `${existing}; ${CONSENT_COOKIE}` : CONSENT_COOKIE);
-  return fetch(input, { ...init, headers });
+  
+  const fetchOpts = { ...init, headers };
+  if (proxyDispatcher) {
+    fetchOpts.dispatcher = proxyDispatcher;
+  }
+  return fetch(input, fetchOpts);
 }
 
 function parseTimeArray(arr, fallback = [0, 0]) {
