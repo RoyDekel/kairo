@@ -16,6 +16,7 @@ export default function AlertsManager({
   const [notifChannel, setNotifChannel] = useState('telegram'); // 'telegram' | 'email'
   const [channelTarget, setChannelTarget] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Load server-persisted alerts on mount.
@@ -66,8 +67,20 @@ export default function AlertsManager({
   // Create new alert rule (local + server-side persistence)
   const handleCreateAlert = async (e) => {
     e.preventDefault();
+
+    // A price-drop alert with no delivery address cannot notify anyone, so refuse
+    // it here rather than storing something that looks active and never fires.
+    if (alertType === 'price-drop' && !channelTarget.trim()) {
+      setSuccessMsg('');
+      setErrorMsg(notifChannel === 'telegram'
+        ? 'Enter your Telegram chat ID so the alert can reach you.'
+        : 'Enter an email address so the alert can reach you.');
+      return;
+    }
+
+    setErrorMsg('');
     setIsSaving(true);
-    
+
     const localId = Date.now().toString();
     const newAlert = {
       id: localId,
@@ -96,7 +109,7 @@ export default function AlertsManager({
             destination: activeFlight.destination,
             targetPrice: Number(targetPrice),
             channel: notifChannel,
-            channelTarget: channelTarget || undefined
+            channelTarget: channelTarget.trim()
           }),
           timeoutMs: 5000
         });
@@ -113,6 +126,12 @@ export default function AlertsManager({
             )));
           }
           setSuccessMsg('Alert saved — you will be notified even when offline!');
+        } else if (resp.status === 400) {
+          // The server rejected the alert outright, so say that rather than
+          // "sync pending" — nothing is pending and retrying will not help.
+          const data = await resp.json().catch(() => ({}));
+          setErrorMsg(data.error || 'The server rejected this alert.');
+          setAlerts(prev => prev.filter(a => a.id !== localId));
         } else {
           setSuccessMsg('Alert saved locally (server sync pending).');
         }
@@ -317,14 +336,16 @@ export default function AlertsManager({
                 <div className="input-group">
                   <span className="input-label">
                     {notifChannel === 'telegram' ? 'Telegram Chat ID' : 'Email Address'}
+                    <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
                   </span>
                   <input
                     type={notifChannel === 'email' ? 'email' : 'text'}
                     value={channelTarget}
-                    onChange={(e) => setChannelTarget(e.target.value)}
+                    onChange={(e) => { setChannelTarget(e.target.value); setErrorMsg(''); }}
                     className="input-field"
                     style={{ padding: '8px 12px' }}
                     placeholder={notifChannel === 'telegram' ? 'e.g. 123456789' : 'you@example.com'}
+                    required
                   />
                   {notifChannel === 'telegram' && (
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -333,6 +354,14 @@ export default function AlertsManager({
                   )}
                 </div>
               </>
+            )}
+
+            {/* Validation / rejection banner */}
+            {errorMsg && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', fontSize: '0.8rem', fontWeight: 600 }}>
+                <ShieldAlert size={14} />
+                {errorMsg}
+              </div>
             )}
 
             {/* Success message banner */}

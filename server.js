@@ -416,6 +416,32 @@ app.post('/api/alerts', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: origin, destination, targetPrice' });
   }
 
+  if (!['telegram', 'email'].includes(channel)) {
+    return res.status(400).json({ error: `Unsupported channel: ${channel}. Use 'telegram' or 'email'.` });
+  }
+
+  /*
+    A delivery address is mandatory, not optional.
+
+    notifier.js falls back to TELEGRAM_DEFAULT_CHAT_ID when an alert carries no
+    chat_id. That fallback is a single process-wide value, so an alert stored
+    without a target would deliver to whoever owns that env var rather than to
+    the user who created it — leaking their route and target price to a stranger
+    while they receive nothing. Rejecting the write here is what keeps the
+    fallback a local development convenience instead of a cross-user misroute.
+
+    The same rule applies to email for the simpler reason that a null recipient
+    can never be delivered: the alert would sit in the table looking healthy and
+    silently fire nothing, forever.
+  */
+  if (!channelTarget || !String(channelTarget).trim()) {
+    return res.status(400).json({
+      error: channel === 'telegram'
+        ? 'A Telegram chat ID is required so the alert can be delivered to you.'
+        : 'An email address is required so the alert can be delivered to you.'
+    });
+  }
+
   const route = `${origin.toUpperCase()}-${destination.toUpperCase()}`;
 
   const { data, error } = await supabase
@@ -427,7 +453,7 @@ app.post('/api/alerts', requireAuth, async (req, res) => {
       destination: destination.toUpperCase(),
       target_price: Number(targetPrice),
       channel,
-      channel_target: channelTarget || null
+      channel_target: String(channelTarget).trim()
     })
     .select()
     .single();
