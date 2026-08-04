@@ -95,6 +95,73 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/api/diagnose-fli', async (req, res) => {
+  const { from = 'TLV', to = 'CDG', date = '2026-09-08' } = req.query;
+  const url = `https://www.google.com/travel/flights?q=Flights+from+${from}+to+${to}+on+${date}&curr=USD&hl=en&gl=US`;
+  const CONSENT_COOKIE = process.env.FLI_CONSENT_COOKIE || 'SOCS=CAESHAgBEhIaAB; CONSENT=YES+cb';
+  
+  const report = {
+    url,
+    consentCookie: CONSENT_COOKIE,
+  };
+
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+        'Cache-Control': 'max-age=0',
+        'Cookie': CONSENT_COOKIE
+      }
+    });
+
+    report.status = resp.status;
+    report.redirected = resp.redirected;
+    report.finalUrl = resp.url;
+    report.headers = Array.from(resp.headers.entries());
+
+    const html = await resp.text();
+    report.htmlLength = html.length;
+    report.containsInitData = html.includes('AF_initDataCallback');
+    report.containsDs1 = html.includes("key:'ds:1'") || html.includes('key: "ds:1"') || html.includes("'ds:1'");
+    
+    // Scan matches
+    const matches = [...html.matchAll(/AF_initDataCallback\s*\(/g)];
+    report.matchCount = matches.length;
+    report.snippets = [];
+    for (let i = 0; i < Math.min(matches.length, 5); i++) {
+      const pos = matches[i].index;
+      report.snippets.push(html.slice(pos, pos + 200).replace(/\n/g, ' '));
+    }
+    
+    if (html.includes('consent.google.com') || html.includes('Consent redirect') || html.includes('Before you continue to Google')) {
+      report.diagnosis = 'Blocked by Google Consent redirection / Consent Wall.';
+    } else if (html.includes('recaptcha') || html.includes('g-recaptcha') || html.includes('detected unusual traffic')) {
+      report.diagnosis = 'Blocked by Google Bot Challenge / CAPTCHA (unusual traffic detected).';
+    } else if (report.containsDs1) {
+      report.diagnosis = 'Success! Flights ds:1 data block was found and parsed.';
+    } else {
+      report.diagnosis = 'Unknown response structure. No ds:1 key found, but no known block indicator found.';
+    }
+
+  } catch (err) {
+    report.error = err.message || String(err);
+    report.diagnosis = 'Network or request error.';
+  }
+
+  res.json(report);
+});
+
 // Ticketmaster Event Intelligence Endpoint (Protected)
 app.get('/api/events', requireAuth, async (req, res) => {
   const { destination = 'BCN', startDate, endDate } = req.query;

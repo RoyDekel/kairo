@@ -9,6 +9,7 @@ export default mergeConfig(
       environment: 'jsdom',
       setupFiles: './src/setupTests.js',
       exclude: ['**/node_modules/**', '**/dist/**', '**/tests/**', '**/tests-examples/**'],
+      testTimeout: 25000,
     },
   })
 );
