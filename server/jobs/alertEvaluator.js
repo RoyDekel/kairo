@@ -15,6 +15,41 @@ import { notify } from '../services/notifier.js';
 const RATE_LIMIT_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
+ * Compose the alert text for a channel.
+ *
+ * Telegram renders Markdown; sendEmail passes its body through as `text`, with
+ * no conversion. One shared string therefore cannot serve both — the version
+ * that reads correctly in Telegram arrives in the inbox as literal asterisks
+ * around every value, which is what a user then sees as the product's voice.
+ *
+ * @param {'telegram'|'email'} channel
+ * @param {object} alert  - price_alerts row
+ * @param {number} price  - latest observed fare
+ * @returns {string}
+ */
+function buildMessage(channel, alert, price) {
+  const route = `${alert.origin} → ${alert.destination}`;
+
+  if (channel === 'email') {
+    return (
+      `KAIRO Price Alert\n\n` +
+      `Route:         ${route}\n` +
+      `Current price: $${price}\n` +
+      `Your target:   $${alert.target_price}\n\n` +
+      `The fare dropped below your target. Book before it rises again.`
+    );
+  }
+
+  return (
+    `🛫 *KAIRO Price Alert*\n\n` +
+    `Route: *${route}*\n` +
+    `Current price: *$${price}*\n` +
+    `Your target: *$${alert.target_price}*\n\n` +
+    `💰 The fare dropped below your target! Book now before it rises.`
+  );
+}
+
+/**
  * Evaluate all active alerts against the latest fare observations.
  * @param {object} [supabase] - Supabase client (defaults to server client)
  */
@@ -77,15 +112,11 @@ export async function evaluateAlerts(supabase = getServerSupabase()) {
       if (now - lastNotified < RATE_LIMIT_MS) continue;
     }
 
-    // Fire notification
-    const message =
-      `🛫 *KAIRO Price Alert*\n\n` +
-      `Route: *${alert.origin} → ${alert.destination}*\n` +
-      `Current price: *$${fare.price}*\n` +
-      `Your target: *$${alert.target_price}*\n\n` +
-      `💰 The fare dropped below your target! Book now before it rises.`;
-
-    const sent = await notify(alert.channel, alert.channel_target, message);
+    const sent = await notify(
+      alert.channel,
+      alert.channel_target,
+      buildMessage(alert.channel, alert, fare.price)
+    );
 
     if (sent) {
       // Update last_notified_at to enforce the 24h rate limit

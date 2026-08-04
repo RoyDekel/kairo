@@ -243,4 +243,52 @@ describe('AlertEvaluator — server-side alert matching', () => {
     expect(result.fired).toBe(1);
     expect(notify).toHaveBeenCalled();
   });
+
+  test('sends email alerts as plain text, without Telegram Markdown', async () => {
+    const alert = makeAlert({
+      target_price: 400,
+      channel: 'email',
+      channel_target: 'roy@example.com'
+    });
+
+    const fromMock = vi.fn().mockImplementation((table) => {
+      if (table === 'price_alerts') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: [alert], error: null })
+          }),
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ error: null })
+          })
+        };
+      }
+      if (table === 'fare_observations') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue({
+                  data: [{ roundtrip_price: 350, observed_at: new Date().toISOString() }]
+                })
+              })
+            })
+          })
+        };
+      }
+      return mockSupabase;
+    });
+    mockSupabase.from = fromMock;
+
+    const result = await evaluateAlerts(mockSupabase);
+    expect(result.fired).toBe(1);
+
+    // sendEmail passes its body through untouched, so an asterisk here is an
+    // asterisk in the reader's inbox rather than bold text.
+    const [channel, target, message] = notify.mock.calls[0];
+    expect(channel).toBe('email');
+    expect(target).toBe('roy@example.com');
+    expect(message).not.toContain('*');
+    expect(message).toContain('$350');
+    expect(message).toContain('TLV → BCN');
+  });
 });
