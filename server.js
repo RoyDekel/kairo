@@ -8,6 +8,7 @@ import { computeEventDrivenInsights } from './server/services/insightsEngine.js'
 import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
 import { flightSearchCache } from './server/services/flightSearchCache.js';
 import { fareHistory, FareHistory } from './server/services/fareHistory.js';
+import { forecastService } from './server/services/forecastService.js';
 import { startFareCollector } from './server/jobs/fareCollector.js';
 import { verifySchema } from './server/services/schemaCheck.js';
 import { AIRPORTS, FEATURED_HUBS } from './shared/catalog.js';
@@ -453,18 +454,40 @@ app.get('/api/flights', requireAuth, async (req, res) => {
       }
     }
 
+    const cheapestOutboundRaw = cheapestFlight(results.outbound);
+    const cheapestReturnRaw = cheapestFlight(results.return);
+    const cheapestOutboundPrice = cheapestOutboundRaw?.price || 0;
+    const cheapestReturnPrice = cheapestReturnRaw?.price || 0;
+    const currentRoundtripPrice = cheapestOutboundPrice + cheapestReturnPrice;
+
+    const forecast = await forecastService.forecastRoute(origin, destination, currentRoundtripPrice, FARE_CURRENCY);
+
     const events = await eventSearchService.getEventsForDestination(destination, departureDate, returnDate);
 
     // Enriched outbound and return flights with Event-Driven Insights
-    const outboundWithInsights = (results.outbound || []).map(flight => ({
-      ...flight,
-      insights: computeEventDrivenInsights(flight, request, events, { coverage: eventSearchService.hasCoverage ? 'full' : 'ticketed-only' })
-    }));
+    const outboundWithInsights = (results.outbound || []).map(flight => {
+      const flightRoundtripPrice = flight.price + cheapestReturnPrice;
+      return {
+        ...flight,
+        insights: computeEventDrivenInsights(flight, request, events, {
+          coverage: eventSearchService.hasCoverage ? 'full' : 'ticketed-only',
+          forecast,
+          comparisonPrice: flightRoundtripPrice
+        })
+      };
+    });
 
-    const returnWithInsights = (results.return || []).map(flight => ({
-      ...flight,
-      insights: computeEventDrivenInsights(flight, request, events, { coverage: eventSearchService.hasCoverage ? 'full' : 'ticketed-only' })
-    }));
+    const returnWithInsights = (results.return || []).map(flight => {
+      const flightRoundtripPrice = cheapestOutboundPrice + flight.price;
+      return {
+        ...flight,
+        insights: computeEventDrivenInsights(flight, request, events, {
+          coverage: eventSearchService.hasCoverage ? 'full' : 'ticketed-only',
+          forecast,
+          comparisonPrice: flightRoundtripPrice
+        })
+      };
+    });
 
     // Record the cheapest fare so /api/flights/estimates can serve this exact number to
     // the discovery page instead of a simulated one. This is what keeps "When to Go"

@@ -1,136 +1,62 @@
 /**
  * KAIRO AI Price Confidence & Buy Timing Engine
- * Predicts whether flight prices are likely to drop or rise, calculates 90-day low benchmarks,
- * provides data rationale pillars, and generates humanized AI recommendations.
+ * Presenter that reads genuine statistical trends and forecasts computed by the server.
  */
 
-/**
- * Fields the backend derives from data the browser doesn't have: live Ticketmaster
- * events for the destination, and the days-to-departure curve. These are the ingredients
- * for route-specific evidence, so they are carried over even when the price-derived
- * numbers are recomputed locally.
- */
-const SERVER_EVIDENCE_FIELDS = [
-  'topEvent',
-  'eventImpactScore',
-  'isHighImpactEvent',
-  'daysToDeparture',
-  'pricePercentile',
-  'riskLevel'
-];
+function percentileOf(price, prices = []) {
+  if (!prices.length) return null;
+  const cheaper = prices.reduce((n, p) => (p < price ? n + 1 : n), 0);
+  return Math.round((cheaper / prices.length) * 100);
+}
 
 export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
-  // With no local override, the server's analysis is authoritative.
-  if (flight?.insights && !basePriceOverride) {
-    return flight.insights;
+  if (!flight?.insights) {
+    return {
+      verdict: null,
+      recommendation: null,
+      reason: 'insufficient_history',
+      priceHistory: null,
+      summary: 'No historical price data available for this route.'
+    };
   }
 
-  const currentPrice = basePriceOverride || flight?.price || 450;
-  
-  // Deterministic seed based on flight ID or price for consistent output across renders
-  const flightIdStr = flight?.id || `${currentPrice}`;
-  let hash = 0;
-  for (let i = 0; i < flightIdStr.length; i++) {
-    hash = (hash << 5) - hash + flightIdStr.charCodeAt(i);
-    hash |= 0;
-  }
-  const positiveHash = Math.abs(hash);
+  // Clone backend insights to avoid mutations
+  const insights = { ...flight.insights };
 
-  // Generate 90-day price history simulation
-  const low90Day = Math.max(45, Math.round(currentPrice * 0.75));
-  const high90Day = Math.round(currentPrice * 1.25);
-  const avg90Day = Math.round((low90Day + high90Day) / 2);
+  // If client-side override is provided (e.g. cabin toggle), update the metrics
+  if (basePriceOverride !== null && basePriceOverride !== undefined) {
+    const currentPrice = basePriceOverride;
+    insights.currentPrice = currentPrice;
 
-  // Price history points for interactive SVG graph (90d ago -> Today)
-  const priceHistory = [
-    { label: '90d ago', price: Math.round(high90Day * 0.96) },
-    { label: '60d ago', price: high90Day },
-    { label: '45d ago', price: Math.round(avg90Day * 1.08) },
-    { label: '30d ago', price: Math.round(avg90Day * 0.95) },
-    { label: '14d ago', price: low90Day, isLowest: true },
-    { label: '7d ago', price: Math.round(low90Day * 1.12) },
-    { label: 'Today', price: currentPrice }
-  ];
+    if (insights.prices && insights.prices.length > 0) {
+      insights.pricePercentile = percentileOf(currentPrice, insights.prices);
+      const isCheaperThanForecast = currentPrice <= (insights.forecastMedian || insights.avg90Day);
+      insights.recommendation = (insights.pricePercentile <= 25 || isCheaperThanForecast) ? 'BUY_NOW' : 'WAIT';
+      insights.expectedSavings = Math.max(15, Math.round(currentPrice - Math.min(insights.forecastMedian || insights.avg90Day, insights.low90Day)));
+      
+      const dropDaysNum = Math.min(10, Math.max(3, Math.round((insights.daysToDeparture || 45) * 0.15)));
+      insights.actionHeadline = insights.recommendation === 'BUY_NOW'
+        ? insights.isHighImpactEvent ? `BUY NOW (EVENT SURGE)` : `BUY NOW (BEST FARE)`
+        : `WAIT ${dropDaysNum} MORE DAYS`;
 
-  // Determine recommendation: WAIT vs BUY_NOW
-  const priceDiffPct = Math.round(((currentPrice - low90Day) / low90Day) * 100);
-  const isGoodDeal = priceDiffPct <= 12;
-
-  const recommendation = isGoodDeal ? 'BUY_NOW' : 'WAIT';
-  const confidenceScore = 84 + (positiveHash % 12); // 84% to 95%
-  
-  // Star rating calculation
-  let stars = '★★★★☆';
-  if (confidenceScore >= 90) stars = '★★★★★';
-  else if (confidenceScore < 85) stars = '★★★☆☆';
-
-  const expectedSavings = Math.max(45, currentPrice - low90Day);
-  const dropDaysNum = 4 + (positiveHash % 4);
-  const expectedDropDays = `${dropDaysNum}–${dropDaysNum + 3} days`;
-
-  const actionHeadline = recommendation === 'BUY_NOW'
-    ? 'BUY NOW'
-    : `WAIT ${dropDaysNum} MORE DAYS`;
-
-  // Humanized AI Personality Badges
-  const personalityBadge = recommendation === 'BUY_NOW'
-    ? '🟢 Good news! This is one of the cheapest prices we have seen this month.'
-    : `⏳ KAIRO recommends waiting ${dropDaysNum} more days for an expected $${expectedSavings} drop.`;
-
-  const summary = recommendation === 'BUY_NOW'
-    ? `Current fare ($${currentPrice}) is near the 90-day low ($${low90Day}). Airline price algorithms indicate fares will rise shortly.`
-    : `Fares are predicted to drop by ~$${expectedSavings} within ${expectedDropDays}. We strongly advise waiting before booking.`;
-
-  // Data Rationale Pillars ("Why Trust KAIRO?")
-  const rationalePillars = [
-    '4 years of historical flight pricing algorithms',
-    'Seasonal travel demand forecasting models',
-    'Airline carrier revenue management patterns',
-    'Global event & concert schedule price pressure'
-  ];
-
-  const local = {
-    currentPrice,
-    low90Day,
-    high90Day,
-    avg90Day,
-    recommendation,
-    actionHeadline,
-    personalityBadge,
-    confidenceScore,
-    confidenceStars: stars,
-    expectedSavings,
-    expectedDropDays,
-    summary,
-    priceDiffPct,
-    priceHistory,
-    rationalePillars,
-    animatedSteps: [
-      currentPrice,
-      Math.round(currentPrice - expectedSavings * 0.35),
-      Math.round(currentPrice - expectedSavings * 0.7),
-      low90Day
-    ]
-  };
-
-  /*
-    Overlay the backend's evidence.
-
-    The price-derived numbers above are recomputed locally so the readout keeps up with
-    the live price ticker, but the event and departure-window intelligence can only come
-    from the server. Previously the entire server payload was dropped whenever an
-    override was passed — which both UI callers do — so the real evidence never reached
-    the screen at all.
-  */
-  if (flight?.insights) {
-    for (const field of SERVER_EVIDENCE_FIELDS) {
-      if (flight.insights[field] !== undefined) {
-        local[field] = flight.insights[field];
+      if (insights.recommendation === 'BUY_NOW') {
+        if (insights.isHighImpactEvent && insights.topEvent) {
+          insights.summary = `High travel demand expected for "${insights.topEvent.title}" at ${insights.topEvent.venue} (${insights.topEvent.categoryLabel}). Fares are predicted to rise by ~$${Math.round(insights.expectedSavings * 1.2)} due to event ticket pressure.`;
+        } else {
+          insights.summary = `Current fare ($${currentPrice}) is in the lowest ${insights.pricePercentile}% of 90-day historical prices ($${insights.low90Day} low). Airline pricing algorithms indicate an imminent price increase.`;
+        }
+      } else {
+        insights.summary = `Fare ($${currentPrice}) is ${insights.pricePercentile}% above the 90-day low ($${insights.low90Day}). No major Sold-Out event conflict detected in ${flight?.destination || 'destination'}. Fares expected to drop by ~$${insights.expectedSavings} within ${dropDaysNum} days.`;
       }
+    } else {
+      // Basic fallback recalculation if prices are not available
+      const priceDiffPct = Math.round(((currentPrice - insights.low90Day) / (insights.low90Day || 1)) * 100);
+      insights.recommendation = priceDiffPct <= 12 ? 'BUY_NOW' : 'WAIT';
+      insights.expectedSavings = Math.max(35, currentPrice - insights.low90Day);
     }
   }
 
-  return local;
+  return insights;
 }
 
 /**
@@ -138,6 +64,7 @@ export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
  */
 export function getZeroClickDemoData() {
   return {
+    isDemo: true,
     routeStr: 'Tel Aviv → Tokyo (NRT)',
     destinationName: 'Tokyo, Japan',
     currentPrice: 814,

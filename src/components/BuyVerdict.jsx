@@ -34,6 +34,56 @@ export default function BuyVerdict({ activeFlight, activeRoundtrip, selectedDate
     ? activeRoundtrip.outbound.passengerCosts.total + activeRoundtrip.return.passengerCosts.total
     : null;
 
+  if (insight.recommendation === null || insight.verdict === null) {
+    return (
+      <div className="glass-panel verdict animate-fade-in" style={{ borderLeft: `4px solid var(--text-muted)` }}>
+        <div className="verdict-main">
+          <div className="verdict-label">
+            <Sparkles size={14} style={{ color: 'var(--primary)' }} />
+            {activeFlight.origin} → {activeFlight.destination}
+          </div>
+
+          <div className="verdict-headline" style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Minus size={26} />
+            Insufficient history for this route
+          </div>
+
+          <p className="verdict-summary">
+            We have observed this route only {insight.sampleSize || 0} times. 
+            We require at least 5 observations before we can recommend a Buy/Wait verdict. 
+            Keep searching to help us build a baseline!
+          </p>
+        </div>
+
+        <div className="verdict-stats" style={{ borderTop: '1px dashed var(--border-glass)' }}>
+          <div className="verdict-stat">
+            <div className="verdict-stat-label">This fare</div>
+            <div className="verdict-stat-value num" style={{ color: 'var(--primary)' }}>
+              ${activeFlight.price}
+            </div>
+            <div className="verdict-stat-note">per adult</div>
+          </div>
+
+          {roundtripTotal !== null && (
+            <div className="verdict-stat">
+              <div className="verdict-stat-label">Roundtrip total</div>
+              <div className="verdict-stat-value num">${roundtripTotal}</div>
+              <div className="verdict-stat-note">all passengers</div>
+            </div>
+          )}
+
+          <div className="verdict-stat">
+            <div className="verdict-stat-label">History status</div>
+            <div className="verdict-stat-value" style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+              {insight.sampleSize || 0} / 5
+            </div>
+            <div className="verdict-stat-note">observations collected</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="glass-panel verdict" style={{ borderLeft: `4px solid ${accent}` }}>
       <div className="verdict-main">

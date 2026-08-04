@@ -3,7 +3,91 @@ import React, { useState } from 'react';
 export default function PriceHistoryGraph({ priceHistory = [] }) {
   const [hoveredNode, setHoveredNode] = useState(null);
 
-  if (!priceHistory || priceHistory.length === 0) return null;
+  if (!priceHistory || priceHistory.length < 5) {
+    const currentCount = priceHistory?.length || 0;
+    return (
+      <div style={{
+        background: '#ffffff',
+        border: '1px solid var(--border-glass)',
+        borderRadius: 'var(--radius-md)',
+        padding: '20px 20px 16px',
+        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)',
+        position: 'relative'
+      }}>
+        {/* HEADER SECTION */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+          <div>
+            <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              Price over the last 90 days
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Historical price trend visualization
+            </div>
+          </div>
+        </div>
+
+        {/* CHART CONTAINER WITH OVERLAY */}
+        <div style={{ position: 'relative', width: '100%', height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg
+            viewBox="0 0 600 180"
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'block', opacity: 0.25 }}
+          >
+            {/* Gridlines */}
+            <line x1="52" y1="24" x2="568" y2="24" stroke="rgba(15, 23, 42, 0.08)" strokeDasharray="3 3" />
+            <line x1="52" y1="90" x2="568" y2="90" stroke="rgba(15, 23, 42, 0.08)" strokeDasharray="3 3" />
+            <line x1="52" y1="156" x2="568" y2="156" stroke="rgba(15, 23, 42, 0.08)" strokeDasharray="3 3" />
+            
+            {/* Dashed placeholder trend line */}
+            <line x1="52" y1="90" x2="568" y2="90" stroke="var(--text-muted)" strokeWidth="2.5" strokeDasharray="6 6" />
+          </svg>
+
+          {/* Overlay Text */}
+          <div style={{
+            position: 'absolute',
+            zIndex: 10,
+            textAlign: 'center',
+            background: 'rgba(255, 255, 255, 0.95)',
+            border: '1px solid var(--border-glass)',
+            padding: '16px 24px',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+            maxWidth: '340px'
+          }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+              Insufficient Data for Graph
+            </div>
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              We have only {currentCount} observation{currentCount === 1 ? '' : 's'} for this route. We need at least 5 to construct the 90-day price trend history.
+            </div>
+          </div>
+        </div>
+
+        {/* FOOTER METRIC BREAKDOWN (PLACEHOLDER) */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: '16px',
+          paddingTop: '14px',
+          borderTop: '1px solid var(--border-glass)',
+          opacity: 0.5
+        }}>
+          <div>
+            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peak</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-muted)', marginTop: '2px' }}>—</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>90-Day Low</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-muted)', marginTop: '2px' }}>—</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Today</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-muted)', marginTop: '2px' }}>—</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Graph Dimensions & Layout Padding
   const svgWidth = 600;
