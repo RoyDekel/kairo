@@ -298,7 +298,7 @@ export class FliProvider extends FlightProvider {
    * Bypasses Google RPC bot checks and consent walls in cloud environments (Render, AWS, GCP).
    */
   async fetchLegHtml(from, to, travelDate) {
-    const url = `https://www.google.com/travel/flights?q=Flights+from+${from}+to+${to}+on+${travelDate}&curr=${this.currency}&hl=en&gl=${SEARCH_COUNTRY}`;
+    const url = `https://www.google.com/travel/flights?q=Flights+from+${from}+to+${to}+on+${travelDate}+one+way&curr=${this.currency}&hl=en&gl=${SEARCH_COUNTRY}`;
     const resp = await consentFetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
