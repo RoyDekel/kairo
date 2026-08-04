@@ -148,7 +148,11 @@ export class FareCollector {
     // Advance cursor so next sweep continues seamlessly
     this.cursorIndex = (this.cursorIndex + tasks.length) % tasks.length;
 
-    // Evaluate price alerts against freshly collected fares
+    /*
+      An opportunistic extra check against the fares this sweep just collected. NOT the
+      mechanism alerts rely on: the loop above runs for hours, so this line is reached
+      rarely. startAlertEvaluator() owns the schedule that actually matters.
+    */
     try {
       await evaluateAlerts();
     } catch (err) {

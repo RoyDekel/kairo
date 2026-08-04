@@ -14,7 +14,12 @@ export default function AlertsManager({
   const [targetPrice, setTargetPrice] = useState(Math.round(activeFlight.price * 0.95));
   const [alertType, setAlertType] = useState('price-drop'); // 'price-drop', 'status-change'
   const [notifChannel, setNotifChannel] = useState('telegram'); // 'telegram' | 'email'
+  const [telegramChatId, setTelegramChatId] = useState(() => localStorage.getItem('kairo_telegram_chat_id') || '');
+  const [emailAddress, setEmailAddress] = useState(() => localStorage.getItem('kairo_email_address') || '');
   const [channelTarget, setChannelTarget] = useState('');
+  const [connectCode] = useState(() => Math.random().toString(36).substring(2, 7).toUpperCase());
+  const [isPolling, setIsPolling] = useState(false);
+  const [manualSetup, setManualSetup] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -35,6 +40,18 @@ export default function AlertsManager({
         if (resp.ok) {
           const data = await resp.json();
           if (data.alerts && data.alerts.length > 0) {
+            // Find most recent telegram and email values to autofill
+            const lastTelegramAlert = data.alerts.find(sa => sa.channel === 'telegram' && sa.channel_target);
+            if (lastTelegramAlert && !localStorage.getItem('kairo_telegram_chat_id')) {
+              setTelegramChatId(lastTelegramAlert.channel_target);
+              localStorage.setItem('kairo_telegram_chat_id', lastTelegramAlert.channel_target);
+            }
+            const lastEmailAlert = data.alerts.find(sa => sa.channel === 'email' && sa.channel_target);
+            if (lastEmailAlert && !localStorage.getItem('kairo_email_address')) {
+              setEmailAddress(lastEmailAlert.channel_target);
+              localStorage.setItem('kairo_email_address', lastEmailAlert.channel_target);
+            }
+
             // Merge server alerts into local state (avoid duplicates by id)
             const localIds = new Set(alerts.map(a => a.id));
             const serverAlerts = data.alerts
@@ -64,6 +81,68 @@ export default function AlertsManager({
     fetchServerAlerts();
   }, [accessToken]);  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sync channel target state with channel choices and stored credentials
+  useEffect(() => {
+    if (notifChannel === 'telegram') {
+      setChannelTarget(telegramChatId);
+    } else {
+      setChannelTarget(emailAddress);
+    }
+  }, [notifChannel, telegramChatId, emailAddress]);
+
+  // Helper change handler to persist variables to storage
+  const handleChannelTargetChange = (val) => {
+    setChannelTarget(val);
+    setErrorMsg('');
+    if (notifChannel === 'telegram') {
+      setTelegramChatId(val);
+      localStorage.setItem('kairo_telegram_chat_id', val);
+    } else {
+      setEmailAddress(val);
+      localStorage.setItem('kairo_email_address', val);
+    }
+  };
+
+  // Polling Telegram verification status
+  useEffect(() => {
+    if (!isPolling || channelTarget) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const headers = accessToken ? authHeaders(accessToken) : {};
+        const resp = await fetchWithTimeout(
+          `${getApiBase()}/api/telegram/resolve-code?code=${connectCode}`,
+          {
+            headers,
+            timeoutMs: 3000
+          }
+        );
+
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.found && data.chatId) {
+            handleChannelTargetChange(data.chatId);
+            setIsPolling(false);
+            setSuccessMsg(`Successfully connected to Telegram!`);
+            setTimeout(() => setSuccessMsg(''), 4000);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to poll telegram verification status:', err);
+      }
+    }, 2500);
+
+    // Stop polling after 3 minutes to avoid infinite loops
+    const timeoutId = setTimeout(() => {
+      setIsPolling(false);
+    }, 180000);
+
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
+  }, [isPolling, connectCode, accessToken, channelTarget]);
+
   // Create new alert rule (local + server-side persistence)
   const handleCreateAlert = async (e) => {
     e.preventDefault();
@@ -73,7 +152,7 @@ export default function AlertsManager({
     if (alertType === 'price-drop' && !channelTarget.trim()) {
       setSuccessMsg('');
       setErrorMsg(notifChannel === 'telegram'
-        ? 'Enter your Telegram chat ID so the alert can reach you.'
+        ? 'Connect Telegram or enter your chat ID so the alert can reach you.'
         : 'Enter an email address so the alert can reach you.');
       return;
     }
@@ -333,26 +412,184 @@ export default function AlertsManager({
                   </div>
                 </div>
 
-                <div className="input-group">
-                  <span className="input-label">
-                    {notifChannel === 'telegram' ? 'Telegram Chat ID' : 'Email Address'}
-                    <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
-                  </span>
-                  <input
-                    type={notifChannel === 'email' ? 'email' : 'text'}
-                    value={channelTarget}
-                    onChange={(e) => { setChannelTarget(e.target.value); setErrorMsg(''); }}
-                    className="input-field"
-                    style={{ padding: '8px 12px' }}
-                    placeholder={notifChannel === 'telegram' ? 'e.g. 123456789' : 'you@example.com'}
-                    required
-                  />
-                  {notifChannel === 'telegram' && (
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Send /start to @KairoPriceBot then forward the chat ID here.
+                {notifChannel === 'email' ? (
+                  <div className="input-group">
+                    <span className="input-label">
+                      Email Address
+                      <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
                     </span>
-                  )}
-                </div>
+                    <input
+                      type="email"
+                      value={channelTarget}
+                      onChange={(e) => handleChannelTargetChange(e.target.value)}
+                      className="input-field"
+                      style={{ padding: '8px 12px' }}
+                      placeholder="you@example.com"
+                      required
+                    />
+                  </div>
+                ) : (
+                  <div className="input-group">
+                    <style>{`
+                      @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                      }
+                    `}</style>
+                    <span className="input-label">
+                      Telegram Notifications
+                    </span>
+                    
+                    <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {/* Connection status card */}
+                      {telegramChatId ? (
+                        <div style={{
+                          background: 'rgba(16, 185, 129, 0.08)',
+                          border: '1px solid rgba(16, 185, 129, 0.2)',
+                          borderRadius: '6px',
+                          padding: '12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', fontWeight: 600, fontSize: '0.8rem' }}>
+                            <CheckCircle size={16} /> Connected to Telegram
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            Chat ID: <code style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px' }}>{telegramChatId}</code>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleChannelTargetChange('');
+                              setManualSetup(true);
+                            }}
+                            style={{
+                              alignSelf: 'flex-start',
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#ef4444',
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              padding: '0',
+                              marginTop: '4px',
+                              textDecoration: 'underline'
+                            }}
+                          >
+                            Disconnect / Change Account
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{
+                          background: 'var(--bg-tertiary)',
+                          border: '1px solid var(--border-glass)',
+                          borderRadius: '8px',
+                          padding: '14px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px'
+                        }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                            ⚡ Connect Telegram Instantly
+                          </div>
+                          
+                          <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                            Open our Telegram bot <strong style={{ color: 'var(--primary)' }}>@KAIRO_Flights_bot</strong> and click <strong>"Start"</strong> to automatically detect your Chat ID.
+                          </p>
+
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '4px' }}>
+                            <a
+                              href={`https://t.me/KAIRO_Flights_bot?start=${connectCode}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={() => setIsPolling(true)}
+                              className="btn btn-primary"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                textDecoration: 'none',
+                                padding: '8px 16px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
+                                border: 'none',
+                                color: '#000',
+                                borderRadius: '4px'
+                              }}
+                            >
+                              <Send size={12} /> Connect via Telegram
+                            </a>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Verification Code:</span>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--primary)' }}>{connectCode}</span>
+                            </div>
+                          </div>
+
+                          {isPolling && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                              <div style={{
+                                width: '12px',
+                                height: '12px',
+                                border: '2px solid rgba(0, 242, 254, 0.2)',
+                                borderTop: '2px solid var(--primary)',
+                                borderRadius: '50%',
+                                animation: 'spin 1s linear infinite'
+                              }} />
+                              <span>Waiting for you to press "Start" in Telegram...</span>
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setManualSetup(!manualSetup)}
+                            style={{
+                              alignSelf: 'flex-start',
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              fontSize: '0.7rem',
+                              cursor: 'pointer',
+                              padding: 0,
+                              textDecoration: 'underline',
+                              marginTop: '4px'
+                            }}
+                          >
+                            {manualSetup ? "Hide Manual Setup" : "Or enter Chat ID manually"}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Manual setup form */}
+                      {(manualSetup || !telegramChatId) && (
+                        <div style={{
+                          display: (manualSetup || !telegramChatId) ? 'block' : 'none',
+                          marginTop: '6px',
+                          borderTop: '1px dashed var(--border-glass)',
+                          paddingTop: '10px'
+                        }}>
+                          <span className="input-label" style={{ fontSize: '0.75rem', marginBottom: '4px', display: 'block' }}>
+                            Telegram Chat ID <span style={{ color: '#ef4444' }}>*</span>
+                          </span>
+                          <input
+                            type="text"
+                            value={channelTarget}
+                            onChange={(e) => handleChannelTargetChange(e.target.value)}
+                            className="input-field"
+                            style={{ padding: '8px 12px', width: '100%', boxSizing: 'border-box' }}
+                            placeholder="e.g. 1498739130"
+                            required={!telegramChatId}
+                          />
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                            Send /start to @KAIRO_Flights_bot then paste the chat ID here.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </>
             )}
 

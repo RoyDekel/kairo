@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { evaluateAlerts } from '../../../server/jobs/alertEvaluator.js';
+import { evaluateAlerts, startAlertEvaluator } from '../../../server/jobs/alertEvaluator.js';
 
 // Mock the notifier module
 vi.mock('../../../server/services/notifier.js', () => ({
@@ -290,5 +290,37 @@ describe('AlertEvaluator — server-side alert matching', () => {
     expect(message).not.toContain('*');
     expect(message).toContain('$350');
     expect(message).toContain('TLV → BCN');
+  });
+});
+
+describe('startAlertEvaluator — schedule independent of the collector', () => {
+  test('returns a scheduled task by default', () => {
+    vi.stubEnv('ALERTS_BOOT_DELAY_MS', '999999'); // keep the boot run out of this test
+    const job = startAlertEvaluator();
+
+    expect(job).not.toBeNull();
+    job.stop();
+    vi.unstubAllEnvs();
+  });
+
+  test('returns null when ALERTS_ENABLED is explicitly false', () => {
+    vi.stubEnv('ALERTS_ENABLED', 'false');
+
+    expect(startAlertEvaluator()).toBeNull();
+    vi.unstubAllEnvs();
+  });
+
+  /*
+    The regression this guards: alert evaluation used to be reachable only from
+    FareCollector.runSweep(), which iterates the whole airport catalog and runs for
+    hours. Anything that re-couples the two reintroduces a feature that looks wired
+    up and never fires.
+  */
+  test('does not depend on the fare collector module', async () => {
+    const source = await import('node:fs').then(fs =>
+      fs.readFileSync(new URL('../../../server/jobs/alertEvaluator.js', import.meta.url), 'utf8')
+    );
+
+    expect(source).not.toContain('fareCollector');
   });
 });

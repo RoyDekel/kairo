@@ -12,6 +12,7 @@ import { forecastService } from './server/services/forecastService.js';
 import { openSkyProvider } from './server/providers/openSkyProvider.js';
 import { getServerSupabase } from './server/services/supabaseServer.js';
 import { startFareCollector } from './server/jobs/fareCollector.js';
+import { startAlertEvaluator } from './server/jobs/alertEvaluator.js';
 import { verifySchema } from './server/services/schemaCheck.js';
 import { AIRPORTS, FEATURED_HUBS } from './shared/catalog.js';
 
@@ -402,6 +403,74 @@ app.get('/api/flights/estimates', requireAuth, async (req, res) => {
   }
 });
 
+// ─── Telegram Verification Code Resolution (Protected by JWT Authentication) ───
+
+app.get('/api/telegram/resolve-code', requireAuth, async (req, res) => {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    return res.status(503).json({ error: 'Telegram bot integration not configured on the server.' });
+  }
+
+  const queryCode = req.query.code;
+  if (!queryCode) {
+    return res.status(400).json({ error: 'Missing code query parameter.' });
+  }
+
+  const cleanCode = queryCode.trim().toUpperCase();
+
+  try {
+    const url = `https://api.telegram.org/bot${token}/getUpdates?limit=100`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error('[telegram] Failed to getUpdates:', errText);
+      return res.status(502).json({ error: 'Failed to fetch updates from Telegram API.' });
+    }
+
+    const data = await resp.json();
+    if (!data.ok) {
+      return res.status(502).json({ error: 'Telegram API returned an error.' });
+    }
+
+    // Search for a message containing the code
+    const match = data.result.find(update => {
+      const msg = update.message;
+      if (!msg || !msg.text) return false;
+      return msg.text.toUpperCase().includes(cleanCode);
+    });
+
+    if (match) {
+      const chatId = match.message.chat.id;
+      const firstName = match.message.from.first_name || '';
+      const lastName = match.message.from.last_name || '';
+      const fullName = [firstName, lastName].filter(Boolean).join(' ');
+
+      // Send a friendly greeting to confirm connection!
+      const welcomeUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+      await fetch(welcomeUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: `🎉 *KAIRO Connected!*\n\nYour Telegram account has been linked successfully. You will receive price alerts for your watchlist routes here.`,
+          parse_mode: 'Markdown'
+        })
+      }).catch(err => console.error('[telegram] Failed to send welcome message:', err.message));
+
+      return res.json({
+        found: true,
+        chatId: String(chatId),
+        name: fullName
+      });
+    }
+
+    return res.json({ found: false });
+  } catch (error) {
+    console.error('[telegram] Resolve code error:', error);
+    return res.status(500).json({ error: 'Internal server error resolving Telegram code.' });
+  }
+});
+
 // ─── Price Alerts CRUD (Protected by JWT Authentication) ─────────────────────
 
 app.post('/api/alerts', requireAuth, async (req, res) => {
@@ -697,6 +766,13 @@ app.listen(PORT, async () => {
   console.log(`===============================================`);
 
   startFareCollector();
+
+  /*
+    Deliberately not chained to the collector. A sweep runs for hours by design, and an
+    alert scheduled behind it inherits that latency — which is what kept Phase 7 silent
+    on its first deploy. See the header of alertEvaluator.js.
+  */
+  startAlertEvaluator();
 
   // Awaited after listen() so a slow or unreachable Supabase delays the report, never the
   // service. The result is logged, not acted on: an out-of-date schema costs observations,
