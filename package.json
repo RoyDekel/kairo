@@ -27,6 +27,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "leaflet": "^1.9.4",
+    "leaflet.geodesic": "^2.7.2",
     "lucide-react": "^1.17.0",
     "node-cron": "^4.6.0",
     "react": "^19.2.6",

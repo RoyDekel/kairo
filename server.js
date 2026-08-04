@@ -9,6 +9,7 @@ import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
 import { flightSearchCache } from './server/services/flightSearchCache.js';
 import { fareHistory, FareHistory } from './server/services/fareHistory.js';
 import { forecastService } from './server/services/forecastService.js';
+import { openSkyProvider } from './server/providers/openSkyProvider.js';
 import { startFareCollector } from './server/jobs/fareCollector.js';
 import { verifySchema } from './server/services/schemaCheck.js';
 import { AIRPORTS, FEATURED_HUBS } from './shared/catalog.js';
@@ -397,6 +398,23 @@ app.get('/api/flights/estimates', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Estimates endpoint failed:', error);
     res.status(500).json({ error: 'Failed to compute destination fare estimates.' });
+  }
+});
+
+// Live flight telemetry route (Protected by JWT Authentication)
+app.get('/api/telemetry/live', requireAuth, async (req, res) => {
+  const { flightNumber, origin, destination } = req.query;
+
+  if (!flightNumber || !origin || !destination) {
+    return res.status(400).json({ error: "Missing required parameters: flightNumber, origin, destination" });
+  }
+
+  try {
+    const telemetry = await openSkyProvider.getLiveTelemetry(flightNumber, origin, destination);
+    res.json({ telemetry });
+  } catch (error) {
+    console.error('[api/telemetry/live] Failed:', error);
+    res.status(500).json({ error: 'Failed to retrieve live flight telemetry.' });
   }
 });
 

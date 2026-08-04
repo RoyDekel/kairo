@@ -126,6 +126,16 @@ vi.mock('leaflet', () => ({
   }
 }));
 
+class DummyGeodesicLine {
+  constructor() {
+    return mockPolyline;
+  }
+}
+
+vi.mock('leaflet.geodesic', () => ({
+  GeodesicLine: DummyGeodesicLine,
+}));
+
 // Mock Chart.js
 vi.mock('chart.js', () => ({
   Chart: {

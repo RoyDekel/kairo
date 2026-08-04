@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { GeodesicLine } from 'leaflet.geodesic';
 import { AIRPORTS } from '../utils/flightSimulator';
 
 export default function FlightMap({ telemetry, activeFlight, theme }) {
@@ -92,18 +93,20 @@ export default function FlightMap({ telemetry, activeFlight, theme }) {
     tileLayerRef.current = tileLayer;
 
     // Draw full route line (dotted)
-    const fullPath = L.polyline([startCoords, endCoords], {
+    const fullPath = new GeodesicLine([startCoords, endCoords], {
       color: theme === 'dark' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(15, 23, 42, 0.15)',
       weight: 2,
-      dashArray: '5, 8'
+      dashArray: '5, 8',
+      wrap: false
     }).addTo(map);
     fullPathRef.current = fullPath;
 
     // Draw active flight coverage path line
-    const activePath = L.polyline([startCoords, [telemetry.latitude, telemetry.longitude]], {
+    const activePath = new GeodesicLine([startCoords, [telemetry.latitude, telemetry.longitude]], {
       color: theme === 'dark' ? '#00f2fe' : '#0284c7',
       weight: 3.5,
-      opacity: 0.85
+      opacity: 0.85,
+      wrap: false
     }).addTo(map);
     pathLineRef.current = activePath;
 
@@ -297,7 +300,7 @@ export default function FlightMap({ telemetry, activeFlight, theme }) {
             boxShadow: telemetry.status !== 'Scheduled' && telemetry.status !== 'Landed' ? '0 0 8px var(--primary)' : 'none'
           }}></span>
           <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'uppercase' }}>
-            {telemetry.status}
+            <span>{telemetry.status}</span> <span style={{ opacity: 0.7, fontSize: '0.75rem' }}>{telemetry.source === 'live' ? '(LIVE GPS)' : '(ESTIMATED)'}</span>
           </span>
         </div>
       </div>

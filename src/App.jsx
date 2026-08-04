@@ -88,6 +88,8 @@ export default function App() {
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState(0); // 0.0 to 1.0
   const [simulationSpeed, setSimulationSpeed] = useState(5); // 1x, 5x, 20x
+  const [liveTelemetry, setLiveTelemetry] = useState(null);
+  const [telemetrySource, setTelemetrySource] = useState('simulated');
 
   // 5. Watchlist, Alerts & Notifications
   const [watchlist, setWatchlist] = useState(() => {
@@ -147,11 +149,63 @@ export default function App() {
   const originAirport = AIRPORTS[activeFlight?.origin] || AIRPORTS.TLV;
   const destinationAirport = AIRPORTS[activeFlight?.destination] || AIRPORTS.KRK;
 
-  const telemetry = getFlightTelemetry(
-    simulationProgress,
-    originAirport.coords,
-    destinationAirport.coords
-  );
+  // Compute flight path telemetry: either live transponder feed or client-side simulator.
+  const telemetry = (telemetrySource === 'live' && liveTelemetry)
+    ? (() => {
+        const lat1 = originAirport.coords[0];
+        const lon1 = originAirport.coords[1];
+        const lat2 = destinationAirport.coords[0];
+        const lon2 = destinationAirport.coords[1];
+
+        const rLat1 = (lat1 * Math.PI) / 180;
+        const rLon1 = (lon1 * Math.PI) / 180;
+        const rLat2 = (lat2 * Math.PI) / 180;
+        const rLon2 = (lon2 * Math.PI) / 180;
+
+        const d = 2 * Math.asin(
+          Math.sqrt(
+            Math.sin((rLat1 - rLat2) / 2) ** 2 +
+            Math.cos(rLat1) * Math.cos(rLat2) * Math.sin((rLon1 - rLon2) / 2) ** 2
+          )
+        );
+
+        const totalDistance = Math.round(6371 * d);
+        const lat = liveTelemetry.latitude;
+        const lon = liveTelemetry.longitude;
+        
+        // Calculate distance remaining to destination
+        const rLat = (lat * Math.PI) / 180;
+        const rLon = (lon * Math.PI) / 180;
+        const dRem = 2 * Math.asin(
+          Math.sqrt(
+            Math.sin((rLat - rLat2) / 2) ** 2 +
+            Math.cos(rLat) * Math.cos(rLat2) * Math.sin((rLon - rLon2) / 2) ** 2
+          )
+        );
+        const distanceRemaining = Math.max(0, Math.round(6371 * dRem));
+        const progress = Math.min(100, Math.max(0, Math.round(((totalDistance - distanceRemaining) / totalDistance) * 100)));
+
+        return {
+          latitude: lat,
+          longitude: lon,
+          heading: liveTelemetry.heading,
+          altitude: liveTelemetry.altitude,
+          speed: liveTelemetry.speed,
+          status: liveTelemetry.status,
+          progress,
+          distanceRemaining,
+          timeRemaining: Math.round((distanceRemaining / Math.max(1, liveTelemetry.speed || 780)) * 60),
+          source: 'live'
+        };
+      })()
+    : {
+        ...getFlightTelemetry(
+          simulationProgress,
+          originAirport.coords,
+          destinationAirport.coords
+        ),
+        source: 'simulated'
+      };
 
   // Fetch initial default flights from the server to align with the client-server pattern
   useEffect(() => {
@@ -287,7 +341,56 @@ export default function App() {
     setIsSimulating(false);
     setSimulationProgress(0);
     prevStatusRef.current = 'Scheduled';
+    setTelemetrySource('simulated');
+    setLiveTelemetry(null);
   }, [routeSignature]);
+
+  // Live flight telemetry polling loop from OpenSky Network
+  useEffect(() => {
+    if (!isSimulating || !activeFlight?.flightNumber) {
+      setTelemetrySource('simulated');
+      setLiveTelemetry(null);
+      return undefined;
+    }
+
+    const apiBase = getApiBase();
+    
+    const fetchLiveCoords = async () => {
+      try {
+        const queryParams = new URLSearchParams({
+          flightNumber: activeFlight.flightNumber,
+          origin: activeFlight.origin,
+          destination: activeFlight.destination
+        });
+        
+        const resp = await fetchWithTimeout(
+          `${apiBase}/api/telemetry/live?${queryParams.toString()}`,
+          { headers: authHeaders(), timeoutMs: 5000 }
+        );
+        
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.telemetry) {
+            setLiveTelemetry(data.telemetry);
+            setTelemetrySource('live');
+            return;
+          }
+        }
+      } catch (err) {
+        // Silently fall back to simulated telemetry
+      }
+      
+      setTelemetrySource('simulated');
+      setLiveTelemetry(null);
+    };
+
+    fetchLiveCoords();
+    const intervalId = setInterval(fetchLiveCoords, 15000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [isSimulating, activeFlight?.flightNumber, activeFlight?.origin, activeFlight?.destination]);
 
   // Telemetry simulation loop. The updater stays pure — stopping at the end is handled
   // by the effect below, because calling setState inside another setState's updater is
