@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search } from 'lucide-react';
 import { AIRPORTS, FEATURED_HUBS } from '../../shared/catalog.js';
 
-export default function AirportAutocomplete({ label, value, onChange, placeholder, id }) {
+export default function AirportAutocomplete({ label, value, onChange, placeholder, id, style }) {
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -106,8 +105,7 @@ export default function AirportAutocomplete({ label, value, onChange, placeholde
       className="input-group" 
       style={{ 
         position: 'relative', 
-        flex: '1 1 200px', 
-        minWidth: '170px' 
+        ...(style || {})
       }}
     >
       {label && (
@@ -133,19 +131,9 @@ export default function AirportAutocomplete({ label, value, onChange, placeholde
           }}
           className="input-field"
           style={{
-            paddingRight: '36px',
             textOverflow: 'ellipsis'
           }}
           autoComplete="off"
-        />
-        <Search 
-          size={16} 
-          style={{ 
-            position: 'absolute', 
-            right: '12px', 
-            color: 'var(--text-muted, #94a3b8)',
-            pointerEvents: 'none' 
-          }} 
         />
       </div>
 

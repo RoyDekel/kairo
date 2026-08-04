@@ -781,7 +781,8 @@ export default function AlternativeFlights({
                 label="Departure Airport"
                 value={localOrigin}
                 onChange={setLocalOrigin}
-                placeholder="לאן תרצה לטוס?"
+                placeholder="Where from?"
+                style={{ flex: '1 1 200px', minWidth: '170px' }}
               />
 
               {/* Circular Swap Button */}
@@ -828,7 +829,8 @@ export default function AlternativeFlights({
                 label="Arrival Airport"
                 value={localDestination}
                 onChange={setLocalDestination}
-                placeholder="הזן יעד..."
+                placeholder="Where to?"
+                style={{ flex: '1 1 200px', minWidth: '170px' }}
               />
 
               {/* Departure Date */}
@@ -887,7 +889,8 @@ export default function AlternativeFlights({
                     label="From"
                     value={leg.origin}
                     onChange={(val) => updateLeg(leg.id, 'origin', val)}
-                    placeholder="לאן תרצה לטוס?"
+                    placeholder="Where from?"
+                    style={{ flex: '1 1 170px', minWidth: '140px' }}
                   />
 
                   {/* Multi-city To Autocomplete */}
@@ -896,7 +899,8 @@ export default function AlternativeFlights({
                     label="To"
                     value={leg.destination}
                     onChange={(val) => updateLeg(leg.id, 'destination', val)}
-                    placeholder="הזן יעד..."
+                    placeholder="Where to?"
+                    style={{ flex: '1 1 170px', minWidth: '140px' }}
                   />
 
                   <div style={{ flex: '1 1 140px', minWidth: '130px' }}>

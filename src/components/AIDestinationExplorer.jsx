@@ -261,7 +261,8 @@ export default function AIDestinationExplorer({
             label="Origin City"
             value={origin}
             onChange={setOrigin}
-            placeholder="לאן תרצה לטוס?"
+            placeholder="Where from?"
+            style={{ flex: '1 1 200px', minWidth: '170px' }}
           />
 
           {/* Departure Date */}
