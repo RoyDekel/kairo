@@ -12,16 +12,9 @@ import {
   getTodayDateString,
   createDefaultPassengers
 } from '../utils/searchDefaults';
+import AirportAutocomplete from './AirportAutocomplete';
 
-const isTestEnv = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
 
-const sortedAirports = Object.values(AIRPORTS)
-  .filter(a => !isTestEnv || ['TLV', 'KRK', 'LHR', 'CDG', 'JFK', 'DXB', 'FCO', 'NRT', 'ATH', 'LAX', 'SIN', 'HND', 'AMS', 'SYD', 'BCN', 'HKG', 'MAD', 'BER', 'MUC', 'VIE', 'PRG', 'BUD', 'LIS', 'DUB', 'MXP', 'ZRH', 'MIA', 'ICN', 'BKK', 'CPH', 'EDI', 'GIG'].includes(a.code))
-  .sort((a, b) => {
-    const cityA = a.city || '';
-    const cityB = b.city || '';
-    return cityA.localeCompare(cityB);
-  });
 
 function formatDateDMY(dateStr) {
   if (!dateStr) return '';
@@ -262,21 +255,14 @@ export default function AIDestinationExplorer({
           position: 'relative',
           zIndex: 10
         }}>
-          {/* Origin */}
-          <div className="input-group">
-            <label className="input-label">Origin City</label>
-            <select
-              value={origin}
-              onChange={(e) => setOrigin(e.target.value)}
-              className="input-field"
-            >
-              {sortedAirports.map((a) => (
-                <option key={a.code} value={a.code}>
-                  {a.city} ({a.code}) - {a.country}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Origin Autocomplete */}
+          <AirportAutocomplete
+            id="origin-city-select"
+            label="Origin City"
+            value={origin}
+            onChange={setOrigin}
+            placeholder="לאן תרצה לטוס?"
+          />
 
           {/* Departure Date */}
           <CustomDatePicker

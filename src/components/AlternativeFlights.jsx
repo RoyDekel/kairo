@@ -5,18 +5,9 @@ import {
 } from 'lucide-react';
 import { AIRPORTS, AIRLINES, generateFlightsForRoute, getSkyscannerUrl } from '../utils/flightSimulator';
 import CustomDatePicker from './CustomDatePicker';
+import AirportAutocomplete from './AirportAutocomplete';
 import { useAuth } from '../contexts/AuthProvider';
 import { getApiBase, authHeaders, fetchWithTimeout } from '../lib/apiBase';
-
-const isTestEnv = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
-
-const sortedAirportCodes = Object.keys(AIRPORTS)
-  .filter(code => !isTestEnv || ['TLV', 'KRK', 'LHR', 'CDG', 'JFK', 'DXB', 'FCO', 'NRT', 'ATH', 'LAX', 'SIN', 'HND', 'AMS', 'SYD', 'BCN', 'HKG', 'MAD', 'BER', 'MUC', 'VIE', 'PRG', 'BUD', 'LIS', 'DUB', 'MXP', 'ZRH', 'MIA', 'ICN', 'BKK', 'CPH', 'EDI', 'GIG'].includes(code))
-  .sort((a, b) => {
-    const cityA = AIRPORTS[a]?.city || '';
-    const cityB = AIRPORTS[b]?.city || '';
-    return cityA.localeCompare(cityB);
-  });
 
 const AirlineLogo = ({ flight, fallbackLogo, size = 32 }) => {
   const iata = flight.airlineCode ? flight.airlineCode.toUpperCase() : '';
@@ -784,28 +775,14 @@ export default function AlternativeFlights({
               width: '100%',
               boxSizing: 'border-box'
             }}>
-              {/* Departure Airport Select */}
-              <div className="input-group" style={{ flex: '1 1 200px', minWidth: '170px' }}>
-                <label className="input-label" htmlFor="departure-airport-select">Departure Airport</label>
-                <select
-                  id="departure-airport-select"
-                  value={localOrigin}
-                  onChange={(e) => setLocalOrigin(e.target.value)}
-                  className="input-field"
-                  style={{
-                    cursor: 'pointer',
-                    appearance: 'none',
-                    WebkitAppearance: 'none',
-                    MozAppearance: 'none'
-                  }}
-                >
-                  {sortedAirportCodes.map(code => (
-                    <option key={code} value={code}>
-                      {AIRPORTS[code].city} ({AIRPORTS[code].code}) - {AIRPORTS[code].country}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Departure Airport Autocomplete */}
+              <AirportAutocomplete
+                id="departure-airport-select"
+                label="Departure Airport"
+                value={localOrigin}
+                onChange={setLocalOrigin}
+                placeholder="לאן תרצה לטוס?"
+              />
 
               {/* Circular Swap Button */}
               <button
@@ -845,29 +822,14 @@ export default function AlternativeFlights({
                 <ArrowLeftRight size={18} />
               </button>
 
-              {/* Arrival Airport Select */}
-              <div className="input-group" style={{ flex: '1 1 200px', minWidth: '170px' }}>
-                <label className="input-label" htmlFor="arrival-airport-select">Arrival Airport</label>
-                <select
-                  id="arrival-airport-select"
-                  value={localDestination}
-                  onChange={(e) => setLocalDestination(e.target.value)}
-                  className="input-field"
-                  style={{
-                    cursor: 'pointer',
-                    appearance: 'none',
-                    WebkitAppearance: 'none',
-                    MozAppearance: 'none'
-                  }}
-                >
-                  <option value="" disabled hidden>Select a destination</option>
-                  {sortedAirportCodes.map(code => (
-                    <option key={code} value={code}>
-                      {AIRPORTS[code].city} ({AIRPORTS[code].code}) - {AIRPORTS[code].country}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Arrival Airport Autocomplete */}
+              <AirportAutocomplete
+                id="arrival-airport-select"
+                label="Arrival Airport"
+                value={localDestination}
+                onChange={setLocalDestination}
+                placeholder="הזן יעד..."
+              />
 
               {/* Departure Date */}
               <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
@@ -919,36 +881,23 @@ export default function AlternativeFlights({
                     Flight {index + 1}
                   </span>
 
-                  <div className="input-group" style={{ flex: '1 1 170px', minWidth: '140px' }}>
-                    <label className="input-label">From</label>
-                    <select
-                      value={leg.origin}
-                      onChange={(e) => updateLeg(leg.id, 'origin', e.target.value)}
-                      className="input-field"
-                    >
-                      {sortedAirportCodes.map(code => (
-                        <option key={code} value={code}>
-                          {AIRPORTS[code].city} ({AIRPORTS[code].code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Multi-city From Autocomplete */}
+                  <AirportAutocomplete
+                    id={`leg-${leg.id}-origin`}
+                    label="From"
+                    value={leg.origin}
+                    onChange={(val) => updateLeg(leg.id, 'origin', val)}
+                    placeholder="לאן תרצה לטוס?"
+                  />
 
-                  <div className="input-group" style={{ flex: '1 1 170px', minWidth: '140px' }}>
-                    <label className="input-label">To</label>
-                    <select
-                      value={leg.destination}
-                      onChange={(e) => updateLeg(leg.id, 'destination', e.target.value)}
-                      className="input-field"
-                    >
-                      <option value="" disabled hidden>Select destination</option>
-                      {sortedAirportCodes.map(code => (
-                        <option key={code} value={code}>
-                          {AIRPORTS[code].city} ({AIRPORTS[code].code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Multi-city To Autocomplete */}
+                  <AirportAutocomplete
+                    id={`leg-${leg.id}-destination`}
+                    label="To"
+                    value={leg.destination}
+                    onChange={(val) => updateLeg(leg.id, 'destination', val)}
+                    placeholder="הזן יעד..."
+                  />
 
                   <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
                     <CustomDatePicker
