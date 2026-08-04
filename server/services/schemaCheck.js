@@ -47,6 +47,32 @@ const REQUIRED_COLUMNS = {
       'collected_by',
       'observed_at'
     ]
+  },
+  /*
+    Phase 7 reproduces the exact failure this check was built for. alertEvaluator
+    catches its own read error and returns { evaluated: 0, fired: 0 }, for the same
+    good reason FareHistory swallows write errors: a broken alert table must not
+    take down the collector sweep it runs inside.
+
+    And it is invisible in the same way. Zero alerts evaluated is what a missing
+    table looks like, and it is also what "no alerts configured yet" looks like,
+    and what "nothing dropped below target" looks like. The user's own symptom —
+    silence — is identical in all three cases, so nobody investigates.
+  */
+  price_alerts: {
+    file: 'supabase/price_alerts.sql',
+    columns: [
+      'user_id',
+      'route',
+      'origin',
+      'destination',
+      'target_price',
+      'channel',
+      'channel_target',
+      'is_active',
+      'last_notified_at',
+      'created_at'
+    ]
   }
 };
 
