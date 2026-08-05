@@ -891,7 +891,16 @@ export default function App() {
         <div className="mobile-nav-rail-track">
           {NAV_ITEMS.map((item) => {
             const isActive = activeTab === item.id;
-            const count = item.id === 'watchlist' ? (watchlist || []).length : 0;
+            /*
+              The watchlist count is only meaningful once there is an account
+              behind it. Signed out, the list still holds whatever localStorage
+              kept from a previous session, so showing a badge would advertise
+              someone else's saved routes to whoever picks up the phone — and it
+              promises content behind a tab that only opens the sign-in modal.
+            */
+            const count = (item.id === 'watchlist' && isAuthenticated)
+              ? (watchlist || []).length
+              : 0;
 
             return (
               <button
