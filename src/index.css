@@ -1,5 +1,159 @@
 /* KAIRO - Global Design System */
 
+/* Composite font for headings (Outfit with IBM Plex Mono Numbers) */
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n5ig.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJ8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAO8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAO8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAO8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAO8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/outfit/v15/QGYyz_MVcBeNP4NjuGObqx1XmO1I4TC1C4E.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/outfit/v15/QGYyz_MVcBeNP4NjuGObqx1XmO1I4QK1C4E.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/outfit/v15/QGYyz_MVcBeNP4NjuGObqx1XmO1I4e6yC4E.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/outfit/v15/QGYyz_MVcBeNP4NjuGObqx1XmO1I4deyC4E.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/outfit/v15/QGYyz_MVcBeNP4NjuGObqx1XmO1I4bCyC4E.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/outfit/v15/QGYyz_MVcBeNP4NjuGObqx1XmO1I4ZmyC4E.ttf) format('truetype');
+}
+
+/* Composite font for body (Public Sans with IBM Plex Mono Numbers) */
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n5ig.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJ8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAO8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAO8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuFpm5ww.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuJJm5ww.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuyJ65ww.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymu8Z65ww.ttf) format('truetype');
+}
+
 :root {
   /* Color Palette - Aero Light Theme (Default) */
   --bg-primary: #f1f5f9;
@@ -32,8 +186,8 @@
   --text-muted: #94a3b8;
   --text-on-primary: #ffffff;
 
-  --font-sans: 'Public Sans', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Outfit', system-ui, sans-serif;
+  --font-sans: 'PublicSansWithMono', 'Public Sans', system-ui, -apple-system, sans-serif;
+  --font-heading: 'OutfitWithMono', 'Outfit', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
   --font-num: var(--font-mono);
 
