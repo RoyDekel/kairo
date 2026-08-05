@@ -3,9 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/src/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!--
+      No maximum-scale / user-scalable=no: Safari has ignored both since iOS 10,
+      but Firefox and Samsung Internet still honour them, so all they achieved was
+      blocking pinch-zoom for those users — a WCAG 2.1 SC 1.4.4 failure.
+      viewport-fit=cover is what makes env(safe-area-inset-*) resolve to real values.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     
-    <meta name="theme-color" content="#0b0f19" />
+    <!--
+      Tints the browser's own toolbar. Defaults to the light palette because that
+      is the app's default theme; App.jsx rewrites it whenever the theme toggles,
+      so the Safari / Chrome / Samsung chrome always matches the page instead of
+      showing a dark bar above a light page.
+    -->
+    <meta name="theme-color" content="#f1f5f9" />
     
     <!-- Primary SEO Meta Tags -->
     <title>KAIRO — Smart AI Flight Price Tracker & Buy Timing Insights</title>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, Sun, Moon, LogIn, LogOut, Zap, Compass, Search, Sparkles, Bookmark } from 'lucide-react';
+import { Bell, Sun, Moon, LogIn, LogOut, Zap, Sparkles, ArrowRight } from 'lucide-react';
 import {
   AIRPORTS,
   generateFlightsForRoute,
@@ -29,6 +29,58 @@ import {
   createDefaultSearchParams
 } from './utils/searchDefaults';
 
+/*
+  Single source of truth for the workspace tabs. Rendered twice: as text links in
+  the desktop header, and as a sticky horizontal pill rail on mobile. Ordered as
+  the actual user funnel: discover a destination -> pick a flight -> get the
+  buy/wait verdict -> save it.
+*/
+const NAV_ITEMS = [
+  { id: 'ai-explorer', label: 'When to Go' },
+  { id: 'alternative', label: 'Search & Compare' },
+  { id: 'dashboard', label: 'Should I Book?' },
+  { id: 'watchlist', label: 'Watchlist' }
+];
+
+const MOBILE_QUERY = '(max-width: 768px)';
+
+/*
+  Reports whether the viewport is phone-sized, and keeps reporting as it changes.
+
+  The mobile chrome is gated on this in JavaScript rather than hidden with CSS,
+  because the alternative is rendering both navigations and hiding one. That puts
+  every section label in the DOM twice, which makes any query for a label
+  ambiguous -- for the test suite, and for anything else that reads the document.
+
+  Defensive on two fronts. matchMedia is absent under jsdom, where the desktop
+  layout is the right assumption. And addListener/removeListener is the only
+  subscription API on Safari below 14 -- which is exactly the class of browser
+  this mobile work is aimed at, so falling back to it is not hypothetical.
+*/
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia(query).matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+
+    const mql = window.matchMedia(query);
+    const onChange = (event) => setMatches(event.matches);
+
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', onChange);
+      return () => mql.removeEventListener('change', onChange);
+    }
+
+    mql.addListener(onChange);
+    return () => mql.removeListener(onChange);
+  }, [query]);
+
+  return matches;
+}
+
 export default function App() {
   // Auth state
   const { user, session, isAuthenticated, signOut } = useAuth();
@@ -36,6 +88,12 @@ export default function App() {
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  // Mobile chrome: which navigation to render, the contextual bottom CTA, and
+  // keeping the active nav pill inside the horizontally scrolling rail.
+  const isMobile = useMediaQuery(MOBILE_QUERY);
+  const [scrolledPastHero, setScrolledPastHero] = useState(false);
+  const activePillRef = useRef(null);
 
   const handleSignOut = async () => {
     await signOut();
@@ -54,6 +112,17 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('dark-theme');
     }
+
+    /*
+      Keep the browser's own toolbar tint in sync with the page. Without this a
+      light page sits under a dark address bar on Safari, Chrome Android and
+      Samsung Internet, which reads as a rendering bug to the user.
+    */
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute('content', theme === 'dark' ? '#0b0f19' : '#f1f5f9');
+    }
+
     dataService.savePreferences(userId, { theme });
   }, [theme, userId]);
 
@@ -142,6 +211,46 @@ export default function App() {
       setActiveTab('ai-explorer');
     }
   }, [user, activeTab]);
+
+  /*
+    Tracks whether the landing hero — and its own "Discover When to Go" button —
+    has scrolled out of sight. 320px is just past the hero fold on a 390x844
+    viewport. Passive listener + rAF so this never blocks scrolling on a mid-range
+    Android device, and the state update happens inside the rAF callback rather
+    than in the effect body so it cannot cascade a synchronous re-render.
+  */
+  useEffect(() => {
+    let queued = false;
+    const evaluate = () => {
+      queued = false;
+      setScrolledPastHero(window.scrollY > 320);
+    };
+    const onScroll = () => {
+      if (queued) return;
+      queued = true;
+      window.requestAnimationFrame(evaluate);
+    };
+
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  /*
+    The rail scrolls horizontally, so on a narrow screen the active tab can sit
+    outside the visible track. Pull it back into view whenever it changes.
+  */
+  useEffect(() => {
+    const pill = activePillRef.current;
+    if (!pill || typeof pill.scrollIntoView !== 'function') return;
+    pill.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }, [activeTab]);
+
+  /*
+    Derived, not stored: the CTA belongs to the landing view only, and duplicating
+    that condition into state would just be another thing to keep in sync.
+  */
+  const showMobileCta = isMobile && activeTab === 'landing' && scrolledPastHero;
 
   const prevStatusRef = useRef('Scheduled');
 
@@ -561,7 +670,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', flexGrow: 1 }}>
+    <div className="app-shell" style={{ display: 'flex', flexDirection: 'column', gap: '24px', flexGrow: 1 }}>
 
       {/* HEADER SECTION */}
       <header style={{
@@ -590,7 +699,8 @@ export default function App() {
           </h1>
         </div>
 
-        {/* WORKSPACE NAVIGATION PILLS */}
+        {/* WORKSPACE NAVIGATION — desktop only; mobile uses the pill rail below. */}
+        {!isMobile && (
         <nav style={{
           display: 'flex',
           alignItems: 'center',
@@ -602,17 +712,10 @@ export default function App() {
           overflowX: 'auto'
         }}>
           {/*
-            Ordered as the actual user funnel: discover a destination -> pick a flight ->
-            get the buy/wait verdict -> save it -> get notified.
             "Should I Book?" points at the dashboard because that is where the buy-timing
             engine (priceConfidenceEngine) actually renders its BUY NOW / WAIT verdict.
           */}
-          {[
-            { id: 'ai-explorer', label: 'When to Go' },
-            { id: 'alternative', label: 'Search & Compare' },
-            { id: 'dashboard', label: 'Should I Book?' },
-            { id: 'watchlist', label: 'Watchlist' }
-          ].map((item) => {
+          {NAV_ITEMS.map((item) => {
             const isActive = activeTab === item.id;
             const isSignedOut = !user;
 
@@ -647,6 +750,7 @@ export default function App() {
             );
           })}
         </nav>
+        )}
 
         {/* AUTH, NOTIFICATIONS & THEME ACTIONS */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
@@ -769,7 +873,49 @@ export default function App() {
         </div>
       </header>
 
+      {/*
+        MOBILE NAVIGATION RAIL — mobile only (see .mobile-nav-rail in index.css).
 
+        Replaces the old fixed bottom dock. A bottom dock collides with the browser's
+        own toolbar, which sits at the BOTTOM of the screen in Safari iOS 15+,
+        Firefox Android and Samsung Internet, and it jitters while that toolbar
+        collapses on scroll. This rail pins to the top instead, where no browser
+        chrome competes with it, and costs ~52px instead of the dock's ~50px plus
+        the safe-area inset stacked on top of the browser bar.
+
+        It stays pinned while scrolling so navigation is never out of reach. The
+        logo row above it scrolls away, since it has no function after first paint.
+      */}
+      {isMobile && (
+      <nav className="mobile-nav-rail" aria-label="Sections">
+        <div className="mobile-nav-rail-track">
+          {NAV_ITEMS.map((item) => {
+            const isActive = activeTab === item.id;
+            const count = item.id === 'watchlist' ? (watchlist || []).length : 0;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                ref={isActive ? activePillRef : undefined}
+                className={`mobile-nav-pill${isActive ? ' active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
+                onClick={() => {
+                  if (!user) {
+                    setIsAuthModalOpen(true);
+                  } else {
+                    setActiveTab(item.id);
+                  }
+                }}
+              >
+                {item.label}
+                {count > 0 && <span className="mobile-nav-pill-count">{count}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+      )}
 
       {/* TAB VIEWS CONTROLLER */}
       <main className="animate-fade-in" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
@@ -907,44 +1053,36 @@ export default function App() {
         onClose={() => setIsAuthModalOpen(false)}
       />
 
-      {/* MOBILE BOTTOM DOCK NAVIGATION */}
-      <nav className="mobile-bottom-nav">
-        <button
-          type="button"
-          className={`mobile-nav-item ${activeTab === 'ai-explorer' ? 'active' : ''}`}
-          onClick={() => setActiveTab('ai-explorer')}
-        >
-          <Compass size={18} />
-          <span>When to Go</span>
-        </button>
+      {/*
+        MOBILE CONTEXTUAL CTA — mobile only, landing page only.
 
-        <button
-          type="button"
-          className={`mobile-nav-item ${activeTab === 'alternative' ? 'active' : ''}`}
-          onClick={() => setActiveTab('alternative')}
-        >
-          <Search size={18} />
-          <span>Search</span>
-        </button>
-
-        <button
-          type="button"
-          className={`mobile-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dashboard')}
-        >
-          <Sparkles size={18} />
-          <span>Verdict</span>
-        </button>
-
-        <button
-          type="button"
-          className={`mobile-nav-item ${activeTab === 'watchlist' ? 'active' : ''}`}
-          onClick={() => setActiveTab('watchlist')}
-        >
-          <Bookmark size={18} />
-          <span>Saved ({watchlist.length})</span>
-        </button>
-      </nav>
+        The bottom of a phone screen is the only area the thumb reaches comfortably.
+        Rather than spending it on lateral navigation the user rarely performs, it is
+        reserved for the single action that matters on this view. It appears once the
+        hero's own button has scrolled out of sight, so the two never compete.
+      */}
+      {showMobileCta && (
+        <>
+          <div className="mobile-cta-spacer" aria-hidden="true" />
+          <div className="mobile-cta-bar">
+            <button
+              type="button"
+              className="mobile-cta-btn"
+              onClick={() => {
+                if (!user) {
+                  setIsAuthModalOpen(true);
+                } else {
+                  setActiveTab('ai-explorer');
+                }
+              }}
+            >
+              <Sparkles size={18} aria-hidden="true" />
+              <span>Discover When to Go</span>
+              <ArrowRight size={18} aria-hidden="true" />
+            </button>
+          </div>
+        </>
+      )}
 
     </div>
   );
