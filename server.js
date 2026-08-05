@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { FlightSearchService } from './server/services/flightSearchService.js';
 import { EventSearchService, EventStatus } from './server/services/eventSearchService.js';
+import { eventUsageMeter } from './server/services/eventUsageMeter.js';
 import { computeEventDrivenInsights } from './server/services/insightsEngine.js';
 import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
 import { flightSearchCache } from './server/services/flightSearchCache.js';
@@ -95,7 +96,18 @@ app.get('/api/health', (req, res) => {
     flightProviderReason: flightSearchService.selectionReason,
     fareCurrency: FARE_CURRENCY,
     estimatesUseRealProvider: process.env.ESTIMATES_USE_REAL_PROVIDER === 'true',
-    collectorEnabled: process.env.COLLECTOR_ENABLED === 'true'
+    collectorEnabled: process.env.COLLECTOR_ENABLED === 'true',
+    /*
+      Where the event budget is going, live.
+
+      Same reasoning as flightProvider above: one curl answers a question that otherwise
+      needs log archaeology. The TTL ladder was sized against an assumed traveller mix
+      that predicted anywhere from 1.1x to 2.1x fewer provider calls; `cacheHitRate` and
+      `tiers[*].shareOfProviderCalls` say which of those it actually got, and whether the
+      imminent tier really dominates spend the way the model claimed. Counters are
+      per-instance and reset on restart — see sinceIso.
+    */
+    eventUsage: eventUsageMeter.snapshot()
   });
 });
 

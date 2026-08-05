@@ -91,22 +91,39 @@ export const EventStatus = {
  */
 const TTL_LADDER = [
   // Postponements and kickoff changes land here. Held for an hour at most.
-  { withinDays: 2, multiplier: 1 / 6, cap: HOUR_MS },
+  { name: 'imminent', withinDays: 2, multiplier: 1 / 6, cap: HOUR_MS },
   // Close enough that late additions still matter. The historical default.
-  { withinDays: 7, multiplier: 1 },
+  { name: 'near', withinDays: 7, multiplier: 1 },
   // Schedules are settled; re-checking four times a day buys nothing.
-  { withinDays: 30, multiplier: 4 },
+  { name: 'mid', withinDays: 30, multiplier: 4 },
   // Fixture lists and tour dates at this range were published long ago.
-  { withinDays: Infinity, multiplier: 12 }
+  { name: 'far', withinDays: Infinity, multiplier: 12 }
 ];
 
-export const durableTtlMs = (startDate, { ttlMs = DEFAULT_TTL_MS, now = Date.now() } = {}) => {
+/** The step a window falls on, or null when the date is missing or unparseable. */
+const ladderStepFor = (startDate, now) => {
   const daysAway = (Date.parse(`${startDate}T00:00:00Z`) - now) / DAY_MS;
+  if (!Number.isFinite(daysAway)) return null;
+  return TTL_LADDER.find((s) => daysAway < s.withinDays);
+};
+
+/**
+ * Names the tier a window falls on.
+ *
+ * Exported so usage telemetry can attribute provider calls to a tier without keeping its
+ * own copy of the thresholds. A second copy would drift from this one, and the whole
+ * point of measuring is to find out which tier the budget actually goes to — a
+ * measurement keyed on stale boundaries would answer the wrong question convincingly.
+ */
+export const ttlTierFor = (startDate, { now = Date.now() } = {}) =>
+  ladderStepFor(startDate, now)?.name ?? 'unknown';
+
+export const durableTtlMs = (startDate, { ttlMs = DEFAULT_TTL_MS, now = Date.now() } = {}) => {
+  const step = ladderStepFor(startDate, now);
 
   // Unparseable or missing: the neutral default, never NaN.
-  if (!Number.isFinite(daysAway)) return ttlMs;
+  if (!step) return ttlMs;
 
-  const step = TTL_LADDER.find((s) => daysAway < s.withinDays);
   const ttl = ttlMs * step.multiplier;
 
   // `cap` exists so the near step stays an hour even if a caller raises ttlMs. Freshness

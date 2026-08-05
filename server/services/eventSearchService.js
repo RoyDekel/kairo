@@ -1,5 +1,6 @@
 import { AIRPORTS } from '../../shared/catalog.js';
-import { eventCache, EventStatus } from './eventCache.js';
+import { eventCache, EventStatus, ttlTierFor } from './eventCache.js';
+import { eventUsageMeter, LookupSource } from './eventUsageMeter.js';
 import { TicketmasterProvider } from '../providers/ticketmasterProvider.js';
 import { ApiSportsProvider } from '../providers/apiSportsProvider.js';
 import { SimulatedEventProvider } from '../providers/simulatedEventProvider.js';
@@ -19,8 +20,15 @@ export { EventStatus };
  * exactly. Stage 3 adds sports providers and the cross-referencing merge.
  */
 export class EventSearchService {
-  constructor({ providers, cache, mergeEvents } = {}) {
+  constructor({ providers, cache, mergeEvents, usageMeter } = {}) {
     this.cache = cache || eventCache;
+
+    /*
+      Records which TTL tier each lookup fell on and whether it cost a provider call.
+      Injectable so tests can assert on attribution without reading the shared counter,
+      and so one suite's lookups cannot leak into another's snapshot.
+    */
+    this.usageMeter = usageMeter || eventUsageMeter;
 
     /*
       Providers that can actually be called.
@@ -114,10 +122,25 @@ export class EventSearchService {
 
     const cacheKey = EventSearchService.cacheKeyFor(airportCode, startDate, endDate);
 
+    /*
+      Attribute this lookup to a TTL tier before doing anything else.
+
+      Measured here rather than inside EventCache because this is the only place that
+      knows whether a provider was actually called: the cache sees gets and sets, not
+      spend. The tier comes from ttlTierFor so the boundaries can never drift from the
+      ladder that produced the TTL.
+    */
+    const tier = ttlTierFor(startDate);
+
     // Awaited because the cache is now two-tiered: a miss in memory falls through to
     // Supabase, which survives the cold starts that used to erase the whole cache.
     const cached = await this.cache.get(cacheKey);
-    if (cached) return { ...cached, cached: true };
+    if (cached) {
+      this.usageMeter.record(tier, LookupSource.CACHED);
+      return { ...cached, cached: true };
+    }
+
+    this.usageMeter.record(tier, LookupSource.PROVIDER);
 
     const result = await this.#queryProviders(location, { startDate, endDate }, airportCode);
     await this.cache.set(cacheKey, result);
@@ -144,6 +167,13 @@ export class EventSearchService {
 
     const keys = airportCodes.map((code) => EventSearchService.cacheKeyFor(code, startDate, endDate));
     const promoted = await this.cache.prefetch(keys);
+
+    /*
+      Counted here, not per lookup. Promotion moves durable rows INTO memory, so by the
+      time the ~31 fetchEvents calls run they are all memory hits — attributing them
+      individually would credit memory for work the durable tier did.
+    */
+    this.usageMeter.recordDurablePromotions(promoted);
 
     if (promoted > 0) {
       console.log(`[EventSearchService] Warmed ${promoted}/${keys.length} destinations from durable cache.`);
