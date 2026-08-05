@@ -3,12 +3,15 @@ import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getTodayDateString } from '../utils/searchDefaults';
 
 /** Formats ISO 'YYYY-MM-DD' date string into readable format, e.g. "Fri, 31 Jul 2026" */
-function formatDisplayDate(dateStr) {
+function formatDisplayDate(dateStr, isMobile = false) {
   if (!dateStr) return 'Select date';
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
   if (isNaN(date.getTime())) return dateStr;
+  if (isMobile) {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -23,6 +26,16 @@ export default function CustomDatePicker({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
+
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Initial view year and month based on value or today
   const initialDate = value ? new Date(value + 'T00:00:00') : new Date();
@@ -139,7 +152,7 @@ export default function CustomDatePicker({
             color: value ? 'var(--text-primary)' : 'var(--text-muted)',
             whiteSpace: 'nowrap'
           }}>
-            {value ? formatDisplayDate(value) : placeholder}
+            {value ? formatDisplayDate(value, isMobile) : placeholder}
           </span>
         </div>
       </button>

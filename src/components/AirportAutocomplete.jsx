@@ -113,7 +113,7 @@ export default function AirportAutocomplete({ label, value, onChange, placeholde
           {label}
         </label>
       )}
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
         <input
           id={id}
           type="text"
@@ -131,7 +131,8 @@ export default function AirportAutocomplete({ label, value, onChange, placeholde
           }}
           className="input-field"
           style={{
-            textOverflow: 'ellipsis'
+            textOverflow: 'ellipsis',
+            width: '100%'
           }}
           autoComplete="off"
         />
