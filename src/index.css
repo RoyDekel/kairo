@@ -6,54 +6,6 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n5ig.ttf) format('truetype');
-  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
-}
-@font-face {
-  font-family: 'OutfitWithMono';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJ8lc.ttf) format('truetype');
-  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
-}
-@font-face {
-  font-family: 'OutfitWithMono';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAO8lc.ttf) format('truetype');
-  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
-}
-@font-face {
-  font-family: 'OutfitWithMono';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAO8lc.ttf) format('truetype');
-  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
-}
-@font-face {
-  font-family: 'OutfitWithMono';
-  font-style: normal;
-  font-weight: 800;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAO8lc.ttf) format('truetype');
-  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
-}
-@font-face {
-  font-family: 'OutfitWithMono';
-  font-style: normal;
-  font-weight: 900;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAO8lc.ttf) format('truetype');
-  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
-}
-@font-face {
-  font-family: 'OutfitWithMono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
   src: url(https://fonts.gstatic.com/s/outfit/v15/QGYyz_MVcBeNP4NjuGObqx1XmO1I4TC1C4E.ttf) format('truetype');
 }
 @font-face {
@@ -91,8 +43,105 @@
   font-display: swap;
   src: url(https://fonts.gstatic.com/s/outfit/v15/QGYyz_MVcBeNP4NjuGObqx1XmO1I4ZmyC4E.ttf) format('truetype');
 }
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n5ig.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJ8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAO8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3pQP8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3pQP8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+@font-face {
+  font-family: 'OutfitWithMono';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3pQP8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
 
 /* Composite font for body (Public Sans with IBM Plex Mono Numbers) */
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuFpm5ww.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuJJm5ww.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuyJ65ww.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymu8Z65ww.ttf) format('truetype');
+}
+/*
+  800 and 900 were missing, so body text asking for them got a synthetic bold
+  smeared out of the 700 face. Outfit already declared both; body text at 800 is
+  common here (destination names, fare headlines), so it should not be the one
+  rendering fake weight. URLs confirmed by reading usWeightClass out of each
+  file's OS/2 table rather than trusting the URL hash.
+*/
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymulp65ww.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuv565ww.ttf) format('truetype');
+}
 @font-face {
   font-family: 'PublicSansWithMono';
   font-style: normal;
@@ -122,36 +171,31 @@
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAO8lc.ttf) format('truetype');
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3pQP8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
+}
+/*
+  800 and 900 for the digit range. IBM Plex Mono ships nothing above 700, so both
+  point at 700 -- that is the intended result, stated rather than left to the
+  font-matching algorithm. Without these the browser still found 700 by falling
+  back, but only because no heavier face existed to beat it; declaring them makes
+  heavy figures a decision instead of a side effect.
+*/
+@font-face {
+  font-family: 'PublicSansWithMono';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3pQP8lc.ttf) format('truetype');
   unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
 }
 @font-face {
   font-family: 'PublicSansWithMono';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 900;
   font-display: swap;
-  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuFpm5ww.ttf) format('truetype');
-}
-@font-face {
-  font-family: 'PublicSansWithMono';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuJJm5ww.ttf) format('truetype');
-}
-@font-face {
-  font-family: 'PublicSansWithMono';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymuyJ65ww.ttf) format('truetype');
-}
-@font-face {
-  font-family: 'PublicSansWithMono';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/publicsans/v21/ijwGs572Xtc6ZYQws9YVwllKVG8qX1oyOymu8Z65ww.ttf) format('truetype');
+  src: url(https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3pQP8lc.ttf) format('truetype');
+  unicode-range: U+30-39, U+24, U+25, U+2B, U+2D, U+2F, U+2E, U+2C, U+3A, U+2013-2014;
 }
 
 :root {
@@ -186,8 +230,8 @@
   --text-muted: #94a3b8;
   --text-on-primary: #ffffff;
 
-  --font-sans: 'PublicSansWithMono', 'Public Sans', system-ui, -apple-system, sans-serif;
-  --font-heading: 'OutfitWithMono', 'Outfit', system-ui, sans-serif;
+  --font-sans: 'PublicSansWithMono', system-ui, -apple-system, sans-serif;
+  --font-heading: 'OutfitWithMono', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
   --font-num: var(--font-mono);
 
@@ -342,10 +386,25 @@ body {
   }
 }
 
+/*
+  Form controls do NOT inherit font-family. Every browser gives them a UA default
+  instead -- measured on this app, a bare <input> and <select> both computed to
+  Arial while a sibling <span> got PublicSansWithMono. That is why numbers typed
+  into a field rendered in a different face from the numbers beside it: the
+  composite family never reached them.
+
+  This rule previously set only font-variant-numeric, which tuned figures inside a
+  font the control was never using. Inheriting the family is the actual fix; the
+  controls that carry .input-field were only fine because it happens to set
+  font-family explicitly.
+*/
 input,
 select,
 button,
-textarea {
+textarea,
+optgroup,
+option {
+  font-family: inherit;
   font-variant-numeric: tabular-nums lining-nums;
 }
 

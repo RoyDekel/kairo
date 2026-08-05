@@ -334,7 +334,15 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             <CheckCircle size={20} style={{ color: '#059669', flexShrink: 0, marginTop: '2px' }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Real-Time fare monitoring</div>
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Scans 3,000+ global destination hubs continuously.</div>
+              {/*
+                Coverage and continuity are two different claims and are stated
+                separately on purpose. 3,000+ is the on-demand search surface
+                (shared/catalog.js ships 3,269 airports via the OSS integration).
+                The continuous side is the alerting worker, which watches saved
+                routes -- nothing polls three thousand destinations in the
+                background, and the previous single sentence implied it did.
+              */}
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Search live fares across 3,000+ airports, and we watch every route you save around the clock.</div>
             </div>
           </div>
 

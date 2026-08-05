@@ -19,7 +19,14 @@ export const FEATURED_HUBS = (process.env.VITE_FEATURED_HUBS
 
 export const AIRPORTS = GENERATED_AIRPORTS;
 
-export const DISCOVERY_DESTINATIONS = FEATURED_HUBS.map(c => GENERATED_AIRPORTS[c]).filter(Boolean);
+/*
+  There was a DISCOVERY_DESTINATIONS export here, resolving FEATURED_HUBS to
+  airport objects. Nothing imported it: server.js caps the discovery fan-out by
+  using FEATURED_HUBS directly, and AirportAutocomplete does the same for its
+  pre-typing suggestions. Keeping it was worse than useless -- it read like the
+  canonical discovery list while both real consumers went around it, so a change
+  made here would have looked effective and done nothing.
+*/
 
 // Airline Directory with appropriate colors and codes
 export const AIRLINES = {

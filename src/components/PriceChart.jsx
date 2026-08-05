@@ -13,6 +13,7 @@ import {
 } from 'chart.js';
 import { generatePriceHistory } from '../utils/flightSimulator';
 import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
+import { CANVAS_FONT_MONO } from '../utils/canvasFonts';
 import { TrendingUp, Info, AlertCircle } from 'lucide-react';
 
 // Register Chart.js components
@@ -142,7 +143,7 @@ export default function PriceChart({ activeFlight, theme }) {
           color: chartColors.ticks,
           font: {
             size: 10,
-            family: 'var(--font-mono)'
+            family: CANVAS_FONT_MONO
           },
           maxTicksLimit: 8
         }
@@ -155,7 +156,7 @@ export default function PriceChart({ activeFlight, theme }) {
           color: chartColors.ticks,
           font: {
             size: 10,
-            family: 'var(--font-mono)'
+            family: CANVAS_FONT_MONO
           },
           callback: (value) => `$${value}`
         }
