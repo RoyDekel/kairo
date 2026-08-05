@@ -45,8 +45,8 @@ describe('AIDestinationExplorer Component', () => {
       />
     );
 
-    // Verify initial empty state heading and badge are rendered
-    expect(screen.getByRole('heading', { name: /Ready to Find Your Next Trip\?/i })).toBeInTheDocument();
+    // Verify initial empty state heading is NOT rendered and badge is rendered
+    expect(screen.queryByRole('heading', { name: /Ready to Find Your Next Trip\?/i })).not.toBeInTheDocument();
     expect(screen.getByText('Click Search Routes to scan')).toBeInTheDocument();
 
     // Verify searchAIDestinations was NOT called automatically on mount
