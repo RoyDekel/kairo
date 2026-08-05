@@ -534,7 +534,7 @@ export default function AIDestinationExplorer({
               </div>
             )}
           </>
-        ) : null}
+        )) : null}
       </div>
 
     </div>
