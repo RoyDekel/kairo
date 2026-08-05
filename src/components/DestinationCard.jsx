@@ -247,7 +247,7 @@ export default function DestinationCard({
                 style={{ textTransform: 'none', letterSpacing: 0, padding: '4px 10px', fontSize: '0.78rem' }}
                 title={`Typical fare $${rec.typicalPrice}, median of ${rec.historicalSampleSize} recorded quotes for this route`}
               >
-                <span className="num">{rec.savingsPercent}%</span> below usual
+                <span className="num">{rec.savingsPercent}%</span> Below usual
               </span>
             )}
           </div>

@@ -129,7 +129,7 @@ export function destinationFareVerdict({
       verdict: VERDICT_BUY,
       tone: 'buy',
       label: 'Buy now',
-      detail: `cheaper than ${cheaperThan}% of the ${sampleSize} fares recorded here`,
+      detail: `Cheaper than ${cheaperThan}% of the ${sampleSize} fares recorded here`,
       tooltip:
         `${priceLabel(roundtripPrice)} sits in the bottom ${percentile}% of the ${sampleSize} ` +
         `fares KAIRO has recorded for this route.${estimateNote}`,
