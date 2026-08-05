@@ -468,7 +468,6 @@ h6 {
   justify-content: flex-end;
   align-items: center;
   margin-top: 4px;
-  width: 100%;
 }
 
 @media (max-width: 768px) {
@@ -500,6 +499,7 @@ h6 {
 
   .search-button-container {
     justify-content: center;
+    width: 100%;
   }
 
   .search-button-container .btn {

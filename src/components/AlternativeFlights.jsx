@@ -980,7 +980,7 @@ export default function AlternativeFlights({
         })() : null}
 
         {/* STEP 1 & 2: LISTINGS VIEW */}
-        {(bookingStep === 1 || bookingStep === 2) && (
+        {searchParams.destination && (bookingStep === 1 || bookingStep === 2) && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
             {/* Show Selected Outbound in Step 2 Header */}
@@ -1082,11 +1082,7 @@ export default function AlternativeFlights({
 
             {/* LISTINGS CARD GRID */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {!searchParams.destination ? (
-                <div style={{ textAlign: 'center', padding: '50px 0', color: 'var(--text-secondary)' }}>
-                  Please select a destination airport above and click "Search Flights" to find listings.
-                </div>
-              ) : isLoading ? (
+              {isLoading ? (
                 <div style={{ textAlign: 'center', padding: '50px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
                   <div className="pulse-target" style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'var(--primary)' }}></div>
                   <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Searching live itineraries from server... this can take up to 45s for a real-time fare check.</span>

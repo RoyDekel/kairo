@@ -366,56 +366,36 @@ export default function AIDestinationExplorer({
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={handleSearch}
-            disabled={isLoading}
-            className="btn btn-primary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              padding: '12px 28px',
-              fontSize: '0.95rem',
-              fontWeight: 700,
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              opacity: isLoading ? 0.75 : 1,
-              boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)',
-              marginLeft: 'auto'
-            }}
-          >
-            <Search size={18} />
-            {isLoading ? 'Searching Routes...' : 'Search Routes'}
-          </button>
+          <div className="search-button-container">
+            <button
+              type="button"
+              onClick={handleSearch}
+              disabled={isLoading}
+              className="btn btn-primary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '12px 28px',
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                opacity: isLoading ? 0.75 : 1,
+                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)'
+              }}
+            >
+              <Search size={18} />
+              {isLoading ? 'Searching Routes...' : 'Search Routes'}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* AI RECOMMENDATION RESULTS LIST */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {!hasSearched ? (
-          <div className="glass-panel" style={{ textAlign: 'center', padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-            <div style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '50%',
-              background: 'var(--primary-glow-weak)',
-              border: '1px solid var(--border-glass)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '4px'
-            }}>
-              <Compass size={34} style={{ color: 'var(--primary)' }} />
-            </div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-              Ready to Find Your Next Trip?
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', maxWidth: '560px', margin: 0, lineHeight: 1.6 }}>
-              Click <strong>Search Routes</strong> above to scan all available destinations, live concerts, matches, and festivals for your selected dates (<strong>{formatDateDMY(departureDate)}</strong> – <strong>{formatDateDMY(returnDate)}</strong>).
-            </p>
-          </div>
-        ) : isLoading ? (
+        {hasSearched ? (
+          isLoading ? (
           <div className="glass-panel" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
             <Sparkles size={28} style={{ color: 'var(--primary)' }} />
             <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -554,7 +534,7 @@ export default function AIDestinationExplorer({
               </div>
             )}
           </>
-        )}
+        ) : null}
       </div>
 
     </div>
