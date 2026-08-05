@@ -134,7 +134,7 @@ export default function Watchlist({
                   boxShadow: 'var(--shadow-sm)'
                 }}>
                   <Calendar size={10} style={{ color: 'var(--primary)' }} />
-                  {formatDateShort(dateStr)}
+                  <span className="num">{formatDateShort(dateStr)}</span>
                 </span>
 
                 {/* Airline & Flight Number */}
@@ -155,7 +155,7 @@ export default function Watchlist({
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                      {flight.flightNumber}
+                      <span className="num">{flight.flightNumber}</span>
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                       {[flight.airlineName, flight.planeType].filter(Boolean).join(' • ')}
@@ -166,16 +166,16 @@ export default function Watchlist({
                 {/* Time & Route summary */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', padding: '8px 12px', borderRadius: '4px' }}>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{flight.departureTime}</div>
+                    <div className="num" style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{flight.departureTime}</div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{flight.origin || 'TLV'}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{flight.duration}</span>
+                    <span className="num" style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{flight.duration}</span>
                     <Plane size={10} style={{ color: 'var(--text-muted)', transform: 'rotate(90deg)' }} />
-                    <span style={{ fontSize: '0.6rem', color: 'var(--primary)' }}>{flight.stops}</span>
+                    <span className="num" style={{ fontSize: '0.6rem', color: 'var(--primary)' }}>{flight.stops}</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{flight.arrivalTime}</div>
+                    <div className="num" style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{flight.arrivalTime}</div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{flight.destination || 'KRK'}</div>
                   </div>
                 </div>
@@ -183,7 +183,7 @@ export default function Watchlist({
                 {/* Price Display */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Current Price:</span>
-                  <span style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--primary)' }}>
+                  <span className="num" style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--primary)' }}>
                     ${flight.price}
                   </span>
                 </div>

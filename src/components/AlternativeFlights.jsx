@@ -1133,7 +1133,7 @@ export default function AlternativeFlights({
                         <div style={{ overflow: 'hidden' }}>
                           <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{flight.airlineName}</div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
-                            <span>{[flight.flightNumber, flight.planeType].filter(Boolean).join(' • ')}</span>
+                            <span><span className="num">{flight.flightNumber}</span>{flight.planeType && ` • ${flight.planeType}`}</span>
                             {flight.cabinClass && (
                               <span
                                 style={{
@@ -1165,32 +1165,32 @@ export default function AlternativeFlights({
                       {/* Timeline */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: '1 1 220px', minWidth: '180px', maxWidth: '280px', justifyContent: 'center' }}>
                         <div style={{ textAlign: 'left' }}>
-                          <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{flight.departureTime}</div>
+                          <div className="num" style={{ fontWeight: 700, fontSize: '1.05rem' }}>{flight.departureTime}</div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{flight.origin}</div>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
-                          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{flight.duration}</span>
+                          <span className="num" style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{flight.duration}</span>
                           <div style={{ width: '50px', height: '1.5px', background: 'var(--border-glass)', margin: '4px 0', position: 'relative' }}>
                             <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--text-muted)', position: 'absolute', top: '-1.2px', right: 0 }}></div>
                           </div>
-                          <span style={{ fontSize: '0.65rem', color: 'var(--success)', fontWeight: 600 }}>{flight.stops}</span>
+                          <span className="num" style={{ fontSize: '0.65rem', color: 'var(--success)', fontWeight: 600 }}>{flight.stops}</span>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{flight.arrivalTime}</div>
+                          <div className="num" style={{ fontWeight: 700, fontSize: '1.05rem' }}>{flight.arrivalTime}</div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{flight.destination}</div>
                         </div>
                       </div>
 
                       {/* Fare display */}
                       <div style={{ textAlign: 'center', flex: '0 0 120px' }}>
-                        <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary)' }}>
+                        <div className="num" style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary)' }}>
                           ${flight.price}
                         </div>
                         <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
                           per adult
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 600 }}>
-                          Total: ${flight.passengerCosts.total}
+                          Total: <span className="num">${flight.passengerCosts.total}</span>
                         </div>
                       </div>
 
@@ -1314,22 +1314,22 @@ export default function AlternativeFlights({
                   <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase' }}>Outbound Leg</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedOutbound.airlineName}</span>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedOutbound.flightNumber}</span>
+                    <span className="num" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedOutbound.flightNumber}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '4px' }}>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedOutbound.departureTime}</div>
+                      <div className="num" style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedOutbound.departureTime}</div>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedOutbound.origin}</div>
                     </div>
                     <ArrowRight size={14} style={{ color: 'var(--text-muted)' }} />
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedOutbound.arrivalTime}</div>
+                      <div className="num" style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedOutbound.arrivalTime}</div>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedOutbound.destination}</div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <span>Date: {formatDateDMY(searchParams.departureDate)}</span>
-                    <span>Duration: {selectedOutbound.duration}</span>
+                    <span>Date: <span className="num">{formatDateDMY(searchParams.departureDate)}</span></span>
+                    <span>Duration: <span className="num">{selectedOutbound.duration}</span></span>
                   </div>
                 </div>
 
@@ -1339,22 +1339,22 @@ export default function AlternativeFlights({
                     <div style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase' }}>Return Leg</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedReturn.airlineName}</span>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedReturn.flightNumber}</span>
+                      <span className="num" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedReturn.flightNumber}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '4px' }}>
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedReturn.departureTime}</div>
+                        <div className="num" style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedReturn.departureTime}</div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedReturn.origin}</div>
                       </div>
                       <ArrowRight size={14} style={{ color: 'var(--text-muted)' }} />
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedReturn.arrivalTime}</div>
+                        <div className="num" style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedReturn.arrivalTime}</div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedReturn.destination}</div>
                       </div>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      <span>Date: {formatDateDMY(searchParams.returnDate)}</span>
-                      <span>Duration: {selectedReturn.duration}</span>
+                      <span>Date: <span className="num">{formatDateDMY(searchParams.returnDate)}</span></span>
+                      <span>Duration: <span className="num">{selectedReturn.duration}</span></span>
                     </div>
                   </div>
                 )}
@@ -1376,9 +1376,9 @@ export default function AlternativeFlights({
                   {/* Adults */}
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>
-                      Adults ({searchParams.passengers.adults} × ${selectedOutbound.price}{selectedReturn ? ` + $${selectedReturn.price}` : ''})
+                      Adults (<span className="num">{searchParams.passengers.adults}</span> × <span className="num">${selectedOutbound.price}</span>{selectedReturn ? <> + <span className="num">${selectedReturn.price}</span></> : ''})
                     </span>
-                    <span style={{ color: '#fff', fontWeight: 600 }}>
+                    <span className="num" style={{ color: '#fff', fontWeight: 600 }}>
                       ${searchParams.passengers.adults * (selectedOutbound.price + (selectedReturn ? selectedReturn.price : 0))}
                     </span>
                   </div>
@@ -1386,8 +1386,8 @@ export default function AlternativeFlights({
                   {/* Children */}
                   {searchParams.passengers.children > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Children ({searchParams.passengers.children})</span>
-                      <span style={{ color: '#fff', fontWeight: 600 }}>
+                      <span>Children (<span className="num">{searchParams.passengers.children}</span>)</span>
+                      <span className="num" style={{ color: '#fff', fontWeight: 600 }}>
                         ${selectedOutbound.passengerCosts.children + (selectedReturn ? selectedReturn.passengerCosts.children : 0)}
                       </span>
                     </div>
@@ -1396,8 +1396,8 @@ export default function AlternativeFlights({
                   {/* Infants */}
                   {searchParams.passengers.infants > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Infants ({searchParams.passengers.infants})</span>
-                      <span style={{ color: '#fff', fontWeight: 600 }}>
+                      <span>Infants (<span className="num">{searchParams.passengers.infants}</span>)</span>
+                      <span className="num" style={{ color: '#fff', fontWeight: 600 }}>
                         ${selectedOutbound.passengerCosts.infants + (selectedReturn ? selectedReturn.passengerCosts.infants : 0)}
                       </span>
                     </div>
@@ -1406,7 +1406,7 @@ export default function AlternativeFlights({
 
                 <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '10px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Total Fare:</span>
-                  <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', filter: 'drop-shadow(0 0 6px var(--primary-glow-weak))' }}>
+                  <span className="num" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', filter: 'drop-shadow(0 0 6px var(--primary-glow-weak))' }}>
                     ${selectedOutbound.passengerCosts.total + (selectedReturn ? selectedReturn.passengerCosts.total : 0)}
                   </span>
                 </div>

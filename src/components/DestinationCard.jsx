@@ -118,7 +118,7 @@ export default function DestinationCard({
                 }}
                 title={matchTooltip}
               >
-                ★ {rec.matchScore}% match
+                ★ <span className="num">{rec.matchScore}%</span> match
               </span>
               {/*
                 Confidence sits BESIDE the score rather than inside it. A 90 built on a live
@@ -225,7 +225,7 @@ export default function DestinationCard({
 
         <div>
           <div className="dest-card-price-row" style={{ margin: '0 0 6px 0' }}>
-            <div className="dest-card-price">
+            <div className="dest-card-price num">
               ${rec.roundtripPrice}
             </div>
             {/*
@@ -239,7 +239,7 @@ export default function DestinationCard({
                 style={{ textTransform: 'none', letterSpacing: 0, padding: '4px 10px', fontSize: '0.78rem' }}
                 title={`Typical fare $${rec.typicalPrice}, median of ${rec.historicalSampleSize} recorded quotes for this route`}
               >
-                {rec.savingsPercent}% below usual
+                <span className="num">{rec.savingsPercent}%</span> below usual
               </span>
             )}
           </div>
@@ -254,7 +254,7 @@ export default function DestinationCard({
 
             {rec.typicalPrice && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '12px', borderRight: '1px solid var(--border-glass, rgba(255, 255, 255, 0.15))' }}>
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>${rec.typicalPrice}</span>
+                <span className="num" style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>${rec.typicalPrice}</span>
                 <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', fontWeight: 600 }}>usual</span>
               </div>
             )}
@@ -295,7 +295,17 @@ export default function DestinationCard({
             >
               {isWait ? 'Wait' : 'Buy now'}
             </span>
-            <span className="dest-card-verdict-text">{verdictDetail}</span>
+            <span className="dest-card-verdict-text">
+              {isWait ? (
+                <>
+                  drop of ~<span className="num">${insight.expectedSavings}</span> expected in <span className="num">{insight.expectedDropDays}</span>
+                </>
+              ) : (
+                <>
+                  near the 90-day low of <span className="num">${insight.low90Day}</span>
+                </>
+              )}
+            </span>
           </div>
         </div>
       </div>
@@ -347,7 +357,15 @@ export default function DestinationCard({
               </div>
               <div className="dest-card-event-meta" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
                 <MapPin size={12} style={{ color: '#ef4444', flexShrink: 0 }} />
-                <span>{evt.venue}{evt.date ? ` · ${formatEventDate(evt.date)}` : ''}</span>
+                <span>
+                  {evt.venue}
+                  {evt.date && (
+                    <>
+                      {' · '}
+                      <span className="num">{formatEventDate(evt.date)}</span>
+                    </>
+                  )}
+                </span>
               </div>
             </div>
             {evt.url ? (
@@ -429,9 +447,13 @@ export default function DestinationCard({
             }}
           >
             <span>
-              {isExpanded
-                ? 'Show fewer events'
-                : `+${hiddenEventCount} more event${hiddenEventCount > 1 ? 's' : ''} during your trip`}
+              {isExpanded ? (
+                'Show fewer events'
+              ) : (
+                <>
+                  +<span className="num">{hiddenEventCount}</span> more event{hiddenEventCount > 1 ? 's' : ''} during your trip
+                </>
+              )}
             </span>
             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>

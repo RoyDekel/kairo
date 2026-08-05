@@ -161,7 +161,7 @@ export default function FlightDetails({
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
           <Calendar size={13} />
-          {formatDate(selectedDate)}
+          <span className="num">{formatDate(selectedDate)}</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
@@ -175,9 +175,9 @@ export default function FlightDetails({
           </div>
 
           <div style={{ flexGrow: 1, textAlign: 'center', color: 'var(--text-muted)' }}>
-            <div style={{ fontSize: '0.75rem' }}>{activeFlight.duration}</div>
+            <div className="num" style={{ fontSize: '0.75rem' }}>{activeFlight.duration}</div>
             <ArrowRight size={16} style={{ margin: '2px auto', display: 'block', opacity: 0.5 }} />
-            <div style={{ fontSize: '0.72rem', color: 'var(--success)', fontWeight: 600 }}>{activeFlight.stops}</div>
+            <div className="num" style={{ fontSize: '0.72rem', color: 'var(--success)', fontWeight: 600 }}>{activeFlight.stops}</div>
           </div>
 
           <div style={{ textAlign: 'right' }}>
@@ -240,7 +240,7 @@ export default function FlightDetails({
                     className="spec-value"
                     style={{ color: activeFlight.seatsRemaining <= 3 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}
                   >
-                    {activeFlight.seatsRemaining} seats left
+                    <span className="num">{activeFlight.seatsRemaining}</span> seats left
                   </div>
                 ) : (
                   <div className="spec-value">Not reported</div>
