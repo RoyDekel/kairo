@@ -985,7 +985,7 @@ export default function AlternativeFlights({
           This layout is indifferent to the count: only the active step is named,
           and the bar grows a segment per step.
         */}
-        {(() => {
+        {searchParams.destination ? (() => {
           const steps = tripType === 'one-way'
             ? [
               { step: 1, label: 'Select Flight' },
@@ -1043,7 +1043,7 @@ export default function AlternativeFlights({
               </div>
             </div>
           );
-        })()}
+        })() : null}
 
         {/* STEP 1 & 2: LISTINGS VIEW */}
         {(bookingStep === 1 || bookingStep === 2) && (
