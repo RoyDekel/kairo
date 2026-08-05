@@ -23,15 +23,31 @@
   drive the behaviour rather than on rendered glyphs.
 */
 
+// @vitest-environment node
+
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, test, expect } from 'vitest';
+import { CANVAS_FONT_MONO, CANVAS_FONT_SANS } from '../utils/canvasFonts.js';
+
+/*
+  Declared as a node environment on purpose. These assertions read source files
+  and touch no DOM, so spinning up jsdom for them would cost a couple of seconds
+  and buy nothing -- and the suite already spends most of its wall time in
+  environment setup.
+*/
 
 const here = dirname(fileURLToPath(import.meta.url));
 const readSrc = (relative) => readFileSync(resolve(here, '..', relative), 'utf8');
 
 const css = readSrc('index.css');
+
+// Strip comments before pattern-matching source. Without this a rule can be
+// "proved" by prose that merely mentions it -- and the first version of the
+// canvas test below failed exactly that way, matching var(--font-mono) inside
+// the comment that explains why var() must not be used.
+const stripComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '');
 
 describe('numeric typography', () => {
   test('form controls inherit the composite family instead of the UA default', () => {
@@ -40,7 +56,7 @@ describe('numeric typography', () => {
       only font-variant-numeric, which tunes figures inside a font the control is
       not using.
     */
-    const rule = css.match(/input,\s*select,\s*button,\s*textarea[^{]*\{([^}]*)\}/);
+    const rule = stripComments(css).match(/input,\s*select,\s*button,\s*textarea[^{]*\{([^}]*)\}/);
 
     expect(rule, 'expected a shared rule covering input/select/button/textarea').toBeTruthy();
     expect(rule[1]).toMatch(/font-family:\s*inherit/);
@@ -52,14 +68,18 @@ describe('numeric typography', () => {
       for the constants in utils/canvasFonts.js, so a var() reaching a `family:`
       key is always the bug, not a style preference.
     */
-    const chart = readSrc('components/PriceChart.jsx');
+    const chart = stripComments(readSrc('components/PriceChart.jsx'));
 
     expect(chart).not.toMatch(/family:\s*['"]var\(/);
     expect(chart).toMatch(/family:\s*CANVAS_FONT_MONO/);
 
-    const fonts = readSrc('utils/canvasFonts.js');
-    expect(fonts).toMatch(/IBM Plex Mono/);
-    expect(fonts).not.toMatch(/var\(--/);
+    // Assert on the exported values themselves. Reading the file as text would
+    // also match the commentary around them, which proves nothing.
+    for (const stack of [CANVAS_FONT_MONO, CANVAS_FONT_SANS]) {
+      expect(stack).not.toMatch(/var\(--/);
+      expect(stack.length).toBeGreaterThan(0);
+    }
+    expect(CANVAS_FONT_MONO).toMatch(/IBM Plex Mono/);
   });
 
   test('every weight of the composite families covers the digit range', () => {
@@ -68,7 +88,7 @@ describe('numeric typography', () => {
       render its digits in the base font. That is invisible in review and obvious
       on screen, so the two sets are compared directly.
     */
-    const faces = [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map(([, body]) => ({
+    const faces = [...stripComments(css).matchAll(/@font-face\s*\{([^}]*)\}/g)].map(([, body]) => ({
       family: (body.match(/font-family:\s*'([^']+)'/) || [])[1],
       weight: (body.match(/font-weight:\s*(\d+)/) || [])[1],
       subset: /unicode-range/.test(body)
@@ -87,7 +107,7 @@ describe('numeric typography', () => {
   test('the digit range covers the characters the app actually formats', () => {
     // Digits, currency, sign, separators and the ratio/duration punctuation that
     // appears inside figures. A gap here shows up as one stray glyph mid-number.
-    const ranges = [...css.matchAll(/unicode-range:\s*([^;]+);/g)].map(([, r]) => r.trim());
+    const ranges = [...stripComments(css).matchAll(/unicode-range:\s*([^;]+);/g)].map(([, r]) => r.trim());
 
     expect(ranges.length).toBeGreaterThan(0);
 
