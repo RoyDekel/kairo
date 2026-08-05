@@ -142,7 +142,7 @@ export default function PriceChart({ activeFlight, theme }) {
           color: chartColors.ticks,
           font: {
             size: 10,
-            family: 'Outfit'
+            family: 'var(--font-mono)'
           },
           maxTicksLimit: 8
         }
@@ -155,7 +155,7 @@ export default function PriceChart({ activeFlight, theme }) {
           color: chartColors.ticks,
           font: {
             size: 10,
-            family: 'Outfit'
+            family: 'var(--font-mono)'
           },
           callback: (value) => `$${value}`
         }
@@ -181,7 +181,7 @@ export default function PriceChart({ activeFlight, theme }) {
             Price History & Analytics
           </h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            30-day tracking and 7-day predictive analytics
+            <span className="num">30</span>-day tracking and <span className="num">7</span>-day predictive analytics
           </p>
         </div>
 
@@ -214,25 +214,25 @@ export default function PriceChart({ activeFlight, theme }) {
       }}>
         <div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Current Price</div>
-          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
+          <div className="num" style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
             ${currentPrice}
           </div>
         </div>
         <div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Lowest Price</div>
-          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#34d399', marginTop: '2px' }}>
+          <div className="num" style={{ fontSize: '1.2rem', fontWeight: 700, color: '#34d399', marginTop: '2px' }}>
             ${minPrice}
           </div>
         </div>
         <div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Highest Price</div>
-          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f87171', marginTop: '2px' }}>
+          <div className="num" style={{ fontSize: '1.2rem', fontWeight: 700, color: '#f87171', marginTop: '2px' }}>
             ${maxPrice}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>30D Trend</div>
-          <div style={{
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}><span className="num">30</span>D Trend</div>
+          <div className="num" style={{
             fontSize: '1.2rem',
             fontWeight: 700,
             color: percentChange >= 0 ? '#f87171' : '#34d399',

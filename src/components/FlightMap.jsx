@@ -218,14 +218,16 @@ export default function FlightMap({ telemetry, activeFlight, theme }) {
   }, [telemetry.latitude, telemetry.longitude, telemetry.heading, telemetry.speed, telemetry.altitude, telemetry.status, startCoords]);
 
   return (
-    <div className="glass-panel" style={{ padding: 0, height: '420px', display: 'flex', flexDirection: 'column' }}>
-      
+    <div className="glass-panel" style={{ padding: 0, height: '420px', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      {/* Map DOM Element */}
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', flexGrow: 1 }} />
+
       {/* Telemetry Header HUD Overlay */}
       <div style={{
         position: 'absolute',
         top: '16px',
         left: '16px',
-        zIndex: 'var(--z-map)',
+        zIndex: 500,
         pointerEvents: 'none',
         display: 'flex',
         flexDirection: 'column',
@@ -258,15 +260,21 @@ export default function FlightMap({ telemetry, activeFlight, theme }) {
           }}>
             <div>
               <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Alt</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>{telemetry.altitude.toLocaleString()} ft</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>
+                <span className="num">{telemetry.altitude.toLocaleString()}</span> ft
+              </div>
             </div>
             <div style={{ borderLeft: '1px solid var(--border-glass)', paddingLeft: '12px' }}>
               <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Speed</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>{telemetry.speed} km/h</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>
+                <span className="num">{telemetry.speed}</span> km/h
+              </div>
             </div>
             <div style={{ borderLeft: '1px solid var(--border-glass)', paddingLeft: '12px' }}>
               <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Dist Rem</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>{telemetry.distanceRemaining} km</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>
+                <span className="num">{telemetry.distanceRemaining}</span> km
+              </div>
             </div>
           </div>
         )}
@@ -277,7 +285,7 @@ export default function FlightMap({ telemetry, activeFlight, theme }) {
         position: 'absolute',
         top: '16px',
         right: '16px',
-        zIndex: 'var(--z-map)',
+        zIndex: 500,
         pointerEvents: 'none'
       }}>
         <div style={{
@@ -305,8 +313,6 @@ export default function FlightMap({ telemetry, activeFlight, theme }) {
         </div>
       </div>
 
-      {/* Map DOM Element */}
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', flexGrow: 1 }} />
 
       <style>{`
         .map-tooltip {

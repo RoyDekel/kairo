@@ -144,7 +144,7 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
         <div>
           <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            Price over the last 90 days
+            Price over the last <span className="num">90</span> days
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
             Tel Aviv → Tokyo, roundtrip
@@ -155,7 +155,7 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
-            <span>90-day low</span>
+            <span><span className="num">90</span>-day low</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}></span>
@@ -196,9 +196,9 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
           <line x1={padLeft} y1={padTop + plotHeight} x2={padLeft + plotWidth} y2={padTop + plotHeight} stroke="rgba(15, 23, 42, 0.08)" strokeDasharray="3 3" />
 
           {/* Y-Axis Price Labels */}
-          <text className="num" x={padLeft - 8} y={padTop + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="500">${maxPrice}</text>
-          <text className="num" x={padLeft - 8} y={padTop + plotHeight / 2 + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="500">${midPrice}</text>
-          <text className="num" x={padLeft - 8} y={padTop + plotHeight + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="500">${minPrice}</text>
+          <text className="num" style={{ fontFamily: 'var(--font-mono)' }} x={padLeft - 8} y={padTop + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="500">${maxPrice}</text>
+          <text className="num" style={{ fontFamily: 'var(--font-mono)' }} x={padLeft - 8} y={padTop + plotHeight / 2 + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="500">${midPrice}</text>
+          <text className="num" style={{ fontFamily: 'var(--font-mono)' }} x={padLeft - 8} y={padTop + plotHeight + 4} textAnchor="end" fill="var(--text-muted)" fontSize="10" fontWeight="500">${minPrice}</text>
 
           {/* Area Fill */}
           <path d={areaD} fill="url(#kairo-chart-grad-light)" />
@@ -256,6 +256,7 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
                     />
                     <text
                       className="num"
+                      style={{ fontFamily: 'var(--font-mono)' }}
                       x={badgeTextX}
                       y={pt.y - 10}
                       textAnchor="middle"
@@ -283,6 +284,7 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
                     />
                     <text
                       className="num"
+                      style={{ fontFamily: 'var(--font-mono)' }}
                       x={badgeTextX}
                       y={pt.y - 10}
                       textAnchor="middle"
@@ -297,6 +299,8 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
 
                 {/* X-Axis Date Label below node */}
                 <text
+                  className="num"
+                  style={{ fontFamily: 'var(--font-mono)' }}
                   x={pt.x}
                   y={172}
                   textAnchor="middle"
@@ -329,7 +333,7 @@ export default function PriceHistoryGraph({ priceHistory = [] }) {
         </div>
 
         <div>
-          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>90-Day Low</div>
+          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}><span className="num">90</span>-Day Low</div>
           <div className="num" style={{ fontSize: '1rem', fontWeight: 600, color: '#059669', marginTop: '2px' }}>${minPrice}</div>
         </div>
 

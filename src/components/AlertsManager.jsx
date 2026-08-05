@@ -293,7 +293,7 @@ export default function AlertsManager({
           }}>
             <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <PlusCircle size={15} style={{ color: 'var(--primary)' }} />
-              Create Alert for {activeFlight.flightNumber}
+              Create Alert for <span className="num">{activeFlight.flightNumber}</span>
             </div>
 
             {/* Alert Type Selector */}
@@ -352,7 +352,7 @@ export default function AlertsManager({
                     required
                   />
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Current: ${activeFlight.price}
+                    Current: <span className="num">${activeFlight.price}</span>
                   </span>
                 </div>
               </div>
@@ -524,7 +524,7 @@ export default function AlertsManager({
                             
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                               <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Verification Code:</span>
-                              <span style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--primary)' }}>{connectCode}</span>
+                              <span className="num" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--primary)' }}>{connectCode}</span>
                             </div>
                           </div>
 
@@ -640,13 +640,17 @@ export default function AlertsManager({
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                      <div className="num" style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
                         {alert.flightNumber}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        {alert.type === 'price-drop' 
-                          ? `Price drops below $${alert.thresholdPrice}` 
-                          : 'Status updates tracking'}
+                        {alert.type === 'price-drop' ? (
+                          <>
+                            Price drops below <span className="num">${alert.thresholdPrice}</span>
+                          </>
+                        ) : (
+                          'Status updates tracking'
+                        )}
                       </div>
                     </div>
                     <button 
@@ -669,7 +673,7 @@ export default function AlertsManager({
         <div className="alerts-log-column">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-              Notifications Log Feed ({notifications.length})
+              Notifications Log Feed (<span className="num">{notifications.length}</span>)
             </div>
             {notifications.length > 0 && (
               <button 
@@ -747,10 +751,10 @@ export default function AlertsManager({
                       }}>
                         {log.type === 'alert' ? 'Price Alert' : log.type === 'status-alert' ? 'Flight Status' : 'System'}
                       </span>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{log.time}</span>
+                      <span className="num" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{log.time}</span>
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', lineHeight: 1.4, wordBreak: 'break-word' }}>
-                      <strong>{log.flightNumber}</strong>: {log.message}
+                      <strong className="num">{log.flightNumber}</strong>: {log.message}
                     </div>
                   </div>
                 );
