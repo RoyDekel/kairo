@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, Bookmark, CheckCircle, ExternalLink, ChevronDown, ChevronUp, Calendar, MapPin, Info } from 'lucide-react';
-import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
+import { destinationFareVerdict } from '../utils/destinationFareVerdict';
 import CityLandmarkIcon from './CityLandmarkIcon';
 
 /** Max events shown inline when collapsed. */
@@ -61,13 +61,21 @@ export default function DestinationCard({
   const rec = recommendation;
   const isEstimate = rec.priceSource === 'estimate';
 
-  // Buy/wait verdict for the roundtrip total.
-  const insight = getPriceConfidenceInsight({ id: rec.id, price: rec.roundtripPrice }, rec.roundtripPrice);
-  const isWait = insight.recommendation === 'WAIT';
+  /*
+    Buy/wait verdict for the roundtrip total, from this route's own recorded history.
 
-  const verdictDetail = isWait
-    ? `drop of ~$${insight.expectedSavings} expected in ${insight.expectedDropDays}`
-    : `near the 90-day low of $${insight.low90Day}`;
+    This previously called getPriceConfidenceInsight with a hand-built object that had no
+    `insights` key, so the engine returned its "no history" stub on every render: the pill
+    said "Buy now" unconditionally and the detail line ended at a bare "$". See
+    destinationFareVerdict.js for the full account.
+  */
+  const verdict = destinationFareVerdict({
+    roundtripPrice: rec.roundtripPrice,
+    historicalPercentile: rec.historicalPercentile,
+    historicalSampleSize: rec.historicalSampleSize,
+    typicalPrice: rec.routeTypicalPrice ?? rec.typicalPrice,
+    priceSource: rec.priceSource
+  });
 
   /*
     The score explains itself.
@@ -286,25 +294,13 @@ export default function DestinationCard({
 
           <div className="dest-card-verdict">
             <span
-              className={`dest-card-verdict-pill ${isWait ? 'dest-card-verdict-wait' : 'dest-card-verdict-buy'}`}
-              title={
-                isEstimate
-                  ? 'Based on the estimated fare. Track this fare for a verdict on the live price.'
-                  : `KAIRO confidence: ${insight.confidenceScore}%`
-              }
+              className={`dest-card-verdict-pill dest-card-verdict-${verdict.tone}`}
+              title={verdict.tooltip}
             >
-              {isWait ? 'Wait' : 'Buy now'}
+              {verdict.label}
             </span>
-            <span className="dest-card-verdict-text">
-              {isWait ? (
-                <>
-                  drop of ~<span className="num">${insight.expectedSavings}</span> expected in <span className="num">{insight.expectedDropDays}</span>
-                </>
-              ) : (
-                <>
-                  near the 90-day low of <span className="num">${insight.low90Day}</span>
-                </>
-              )}
+            <span className="dest-card-verdict-text" title={verdict.tooltip}>
+              {verdict.detail}
             </span>
           </div>
         </div>

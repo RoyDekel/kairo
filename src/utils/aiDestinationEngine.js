@@ -345,9 +345,24 @@ export async function searchAIDestinations({
       roundtripPrice: totalRoundtripPrice,
       priceSource,
       quotedAt,
+      /*
+        Two different questions, so two different fields.
+
+        `typicalPrice` is the strikethrough on the card and is deliberately null unless
+        this fare is BELOW the baseline — a struck-through number the user is paying more
+        than would read as a discount that isn't there.
+
+        `routeTypicalPrice` is the raw baseline regardless of direction. The Buy/Wait
+        verdict needs it precisely in the case the display value hides: when the fare sits
+        above usual, which is the whole reason to say "Wait".
+      */
       typicalPrice: savings ? savings.typicalPrice : null,
+      routeTypicalPrice: route.typicalPrice,
       savingsPercent: savings ? savings.savingsPercent : null,
       savingsAmount: savings ? savings.savingsAmount : null,
+      // Both halves of the history signal travel to the card. The percentile used to stop
+      // here, which left DestinationCard with nothing real to base a Buy/Wait call on.
+      historicalPercentile: route.historicalPercentile,
       historicalSampleSize: route.historicalSampleSize,
       outboundFlight: cheapestOutbound,
       returnFlight: cheapestReturn,
