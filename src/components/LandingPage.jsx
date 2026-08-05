@@ -312,7 +312,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
               Instant price Drop Alerts
             </h3>
             <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              Save routes to your cloud watchlist. KAIRO notifies you the second fares drop to your target threshold.
+              Save routes to your watchlist. Connect Telegram instantly in one click to receive price drop notifications directly on your phone.
             </p>
           </div>
         </div>
@@ -334,7 +334,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             <CheckCircle size={20} style={{ color: '#059669', flexShrink: 0, marginTop: '2px' }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Real-Time fare monitoring</div>
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Scans 32 global destination hubs continuously.</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Scans 3000+ global destination hubs continuously.</div>
             </div>
           </div>
 
@@ -351,6 +351,14 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>100% Free pilot tier</div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Zero spam, no credit card required to get started.</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', background: 'var(--bg-tertiary)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-glass)' }}>
+            <CheckCircle size={20} style={{ color: '#059669', flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Instant Telegram Alerts</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Connect in seconds via our secure bot link. Real-time updates on the go.</div>
             </div>
           </div>
         </div>
