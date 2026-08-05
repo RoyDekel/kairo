@@ -156,7 +156,7 @@ export default function CustomDatePicker({
               top: 'calc(100% + 6px)',
               left: isReturnDate ? 'auto' : 0,
               right: isReturnDate ? 0 : 'auto',
-              zIndex: 10000,
+              zIndex: 'var(--z-popover)',
               width: '310px',
               maxWidth: 'calc(100vw - 32px)',
               background: 'var(--bg-secondary, #1e293b)',

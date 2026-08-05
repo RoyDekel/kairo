@@ -46,6 +46,28 @@
   --radius-md: 16px;
   --radius-lg: 24px;
   --radius-xl: 32px;
+
+  /*
+    Layer scale.
+
+    Before this the codebase held 100, 500, 600, 900, 950, 1000, 9999 and 10000
+    scattered across CSS and inline styles, chosen independently. That is how the
+    account menu ended up rendering behind the mobile nav rail: the menu asked for
+    100, the rail asked for 900, and neither number was picked with the other in
+    mind.
+
+    Anything that stacks reads from here. The order encodes intent -- a popover
+    opened FROM the sticky nav must sit above it, a modal must sit above every
+    popover -- so a new component slots into the scale instead of guessing a
+    bigger number.
+  */
+  --z-base: 1;
+  --z-map: 400;
+  --z-sticky-nav: 900;
+  --z-contextual-cta: 950;
+  --z-popover: 1000;
+  --z-modal-backdrop: 1100;
+  --z-modal: 1200;
 }
 
 /* Cyber / Aero Dark Theme Toggle */
@@ -514,7 +536,7 @@ h6 {
   border-radius: var(--radius-sm);
   padding: 6px;
   position: absolute;
-  z-index: 1000;
+  z-index: var(--z-popover);
   bottom: 125%;
   left: 50%;
   margin-left: -70px;
@@ -541,7 +563,7 @@ h6 {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: var(--z-modal-backdrop);
   padding: 24px;
 }
 
@@ -820,7 +842,9 @@ h6 {
   padding: 12px 16px;
   min-width: 220px;
   box-shadow: var(--shadow-lg);
-  z-index: 100;
+  /* Above the sticky nav rail: this menu is opened from the header that sits
+     behind it, and at z-index 100 the rail painted straight over it. */
+  z-index: var(--z-popover);
 }
 
 .user-dropdown-email {
@@ -830,6 +854,24 @@ h6 {
   border-bottom: 1px solid var(--border-glass);
   margin-bottom: 10px;
   word-break: break-all;
+}
+
+.user-dropdown-pro {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(249, 115, 22, 0.15));
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  margin-bottom: 8px;
+  color: #eab308;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .user-dropdown-signout {
@@ -1532,6 +1574,125 @@ h6 {
 }
 
 /* ==========================================================================
+   BOOKING STEP INDICATOR
+   --------------------------------------------------------------------------
+   Position + current step name + a segmented bar. Scales to any number of
+   steps, which matters because multi-city generates one per leg plus a confirm.
+   ========================================================================== */
+.booking-stepper {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+}
+
+.booking-stepper-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.booking-stepper-position {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.booking-stepper-label {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+.booking-stepper-next {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.booking-stepper-track {
+  display: flex;
+  gap: 4px;
+}
+
+.booking-stepper-segment {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-glass);
+  transition: background-color 0.25s ease;
+}
+
+.booking-stepper-segment.is-complete {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.booking-stepper-segment.is-current {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+@media (max-width: 768px) {
+  /*
+    "Next: ..." is the first thing to go: it is a nicety, and at 390px it
+    competes with the step name for the same line.
+  */
+  .booking-stepper-next {
+    display: none;
+  }
+
+  .booking-stepper-label {
+    font-size: 0.98rem;
+  }
+}
+
+/* ==========================================================================
+   PASSENGER COUNT POPOVER
+   --------------------------------------------------------------------------
+   Opens from the "N Passengers" button in the search card.
+   ========================================================================== */
+.passenger-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 6px;
+  min-width: 220px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-glass-bright);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-popover);
+}
+
+@media (max-width: 768px) {
+  /*
+    Anchored to the trigger's LEFT edge, so the panel grows rightwards into the
+    screen instead of leftwards off it. max-width is the actual guarantee: it
+    caps the panel at the viewport regardless of how wide its contents want to
+    be, which is what the old right:0 + min-width:220px combination could not do.
+  */
+  .passenger-popover {
+    min-width: 0;
+    width: 264px;
+    max-width: calc(100vw - 48px);
+  }
+}
+
+/* ==========================================================================
    MOBILE NAVIGATION RAIL
    --------------------------------------------------------------------------
    Replaces the old fixed bottom dock.
@@ -1552,7 +1713,7 @@ h6 {
 .mobile-nav-rail {
   position: sticky;
   top: 0;
-  z-index: 900;
+  z-index: var(--z-sticky-nav);
   /* Bleed past #root's 12px mobile padding so the rail spans the full width. */
   margin: 0 -12px;
   padding: 8px 0;
@@ -1651,7 +1812,7 @@ h6 {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 950;
+  z-index: var(--z-contextual-cta);
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
   /* Fades the content out behind the button rather than cutting it with a hard edge. */
   background: linear-gradient(to top, var(--bg-primary) 62%, transparent);
@@ -1712,7 +1873,7 @@ h6 {
     width: 90vw !important;
     max-width: 340px !important;
     box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6) !important;
-    z-index: 10000 !important;
+    z-index: var(--z-popover) !important;
   }
 
   .mobile-only-backdrop {
@@ -1721,7 +1882,7 @@ h6 {
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    z-index: 9999;
+    z-index: calc(var(--z-popover) - 1);
   }
 }
 

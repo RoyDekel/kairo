@@ -754,8 +754,16 @@ export default function App() {
 
         {/* AUTH, NOTIFICATIONS & THEME ACTIONS */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
-          {/* Pro Plan / Pricing Quick Link for Logged-In Users */}
-          {isAuthenticated && (
+          {/*
+            Pro Plan / Pricing quick link.
+
+            Desktop only. At 390px the header carries five items -- logo, this
+            chip, avatar, theme, notifications -- and this is the only one that
+            is an upsell rather than a control, so it is the one that gives way.
+            It moves into the account menu below, where it stays reachable
+            without competing with the app's own controls for the top bar.
+          */}
+          {isAuthenticated && !isMobile && (
             <button
               onClick={() => setActiveTab('landing')}
               style={{
@@ -793,6 +801,23 @@ export default function App() {
               {isUserMenuOpen && (
                 <div className="user-dropdown animate-fade-in">
                   <div className="user-dropdown-email">{user?.email || 'Signed In'}</div>
+
+                  {/* The header chip's mobile home. Rendered here only where the
+                      chip itself is not, so the entry never appears twice. */}
+                  {isMobile && (
+                    <button
+                      type="button"
+                      className="user-dropdown-pro"
+                      onClick={() => {
+                        setActiveTab('landing');
+                        setIsUserMenuOpen(false);
+                      }}
+                    >
+                      <Zap size={14} />
+                      Pro Plan
+                    </button>
+                  )}
+
                   <button
                     onClick={handleSignOut}
                     className="user-dropdown-signout"

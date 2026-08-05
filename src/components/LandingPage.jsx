@@ -31,7 +31,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           position: 'fixed',
           top: '80px',
           right: '24px',
-          zIndex: 9999,
+          zIndex: 'var(--z-modal)',
           background: 'linear-gradient(135deg, #059669, #10b981)',
           color: '#ffffff',
           padding: '12px 20px',

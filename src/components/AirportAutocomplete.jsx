@@ -144,7 +144,7 @@ export default function AirportAutocomplete({ label, value, onChange, placeholde
             top: 'calc(100% + 4px)',
             left: 0,
             right: 0,
-            zIndex: 1000,
+            zIndex: 'var(--z-popover)',
             background: 'var(--bg-glass, rgba(30, 41, 59, 0.9))',
             backdropFilter: 'blur(12px)',
             WebkitBackdropFilter: 'blur(12px)',

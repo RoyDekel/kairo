@@ -225,7 +225,7 @@ export default function FlightMap({ telemetry, activeFlight, theme }) {
         position: 'absolute',
         top: '16px',
         left: '16px',
-        zIndex: 500,
+        zIndex: 'var(--z-map)',
         pointerEvents: 'none',
         display: 'flex',
         flexDirection: 'column',
@@ -277,7 +277,7 @@ export default function FlightMap({ telemetry, activeFlight, theme }) {
         position: 'absolute',
         top: '16px',
         right: '16px',
-        zIndex: 500,
+        zIndex: 'var(--z-map)',
         pointerEvents: 'none'
       }}>
         <div style={{

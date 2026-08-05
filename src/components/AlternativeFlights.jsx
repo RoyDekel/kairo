@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+// The default React import went with the React.Fragment the old step indicator
+// needed; JSX itself compiles through the automatic runtime and does not use it.
+import { useState, useEffect, useRef } from 'react';
 import {
   Calendar, Filter, Sparkles, ArrowRight, Check, Globe,
   Users, ChevronDown, User, ShieldAlert, ArrowLeftRight
@@ -504,24 +506,17 @@ export default function AlternativeFlights({
                 <ChevronDown size={14} style={{ color: 'var(--text-secondary)' }} />
               </button>
 
-              {/* Passenger Submenu Frame */}
+              {/*
+                Passenger Submenu Frame.
+
+                Anchoring is in CSS (.passenger-popover) rather than inline,
+                because it has to change at the mobile breakpoint. Pinning the
+                panel's right edge to the trigger's right edge makes a 220px-wide
+                panel grow leftwards, and on a phone the trigger sits near the
+                left of the card -- so the panel ran off the side of the screen.
+              */}
               {showPassengerDropdown && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  minWidth: '220px',
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-glass-bright)',
-                  borderRadius: 'var(--radius-sm)',
-                  boxShadow: 'var(--shadow-lg)',
-                  zIndex: 600,
-                  marginTop: '6px',
-                  padding: '16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px'
-                }}>
+                <div className="passenger-popover">
                   {/* Adults */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
@@ -977,9 +972,21 @@ export default function AlternativeFlights({
       {/* 2. STEP BOOKING SELECTION FLOW */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-        {/* Step Indicator Header */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-sm)', padding: '12px 16px' }}>
-          {(tripType === 'one-way'
+        {/*
+          Step Indicator Header.
+
+          Renders a position ("Step 2 of 3"), the current step's name, and a
+          segmented bar — instead of laying every step's number and label out in
+          a row. The row version had two problems: on a phone it wrapped into the
+          broken arrangement of a lone "1" above the words "Select Outbound", and
+          in multi-city the step list is localLegs.length + 1 entries long, so
+          five legs produced six labelled nodes that no width could hold.
+
+          This layout is indifferent to the count: only the active step is named,
+          and the bar grows a segment per step.
+        */}
+        {(() => {
+          const steps = tripType === 'one-way'
             ? [
               { step: 1, label: 'Select Flight' },
               { step: 2, label: 'Confirm Flight' }
@@ -993,36 +1000,50 @@ export default function AlternativeFlights({
                 { step: 1, label: 'Select Outbound' },
                 { step: 2, label: 'Select Return' },
                 { step: 3, label: 'Confirm Bundle' }
-              ]
-          ).map((item, idx, arr) => {
-            const isCompleted = bookingStep > item.step;
-            const isCurrent = bookingStep === item.step;
-            return (
-              <React.Fragment key={item.step}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    background: isCompleted ? 'var(--success)' : isCurrent ? 'var(--primary)' : 'var(--bg-tertiary)',
-                    color: isCompleted || isCurrent ? '#0b0f19' : 'var(--text-secondary)',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    {isCompleted ? '✓' : item.step}
-                  </span>
-                  <span style={{ fontSize: '0.8rem', fontWeight: isCurrent ? 600 : 400, color: isCurrent ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                    {item.label}
-                  </span>
+              ];
+
+          const total = steps.length;
+          const current = steps.find((s) => s.step === bookingStep) || steps[0];
+          const nextUp = steps.find((s) => s.step === bookingStep + 1);
+
+          return (
+            <div className="booking-stepper">
+              <div className="booking-stepper-head">
+                <div>
+                  <div className="booking-stepper-position">
+                    Step {current.step} of {total}
+                  </div>
+                  <div className="booking-stepper-label">{current.label}</div>
                 </div>
-                {idx < arr.length - 1 && <div style={{ flexGrow: 0.1, height: '1.5px', background: 'var(--border-glass)' }}></div>}
-              </React.Fragment>
-            );
-          })}
-        </div>
+                {nextUp && (
+                  <div className="booking-stepper-next">
+                    Next: {nextUp.label}
+                  </div>
+                )}
+              </div>
+
+              <div
+                className="booking-stepper-track"
+                role="progressbar"
+                aria-valuemin={1}
+                aria-valuemax={total}
+                aria-valuenow={current.step}
+                aria-valuetext={`Step ${current.step} of ${total}: ${current.label}`}
+              >
+                {steps.map((item) => (
+                  <span
+                    key={item.step}
+                    className={
+                      'booking-stepper-segment'
+                      + (bookingStep > item.step ? ' is-complete' : '')
+                      + (bookingStep === item.step ? ' is-current' : '')
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* STEP 1 & 2: LISTINGS VIEW */}
         {(bookingStep === 1 || bookingStep === 2) && (
