@@ -119,14 +119,16 @@ export default function CustomDatePicker({
           justifyContent: 'space-between',
           gap: '10px',
           cursor: 'pointer',
-          padding: '10px 14px',
+          padding: '0 14px',
           background: 'var(--bg-tertiary, rgba(255, 255, 255, 0.04))',
           border: isOpen ? '1px solid var(--primary)' : '1px solid var(--border-glass-bright)',
           borderRadius: 'var(--radius-sm, 8px)',
           boxShadow: isOpen ? '0 0 12px var(--primary-glow-weak)' : 'none',
           transition: 'all 0.2s ease',
           textAlign: 'left',
-          width: '100%'
+          width: '100%',
+          boxSizing: 'border-box',
+          height: '46px'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>

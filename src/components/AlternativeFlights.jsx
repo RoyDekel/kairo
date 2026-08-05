@@ -416,6 +416,33 @@ export default function AlternativeFlights({
 
   const totalPassengers = localAdults + localChildren + localInfants;
 
+  const getClassLabel = (val) => {
+    switch (val) {
+      case '1': return 'Economy';
+      case '2': return 'Premium Economy';
+      case '3': return 'Business';
+      case '4': return 'First';
+      default: return 'All Classes';
+    }
+  };
+
+  const popoverCounterBtnStyle = (disabled) => ({
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    border: '1px solid var(--border-glass-bright)',
+    background: 'var(--bg-tertiary)',
+    color: 'var(--text-primary)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.35 : 1,
+    fontSize: '1rem',
+    fontWeight: 700,
+    userSelect: 'none'
+  });
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
@@ -450,297 +477,206 @@ export default function AlternativeFlights({
             boxSizing: 'border-box',
             width: '100%'
           }}>
-            {/* Trip Type Selector */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label htmlFor="trip-type-select" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                Trip Type:
-              </label>
-              <select
-                id="trip-type-select"
-                aria-label="Trip Type"
-                value={tripType}
-                onChange={(e) => setTripType(e.target.value)}
-                className="input-field"
-                style={{
-                  padding: '6px 12px',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  borderRadius: '6px',
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                  border: '1px solid var(--border-glass-bright)',
-                  cursor: 'pointer',
-                  appearance: 'none',
-                  WebkitAppearance: 'none'
-                }}
-              >
-                <option value="round-trip">Round trip</option>
-                <option value="one-way">One-way</option>
-                <option value="multi-city">Multi-City</option>
-              </select>
-            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+              {/* Trip Type Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label htmlFor="trip-type-select" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Trip Type:
+                </label>
+                <select
+                  id="trip-type-select"
+                  aria-label="Trip Type"
+                  value={tripType}
+                  onChange={(e) => setTripType(e.target.value)}
+                  className="input-field"
+                  style={{
+                    padding: '0 28px 0 12px',
+                    height: '46px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-glass-bright)',
+                    cursor: 'pointer',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="round-trip">Round trip</option>
+                  <option value="one-way">One-way</option>
+                  <option value="multi-city">Multi-City</option>
+                </select>
+              </div>
 
-            {/* Passengers Selector */}
-            <div className="input-group" ref={passengerRef} style={{ position: 'relative', margin: 0 }}>
-              <button
-                type="button"
-                onClick={() => setShowPassengerDropdown(!showPassengerDropdown)}
-                className="input-field"
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  background: 'var(--bg-secondary)',
-                  gap: '8px',
-                  padding: '6px 12px',
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  border: '1px solid var(--border-glass-bright)',
-                  borderRadius: '6px'
-                }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Users size={16} style={{ color: 'var(--primary)' }} />
-                  {totalPassengers} Passenger{totalPassengers > 1 ? 's' : ''}
-                </span>
-                <ChevronDown size={14} style={{ color: 'var(--text-secondary)' }} />
-              </button>
+              {/* Unified Passengers & Cabin Class Selector */}
+              <div className="input-group" ref={passengerRef} style={{ position: 'relative', margin: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowPassengerDropdown(!showPassengerDropdown)}
+                  className="input-field"
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    background: 'var(--bg-secondary)',
+                    gap: '8px',
+                    padding: '0 12px',
+                    height: '46px',
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    border: '1px solid var(--border-glass-bright)',
+                    borderRadius: '6px',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Users size={16} style={{ color: 'var(--primary)' }} />
+                    {totalPassengers} Passenger{totalPassengers > 1 ? 's' : ''}, {getClassLabel(localTravelClass)}
+                  </span>
+                  <ChevronDown size={14} style={{ color: 'var(--text-secondary)' }} />
+                </button>
 
-              {/*
-                Passenger Submenu Frame.
+                {showPassengerDropdown && (
+                  <div className="passenger-popover" style={{ minWidth: '260px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '4px' }}>Travelers</div>
 
-                Anchoring is in CSS (.passenger-popover) rather than inline,
-                because it has to change at the mobile breakpoint. Pinning the
-                panel's right edge to the trigger's right edge makes a 220px-wide
-                panel grow leftwards, and on a phone the trigger sits near the
-                left of the card -- so the panel ran off the side of the screen.
-              */}
-              {showPassengerDropdown && (
-                <div className="passenger-popover">
-                  {/* Adults */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Adults</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Age 12+</div>
+                    {/* Adults */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>Adults</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Age 12+</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          type="button"
+                          disabled={localAdults <= 1}
+                          onClick={() => setLocalAdults((prev) => Math.max(1, prev - 1))}
+                          style={popoverCounterBtnStyle(localAdults <= 1)}
+                        >
+                          -
+                        </button>
+                        <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                          {localAdults}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={totalPassengers >= 9}
+                          onClick={() => setLocalAdults((prev) => prev + 1)}
+                          style={popoverCounterBtnStyle(totalPassengers >= 9)}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <button
-                        type="button"
-                        disabled={localAdults <= 1}
-                        onClick={() => setLocalAdults((prev) => Math.max(1, prev - 1))}
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          border: '1px solid var(--border-glass-bright)',
-                          background: 'var(--bg-tertiary)',
-                          color: 'var(--text-primary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: localAdults <= 1 ? 'not-allowed' : 'pointer',
-                          opacity: localAdults <= 1 ? 0.35 : 1,
-                          fontSize: '1rem',
-                          fontWeight: 700,
-                          userSelect: 'none'
-                        }}
-                      >
-                        -
-                      </button>
-                      <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                        {localAdults}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={localAdults >= 9}
-                        onClick={() => setLocalAdults((prev) => Math.min(9, prev + 1))}
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          border: '1px solid var(--border-glass-bright)',
-                          background: 'var(--bg-tertiary)',
-                          color: 'var(--text-primary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: localAdults >= 9 ? 'not-allowed' : 'pointer',
-                          opacity: localAdults >= 9 ? 0.35 : 1,
-                          fontSize: '1rem',
-                          fontWeight: 700,
-                          userSelect: 'none'
-                        }}
-                      >
-                        +
-                      </button>
+
+                    {/* Children */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>Children</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Age 2-11</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          type="button"
+                          disabled={localChildren <= 0}
+                          onClick={() => setLocalChildren((prev) => Math.max(0, prev - 1))}
+                          style={popoverCounterBtnStyle(localChildren <= 0)}
+                        >
+                          -
+                        </button>
+                        <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                          {localChildren}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={totalPassengers >= 9}
+                          onClick={() => setLocalChildren((prev) => prev + 1)}
+                          style={popoverCounterBtnStyle(totalPassengers >= 9)}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Infants */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>Infants</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Under age 2</div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          type="button"
+                          disabled={localInfants <= 0}
+                          onClick={() => setLocalInfants((prev) => Math.max(0, prev - 1))}
+                          style={popoverCounterBtnStyle(localInfants <= 0)}
+                        >
+                          -
+                        </button>
+                        <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                          {localInfants}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={totalPassengers >= 9}
+                          onClick={() => setLocalInfants((prev) => prev + 1)}
+                          style={popoverCounterBtnStyle(totalPassengers >= 9)}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{ borderTop: '1px solid var(--border-glass-bright)', margin: '8px 0' }} />
+
+                    {/* Cabin Class */}
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '6px' }}>Cabin Class</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                      {[
+                        { value: 'ALL', label: 'All Classes' },
+                        { value: '1', label: 'Economy' },
+                        { value: '2', label: 'Premium Economy' },
+                        { value: '3', label: 'Business' },
+                        { value: '4', label: 'First' }
+                      ].map((cls) => {
+                        const isActive = localTravelClass === cls.value;
+                        return (
+                          <button
+                            key={cls.value}
+                            type="button"
+                            onClick={() => setLocalTravelClass(cls.value)}
+                            style={{
+                              padding: '6px 10px',
+                              fontSize: '0.75rem',
+                              fontWeight: isActive ? 700 : 500,
+                              borderRadius: '20px',
+                              cursor: 'pointer',
+                              border: isActive ? '1px solid var(--primary)' : '1px solid var(--border-glass-bright)',
+                              background: isActive ? 'rgba(0, 242, 254, 0.08)' : 'transparent',
+                              color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            {cls.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPassengerDropdown(false)}
+                      className="btn btn-primary"
+                      style={{ padding: '6px 0', fontSize: '0.8rem', marginTop: '6px', width: '100%' }}
+                    >
+                      Done
+                    </button>
                   </div>
-
-                  {/* Children */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Children</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Age 2-11</div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <button
-                        type="button"
-                        disabled={localChildren <= 0}
-                        onClick={() => setLocalChildren((prev) => Math.max(0, prev - 1))}
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          border: '1px solid var(--border-glass-bright)',
-                          background: 'var(--bg-tertiary)',
-                          color: 'var(--text-primary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: localChildren <= 0 ? 'not-allowed' : 'pointer',
-                          opacity: localChildren <= 0 ? 0.35 : 1,
-                          fontSize: '1rem',
-                          fontWeight: 700,
-                          userSelect: 'none'
-                        }}
-                      >
-                        -
-                      </button>
-                      <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                        {localChildren}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={localChildren >= 9}
-                        onClick={() => setLocalChildren((prev) => Math.min(9, prev + 1))}
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          border: '1px solid var(--border-glass-bright)',
-                          background: 'var(--bg-tertiary)',
-                          color: 'var(--text-primary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: localChildren >= 9 ? 'not-allowed' : 'pointer',
-                          opacity: localChildren >= 9 ? 0.35 : 1,
-                          fontSize: '1rem',
-                          fontWeight: 700,
-                          userSelect: 'none'
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Infants */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Infants</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Under age 2</div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <button
-                        type="button"
-                        disabled={localInfants <= 0}
-                        onClick={() => setLocalInfants((prev) => Math.max(0, prev - 1))}
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          border: '1px solid var(--border-glass-bright)',
-                          background: 'var(--bg-tertiary)',
-                          color: 'var(--text-primary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: localInfants <= 0 ? 'not-allowed' : 'pointer',
-                          opacity: localInfants <= 0 ? 0.35 : 1,
-                          fontSize: '1rem',
-                          fontWeight: 700,
-                          userSelect: 'none'
-                        }}
-                      >
-                        -
-                      </button>
-                      <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                        {localInfants}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={localInfants >= 5}
-                        onClick={() => setLocalInfants((prev) => Math.min(5, prev + 1))}
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          border: '1px solid var(--border-glass-bright)',
-                          background: 'var(--bg-tertiary)',
-                          color: 'var(--text-primary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: localInfants >= 5 ? 'not-allowed' : 'pointer',
-                          opacity: localInfants >= 5 ? 0.35 : 1,
-                          fontSize: '1rem',
-                          fontWeight: 700,
-                          userSelect: 'none'
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowPassengerDropdown(false)}
-                    className="btn btn-primary"
-                    style={{ padding: '6px 0', fontSize: '0.8rem', marginTop: '4px' }}
-                  >
-                    Done
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Travel Class Selector */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label htmlFor="travel-class-select" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                Class:
-              </label>
-              <select
-                id="travel-class-select"
-                aria-label="Travel Class"
-                value={localTravelClass}
-                onChange={(e) => setLocalTravelClass(e.target.value)}
-                className="input-field"
-                style={{
-                  padding: '6px 12px',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  borderRadius: '6px',
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                  border: '1px solid var(--border-glass-bright)',
-                  cursor: 'pointer',
-                  appearance: 'none',
-                  WebkitAppearance: 'none',
-                  paddingRight: '26px',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 8px center'
-                }}
-                title="Select travel class (1: Economy, 2: Premium economy, 3: Business, 4: First)"
-              >
-                <option value="ALL">All Classes</option>
-                <option value="1">Economy</option>
-                <option value="2">Premium Economy</option>
-                <option value="3">Business Class</option>
-                <option value="4">First Class</option>
-              </select>
+                )}
+              </div>
             </div>
 
             {/* Direct flights checkbox */}
@@ -770,63 +706,61 @@ export default function AlternativeFlights({
               width: '100%',
               boxSizing: 'border-box'
             }}>
-              {/* Departure Airport Autocomplete */}
-              <AirportAutocomplete
-                id="departure-airport-select"
-                label="Departure Airport"
-                value={localOrigin}
-                onChange={setLocalOrigin}
-                placeholder="Where from?"
-                style={{ flex: '1 1 200px', minWidth: '170px' }}
-              />
+              <div className="airports-row-container">
+                {/* Departure Airport Autocomplete */}
+                <AirportAutocomplete
+                  id="departure-airport-select"
+                  label="Departure Airport"
+                  value={localOrigin}
+                  onChange={setLocalOrigin}
+                  placeholder="Where from?"
+                  style={{ flex: '1' }}
+                />
 
-              {/* Circular Swap Button */}
-              <button
-                type="button"
-                onClick={handleSwapAirports}
-                title="Swap Departure and Arrival Airports"
-                aria-label="Swap Departure and Arrival Airports"
-                style={{
-                  marginBottom: '2px',
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  background: 'var(--bg-tertiary, rgba(255, 255, 255, 0.06))',
-                  border: '1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.2))',
-                  color: 'var(--text-primary, #ffffff)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-                  flexShrink: 0
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--primary)';
-                  e.currentTarget.style.color = 'var(--primary)';
-                  e.currentTarget.style.boxShadow = '0 0 12px var(--primary-glow-weak)';
-                  e.currentTarget.style.transform = 'rotate(180deg)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-glass-bright, rgba(255, 255, 255, 0.2))';
-                  e.currentTarget.style.color = 'var(--text-primary, #ffffff)';
-                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
-                  e.currentTarget.style.transform = 'rotate(0deg)';
-                }}
-              >
-                <ArrowLeftRight size={18} />
-              </button>
+                {/* Circular Swap Button (Desktop) */}
+                <button
+                  type="button"
+                  onClick={handleSwapAirports}
+                  title="Swap Departure and Arrival Airports"
+                  aria-label="Swap Departure and Arrival Airports"
+                  className="swap-button swap-button-desktop"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--primary)';
+                    e.currentTarget.style.color = 'var(--primary)';
+                    e.currentTarget.style.boxShadow = '0 0 12px var(--primary-glow-weak)';
+                    e.currentTarget.style.transform = 'rotate(180deg)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-glass-bright)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+                    e.currentTarget.style.transform = 'rotate(0deg)';
+                  }}
+                >
+                  <ArrowLeftRight size={18} />
+                </button>
 
-              {/* Arrival Airport Autocomplete */}
-              <AirportAutocomplete
-                id="arrival-airport-select"
-                label="Arrival Airport"
-                value={localDestination}
-                onChange={setLocalDestination}
-                placeholder="Where to?"
-                style={{ flex: '1 1 200px', minWidth: '170px' }}
-              />
+                {/* Circular Swap Button (Mobile) */}
+                <button
+                  type="button"
+                  onClick={handleSwapAirports}
+                  title="Swap Departure and Arrival Airports"
+                  aria-label="Swap Departure and Arrival Airports"
+                  className="swap-button swap-button-mobile"
+                >
+                  <ArrowLeftRight size={18} />
+                </button>
+
+                {/* Arrival Airport Autocomplete */}
+                <AirportAutocomplete
+                  id="arrival-airport-select"
+                  label="Arrival Airport"
+                  value={localDestination}
+                  onChange={setLocalDestination}
+                  placeholder="Where to?"
+                  style={{ flex: '1' }}
+                />
+              </div>
 
               {/* Departure Date */}
               <div style={{ flex: '1 1 140px', minWidth: '130px' }}>
@@ -961,7 +895,7 @@ export default function AlternativeFlights({
           )}
 
           {/* Search Button Container */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '4px' }}>
+          <div className="search-button-container">
             <button type="submit" className="btn btn-primary" style={{ minWidth: '180px', padding: '12px' }}>
               Search Flights
             </button>
