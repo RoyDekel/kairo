@@ -54,19 +54,64 @@ export const EventStatus = {
 };
 
 /**
- * How long a durable row stays trustworthy.
+ * How long a durable row stays trustworthy, as a function of how far away the window is.
  *
- * A flat six hours is wrong at the near end. Inside a couple of days a lineup firms up,
- * kickoff times move and matches get postponed, and a row written before a postponement
- * would keep advertising a cancelled match to every instance rather than just to the one
- * process that fetched it — which is what making the cache durable costs us if the TTL
- * doesn't account for it. Windows further out barely move and can be held for the full
- * TTL.
+ * -------------------------------------------------------------------------------------
+ * WHY THIS IS A LADDER AND NOT A CONSTANT
+ *
+ * A flat TTL is wrong at both ends, for opposite reasons.
+ *
+ * At the near end it is too long. Inside a couple of days a lineup firms up, kickoff times
+ * move and matches get postponed, and a row written before a postponement would keep
+ * advertising a cancelled match to every instance rather than just to the one process that
+ * fetched it — the cost of making the cache durable.
+ *
+ * At the far end it is far too short, and that end is where the budget actually goes.
+ * API-Sports is capped at 80 calls a day (apiSportsProvider.js) and one cold discovery
+ * search fans out across ~31 destinations, so the entire daily ceiling buys fewer than
+ * three cold searches. At a flat six hours, a window three weeks out is re-fetched four
+ * times a day for a schedule that was fixed months ago. Those repeats are not paying for
+ * freshness, they are paying for a timer.
+ *
+ * Scaling the far end is the cheapest capacity the system has: it costs no API calls, no
+ * new infrastructure and no new failure mode, and it multiplies what the same 80 calls
+ * cover. It is worth doing before anything that SPENDS from that ceiling — a pre-warm job
+ * moves budget from reactive to speculative, it does not create any.
+ *
+ * WHAT IT COSTS, STATED PLAINLY: a newly announced event in a far window can stay
+ * invisible for up to the tier's TTL — three days at the top step. That is the real
+ * trade. It is accepted because the near steps keep imminent travel fresh, and because a
+ * concert announced today for a date six weeks out does not change whether the flight is
+ * worth booking this afternoon.
+ *
+ * Steps are multiples of the caller's ttlMs rather than absolute durations, so a caller
+ * that lowers ttlMs lowers the whole ladder with it instead of silently keeping
+ * three-day rows.
+ * -------------------------------------------------------------------------------------
  */
+const TTL_LADDER = [
+  // Postponements and kickoff changes land here. Held for an hour at most.
+  { withinDays: 2, multiplier: 1 / 6, cap: HOUR_MS },
+  // Close enough that late additions still matter. The historical default.
+  { withinDays: 7, multiplier: 1 },
+  // Schedules are settled; re-checking four times a day buys nothing.
+  { withinDays: 30, multiplier: 4 },
+  // Fixture lists and tour dates at this range were published long ago.
+  { withinDays: Infinity, multiplier: 12 }
+];
+
 export const durableTtlMs = (startDate, { ttlMs = DEFAULT_TTL_MS, now = Date.now() } = {}) => {
   const daysAway = (Date.parse(`${startDate}T00:00:00Z`) - now) / DAY_MS;
+
+  // Unparseable or missing: the neutral default, never NaN.
   if (!Number.isFinite(daysAway)) return ttlMs;
-  return daysAway < 2 ? Math.min(HOUR_MS, ttlMs) : ttlMs;
+
+  const step = TTL_LADDER.find((s) => daysAway < s.withinDays);
+  const ttl = ttlMs * step.multiplier;
+
+  // `cap` exists so the near step stays an hour even if a caller raises ttlMs. Freshness
+  // close to departure is a correctness requirement, not a tunable.
+  return step.cap ? Math.min(step.cap, ttl) : ttl;
 };
 
 export class EventCache {

@@ -84,7 +84,13 @@ describe('EventCache durable tier', () => {
     const supabase = fakeSupabase();
     await make(supabase).set(key, { status: EventStatus.OK, events: [{ title: 'old' }] });
 
-    clock += 60_001;
+    /*
+      Advance past whatever the ladder actually granted this window rather than past a
+      hard-coded duration. This key starts 41 days out, so it earns the top tier — a fixed
+      `clock += ttlMs + 1` was reading as "expiry works" while really only testing the
+      shortest tier, and it broke the moment the far end was widened.
+    */
+    clock += durableTtlMs(key.startDate, { ttlMs: 60_000, now: clock }) + 1;
     expect(await make(supabase).get(key)).toBeNull();
   });
 
@@ -153,9 +159,20 @@ describe('EventCache durable tier', () => {
   });
 });
 
+/*
+  The TTL ladder.
+
+  These assertions are about spend, not about caching mechanics. API-Sports is capped at
+  80 calls a day and one cold discovery search fans out across ~31 destinations, so the
+  difference between holding a far window for six hours and for three days is the
+  difference between the ceiling buying three cold searches a day and buying most of a
+  week's worth. Each step is pinned, and so is each boundary, because an off-by-one at a
+  boundary silently reverts a tier to four times the traffic.
+*/
 describe('durableTtlMs', () => {
   const now = Date.parse('2026-08-01T00:00:00Z');
-  const ttlMs = 6 * 60 * 60 * 1000;
+  const HOUR = 60 * 60 * 1000;
+  const ttlMs = 6 * HOUR;
 
   /*
     Inside a couple of days kickoff times move and matches get postponed. Holding such a
@@ -163,15 +180,56 @@ describe('durableTtlMs', () => {
     match, which is a cost the memory-only cache never had.
   */
   test('a window starting within two days is held for an hour at most', () => {
-    expect(durableTtlMs('2026-08-02', { ttlMs, now })).toBe(60 * 60 * 1000);
+    expect(durableTtlMs('2026-08-02', { ttlMs, now })).toBe(HOUR);
   });
 
-  test('a window further out gets the full TTL', () => {
-    expect(durableTtlMs('2026-10-01', { ttlMs, now })).toBe(ttlMs);
+  test('a window two to seven days out keeps the historical six hours', () => {
+    expect(durableTtlMs('2026-08-04', { ttlMs, now })).toBe(6 * HOUR);
+  });
+
+  test('a window one to four weeks out is held for a day', () => {
+    expect(durableTtlMs('2026-08-15', { ttlMs, now })).toBe(24 * HOUR);
+  });
+
+  test('a window beyond a month is held for three days', () => {
+    expect(durableTtlMs('2026-10-01', { ttlMs, now })).toBe(72 * HOUR);
+  });
+
+  /*
+    Boundaries, pinned individually. Each one is the moment a tier changes, and getting
+    one wrong reverts that whole range to the traffic of the tier below it.
+  */
+  test.each([
+    ['2026-08-03', 6 * HOUR, 'exactly two days out leaves the near tier'],
+    ['2026-08-08', 24 * HOUR, 'exactly seven days out enters the daily tier'],
+    ['2026-08-31', 72 * HOUR, 'exactly thirty days out enters the three-day tier']
+  ])('%s -> %i ms (%s)', (startDate, expected) => {
+    expect(durableTtlMs(startDate, { ttlMs, now })).toBe(expected);
+  });
+
+  /*
+    A start date in the past means a stale or malformed query. It takes the shortest tier
+    rather than the longest: whatever produced it should not also earn a three-day row.
+  */
+  test('a window that already started takes the shortest tier', () => {
+    expect(durableTtlMs('2026-07-20', { ttlMs, now })).toBe(HOUR);
   });
 
   test('an unparseable date falls back to the full TTL rather than NaN', () => {
     expect(durableTtlMs(undefined, { ttlMs, now })).toBe(ttlMs);
+  });
+
+  /*
+    The ladder is expressed in multiples of the caller's ttlMs, so lowering it lowers
+    every tier. If the far tiers were absolute durations, a caller asking for a short TTL
+    would still get three-day rows — the opposite of what they asked for.
+  */
+  test('lowering ttlMs scales the whole ladder down with it', () => {
+    const short = HOUR; // caller wants everything cached briefly
+    expect(durableTtlMs('2026-10-01', { ttlMs: short, now })).toBe(12 * HOUR);
+    expect(durableTtlMs('2026-08-04', { ttlMs: short, now })).toBe(HOUR);
+    // The near tier is a correctness floor, so it stays capped regardless.
+    expect(durableTtlMs('2026-08-02', { ttlMs: short, now })).toBe(HOUR / 6);
   });
 });
 
