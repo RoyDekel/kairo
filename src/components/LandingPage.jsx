@@ -334,7 +334,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
             <CheckCircle size={20} style={{ color: '#059669', flexShrink: 0, marginTop: '2px' }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Real-Time fare monitoring</div>
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Scans 3000+ global destination hubs continuously.</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Scans 3,000+ global destination hubs continuously.</div>
             </div>
           </div>
 
