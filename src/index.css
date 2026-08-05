@@ -468,6 +468,7 @@ h6 {
   justify-content: flex-end;
   align-items: center;
   margin-top: 4px;
+  flex-grow: 1;
 }
 
 @media (max-width: 768px) {

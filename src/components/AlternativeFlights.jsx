@@ -451,10 +451,10 @@ export default function AlternativeFlights({
         {/* Header Title */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
           <div>
-            <h3 style={{ fontSize: '1.25rem', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Globe size={20} style={{ color: 'var(--primary)' }} />
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Globe size={22} style={{ color: 'var(--primary)' }} />
               Search & Compare Fares
-            </h3>
+            </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
               Already know your route? Compare carriers, times and fares, then build your bundle.
             </p>

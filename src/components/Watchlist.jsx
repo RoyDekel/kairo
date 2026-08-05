@@ -215,7 +215,7 @@ export default function Watchlist({
                   ) : (
                     <button
                       onClick={() => onTrackFlight(flight, dateStr)}
-                      className="btn btn-secondary"
+                      className="btn btn-primary"
                       style={{
                         flexGrow: 1,
                         padding: '6px 0',
