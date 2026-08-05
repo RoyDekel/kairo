@@ -26,7 +26,7 @@ This skill handles the common scenario where the Node.js dev server on **port 30
    ```
    This should return no results.
 
-4. **Restart the server**:
+4. **Restart the server** if the user asks:
    ```powershell
    npm run dev
    ```
