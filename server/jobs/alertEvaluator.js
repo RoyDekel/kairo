@@ -1,0 +1,202 @@
+/**
+ * Alert evaluator — checks active price alerts against the latest fare
+ * observations and delivers a notification when one is met.
+ *
+ * Rate-limited to one notification per alert per 24 hours so a volatile route
+ * cannot spam the user.
+ *
+ * -------------------------------------------------------------------------------------
+ * WHY THIS HAS ITS OWN SCHEDULE
+ *
+ * The original wiring called this at the end of FareCollector.runSweep(), on the
+ * reasonable-sounding theory that alerts should be checked against freshly collected
+ * fares. In practice that meant they were never checked at all.
+ *
+ * A sweep iterates every airport in the catalog against every horizon — 3,269 × 4 ≈
+ * 13,000 sampling tasks, each followed by a 2-second delay. The loop therefore takes
+ * upwards of seven hours before it reaches the line after it, and the cron that would
+ * start the next sweep hits the `isRunning` guard and skips. So the evaluator sat behind
+ * a loop that had not finished since the process booted.
+ *
+ * The symptom was silence, which is the same thing a user sees when no fare has dropped.
+ *
+ * Alert latency and collection throughput are simply different concerns: one wants to run
+ * often and finish in milliseconds, the other runs for hours by design. Tying the first to
+ * the completion of the second gave the alert the collector's latency. It now runs on its
+ * own cron, reading whatever observations exist at that moment.
+ * -------------------------------------------------------------------------------------
+ */
+
+import cron from 'node-cron';
+import { getServerSupabase } from '../services/supabaseServer.js';
+import { notify } from '../services/notifier.js';
+
+const RATE_LIMIT_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Compose the alert text for a channel.
+ *
+ * Telegram renders Markdown; sendEmail passes its body through as `text`, with
+ * no conversion. One shared string therefore cannot serve both — the version
+ * that reads correctly in Telegram arrives in the inbox as literal asterisks
+ * around every value, which is what a user then sees as the product's voice.
+ *
+ * @param {'telegram'|'email'} channel
+ * @param {object} alert  - price_alerts row
+ * @param {number} price  - latest observed fare
+ * @returns {string}
+ */
+function buildMessage(channel, alert, price) {
+  const route = `${alert.origin} → ${alert.destination}`;
+
+  if (channel === 'email') {
+    return (
+      `KAIRO Price Alert\n\n` +
+      `Route:         ${route}\n` +
+      `Current price: $${price}\n` +
+      `Your target:   $${alert.target_price}\n\n` +
+      `The fare dropped below your target. Book before it rises again.`
+    );
+  }
+
+  return (
+    `🛫 *KAIRO Price Alert*\n\n` +
+    `Route: *${route}*\n` +
+    `Current price: *$${price}*\n` +
+    `Your target: *$${alert.target_price}*\n\n` +
+    `💰 The fare dropped below your target! Book now before it rises.`
+  );
+}
+
+/**
+ * Evaluate all active alerts against the latest fare observations.
+ * @param {object} [supabase] - Supabase client (defaults to server client)
+ */
+export async function evaluateAlerts(supabase = getServerSupabase()) {
+  if (!supabase) {
+    console.warn('[alertEvaluator] No Supabase client — alert evaluation skipped.');
+    return { evaluated: 0, fired: 0 };
+  }
+
+  // 1. Fetch all active alerts
+  const { data: alerts, error: alertError } = await supabase
+    .from('price_alerts')
+    .select('*')
+    .eq('is_active', true);
+
+  if (alertError) {
+    console.error(`[alertEvaluator] Failed to fetch alerts: ${alertError.message}`);
+    return { evaluated: 0, fired: 0 };
+  }
+
+  if (!alerts || alerts.length === 0) {
+    return { evaluated: 0, fired: 0 };
+  }
+
+  // 2. Collect unique routes to query
+  const routes = [...new Set(alerts.map((a) => a.route))];
+
+  // 3. Fetch the latest fare observation per route (last 24 hours)
+  const latestFares = new Map();
+  for (const route of routes) {
+    const { data: fares } = await supabase
+      .from('fare_observations')
+      .select('roundtrip_price, observed_at')
+      .eq('route', route)
+      .order('observed_at', { ascending: false })
+      .limit(1);
+
+    if (fares && fares.length > 0) {
+      latestFares.set(route, {
+        price: Number(fares[0].roundtrip_price),
+        observedAt: fares[0].observed_at
+      });
+    }
+  }
+
+  // 4. Evaluate each alert
+  const now = Date.now();
+  let fired = 0;
+
+  for (const alert of alerts) {
+    const fare = latestFares.get(alert.route);
+    if (!fare) continue;
+
+    // Check price threshold
+    if (fare.price > Number(alert.target_price)) continue;
+
+    // Check rate limit (24h cooldown)
+    if (alert.last_notified_at) {
+      const lastNotified = new Date(alert.last_notified_at).getTime();
+      if (now - lastNotified < RATE_LIMIT_MS) continue;
+    }
+
+    const sent = await notify(
+      alert.channel,
+      alert.channel_target,
+      buildMessage(alert.channel, alert, fare.price)
+    );
+
+    if (sent) {
+      // Update last_notified_at to enforce the 24h rate limit
+      await supabase
+        .from('price_alerts')
+        .update({ last_notified_at: new Date().toISOString() })
+        .eq('id', alert.id);
+
+      fired++;
+      console.log(`[alertEvaluator] Fired alert ${alert.id} for ${alert.route}: $${fare.price} <= $${alert.target_price}`);
+    }
+  }
+
+  console.log(`[alertEvaluator] Evaluated ${alerts.length} alerts, fired ${fired} notifications.`);
+  return { evaluated: alerts.length, fired };
+}
+
+/**
+ * Schedule alert evaluation on its own cron, independent of the collector.
+ *
+ * Every 15 minutes by default. The work is two indexed Supabase reads plus a write only
+ * when an alert actually fires, so the cost of running it often is negligible — and the
+ * 24-hour rate limit means a higher frequency cannot turn into more notifications, only
+ * into a smaller gap between a fare dropping and the user hearing about it.
+ *
+ * @returns {import('node-cron').ScheduledTask|null} null when alerts are disabled.
+ */
+export function startAlertEvaluator() {
+  if (process.env.ALERTS_ENABLED === 'false') {
+    console.log('[alertEvaluator] ALERTS_ENABLED=false — alert evaluation is off.');
+    return null;
+  }
+
+  const schedule = process.env.ALERTS_CRON || '*/15 * * * *';
+  console.log(`[alertEvaluator] Scheduled with cron pattern: "${schedule}"`);
+
+  /*
+    A run must never overlap itself. Each firing alert costs a Telegram or SMTP round
+    trip, so a slow provider could otherwise leave a second run reading rows whose
+    last_notified_at the first has not written back yet — and the rate limit is enforced
+    entirely by that column.
+  */
+  let running = false;
+
+  const runOnce = async () => {
+    if (running) {
+      console.log('[alertEvaluator] Previous evaluation still running — skipping this tick.');
+      return;
+    }
+    running = true;
+    try {
+      await evaluateAlerts();
+    } catch (err) {
+      console.error(`[alertEvaluator] Evaluation failed: ${err.message}`);
+    } finally {
+      running = false;
+    }
+  };
+
+  // An alert created just before a deploy should not wait for the next tick.
+  setTimeout(runOnce, Number(process.env.ALERTS_BOOT_DELAY_MS || 10000));
+
+  return cron.schedule(schedule, runOnce);
+}

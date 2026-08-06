@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="kairo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="100%" stop-color="#7c3aed" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="#0b0f19" />
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="none" stroke="url(#kairo-grad)" stroke-width="12" opacity="0.4" />
+  <path d="M 170 120 L 170 392 M 170 256 L 340 120 M 170 256 L 340 392" fill="none" stroke="url(#kairo-grad)" stroke-width="48" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 330 190 L 370 210 L 350 250 Z" fill="#00f2fe" />
+</svg>

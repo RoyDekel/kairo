@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/src/favicon.svg" />
+    <!--
+      No maximum-scale / user-scalable=no: Safari has ignored both since iOS 10,
+      but Firefox and Samsung Internet still honour them, so all they achieved was
+      blocking pinch-zoom for those users — a WCAG 2.1 SC 1.4.4 failure.
+      viewport-fit=cover is what makes env(safe-area-inset-*) resolve to real values.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    
+    <!--
+      Tints the browser's own toolbar. Defaults to the light palette because that
+      is the app's default theme; App.jsx rewrites it whenever the theme toggles,
+      so the Safari / Chrome / Samsung chrome always matches the page instead of
+      showing a dark bar above a light page.
+    -->
+    <meta name="theme-color" content="#f1f5f9" />
+    
+    <!-- Primary SEO Meta Tags -->
+    <title>KAIRO — Smart AI Flight Price Tracker & Buy Timing Insights</title>
+    <meta name="name" content="KAIRO" />
+    <meta name="description" content="Never overpay for flights again. KAIRO predicts the exact right moment to buy using AI price trend analytics and live event intelligence." />
+    <meta name="keywords" content="flight prices, cheap flights, AI price prediction, when to buy flights, flight tracking, KAIRO travel" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://roydekel.github.io/kairo/" />
+    <meta property="og:title" content="KAIRO — Smart AI Flight Price & Buy Timing Engine" />
+    <meta property="og:description" content="Never overpay for flights again. KAIRO predicts the exact right moment to buy." />
+    <meta property="og:site_name" content="KAIRO" />
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="KAIRO — Smart AI Flight Price & Buy Timing Engine" />
+    <meta name="twitter:description" content="Never overpay for flights again. KAIRO predicts the exact right moment to buy." />
+
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet Map CSS CDN (Fallback / Leaflet styles) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
