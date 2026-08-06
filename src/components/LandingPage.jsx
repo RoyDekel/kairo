@@ -76,7 +76,7 @@ export default function LandingPage({ onOpenAuth, setActiveTab }) {
           lineHeight: 1.6,
           fontWeight: 500
         }}>
-          AI tells you when to buy flights — and when to wait.
+          AI tells you when to buy flights tickets — and when to wait.
         </p>
 
         {/* HERO CTA BUTTONS — Displayed ONLY when user is NOT logged in */}

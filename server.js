@@ -14,6 +14,7 @@ import { openSkyProvider } from './server/providers/openSkyProvider.js';
 import { getServerSupabase } from './server/services/supabaseServer.js';
 import { startFareCollector } from './server/jobs/fareCollector.js';
 import { startAlertEvaluator } from './server/jobs/alertEvaluator.js';
+import { startKeepAlive } from './server/jobs/keepAlive.js';
 import { verifySchema } from './server/services/schemaCheck.js';
 import { AIRPORTS, FEATURED_HUBS } from './shared/catalog.js';
 
@@ -776,6 +777,16 @@ app.listen(PORT, async () => {
   console.log(` Target Endpoint: http://localhost:${PORT}`);
   console.log(` Fare currency:   ${FARE_CURRENCY}`);
   console.log(`===============================================`);
+
+  /*
+    Started BEFORE the schedulers, because it is the precondition for both of them.
+
+    Render's free tier spins the service down after ~15 minutes without inbound traffic,
+    and node-cron lives in this process. Six quiet hours between sweeps means the collector
+    is asleep long before its next run is due. Everything below is theatre if this is off.
+    See the header of keepAlive.js for what it does not solve.
+  */
+  startKeepAlive();
 
   startFareCollector();
 
