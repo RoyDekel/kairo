@@ -39,9 +39,12 @@ describe('FareCollector — scheduled sampling of fares', () => {
   });
 
   test('sampleOne queries service and records cheapest roundtrip fare truthful to provider', async () => {
-    const success = await collector.sampleOne('TLV', 'BCN', 14);
+    // sampleOne now reports WHY, not just whether. A bare boolean made "the provider gave
+    // nothing" and "the provider refused us" indistinguishable, which is how a 42% sample
+    // loss stayed invisible in production.
+    const result = await collector.sampleOne('TLV', 'BCN', 14);
 
-    expect(success).toBe(true);
+    expect(result).toEqual({ ok: true, reason: 'recorded' });
     expect(mockService.searchFlights).toHaveBeenCalledWith({
       origin: 'TLV',
       destination: 'BCN',
@@ -72,9 +75,9 @@ describe('FareCollector — scheduled sampling of fares', () => {
       return: [{ price: 250 }]
     });
 
-    const success = await collector.sampleOne('TLV', 'BCN', 14);
+    const result = await collector.sampleOne('TLV', 'BCN', 14);
 
-    expect(success).toBe(false);
+    expect(result).toEqual({ ok: false, reason: 'no_results' });
     expect(mockFareHistory.record).not.toHaveBeenCalled();
   });
 

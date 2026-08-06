@@ -35,6 +35,21 @@ export class FareCollector {
     this.now = now;
     this.isRunning = false;
     this.cursorIndex = 0;
+
+    /*
+      Sweep outcomes, because until now they were invisible.
+
+      sampleOne returned a bare `false` for "provider gave nothing" and for "provider
+      threw", wrote no row, and incremented no counter. A sweep that recorded 22 of an
+      intended 120 logged exactly the same as one that recorded 120.
+
+      Measured on 6 Aug 2026, once COLLECTOR_DESTINATIONS had scoped the sweep to 30
+      routes: three sweeps recorded 1.69, 2.80 and 2.80 observations per route against an
+      intended 4.00 — a yield of 18%-58%. That is not a detail. The missing samples are
+      what make the horizon mix wobble from day to day, and forecastService reads that
+      wobble as price volatility.
+    */
+    this.lastSweep = null;
   }
 
   get homeAirports() {
@@ -112,7 +127,10 @@ export class FareCollector {
       const bestReturn = cheapestFlight(results?.return || []);
 
       if (!bestOutbound || !bestReturn) {
-        return false;
+        // Distinguished from a thrown error on purpose: "the provider answered, and the
+        // answer was nothing" and "the provider refused us" call for opposite responses,
+        // and lumping them together is how a rate-limit looks like an empty market.
+        return { ok: false, reason: 'no_results' };
       }
 
       const roundtripPrice = Math.round(bestOutbound.price + bestReturn.price);
@@ -132,11 +150,16 @@ export class FareCollector {
 
       if (recorded) {
         console.log(`[fareCollector] Sampled ${origin}-${destination} (+${horizon}d): $${roundtripPrice} (${providerUsed})`);
+        return { ok: true, reason: 'recorded' };
       }
-      return recorded;
+
+      // fareHistory.record rejects simulated providers and refuses to write without a
+      // service key, and returns false either way. Both leave the table empty while the
+      // sweep log looks healthy, so they get their own bucket.
+      return { ok: false, reason: 'rejected_by_fare_history' };
     } catch (err) {
       console.warn(`[fareCollector] Failed sampling ${origin}-${destination} (+${horizon}d): ${err.message}`);
-      return false;
+      return { ok: false, reason: 'provider_error' };
     }
   }
 
@@ -183,18 +206,46 @@ export class FareCollector {
     console.log(`[fareCollector] Starting sweep of ${count}/${tasks.length} sampling tasks from cursor ${this.cursorIndex}...`);
 
     let processed = 0;
+    const outcomes = { recorded: 0, no_results: 0, provider_error: 0, rejected_by_fare_history: 0 };
+    const startedAt = this.now();
+
     try {
       for (let i = 0; i < count; i++) {
         const idx = (this.cursorIndex + i) % tasks.length;
         const { origin, destination, horizon } = tasks[idx];
 
-        await this.sampleOne(origin, destination, horizon);
+        const result = await this.sampleOne(origin, destination, horizon);
+        outcomes[result.reason] = (outcomes[result.reason] || 0) + 1;
         processed++;
         await sleep(this.delayMs);
       }
     } finally {
       // Advance by what was ACTUALLY done, so an interrupted sweep resumes rather than repeats.
       this.cursorIndex = (this.cursorIndex + processed) % tasks.length;
+
+      const yieldPct = processed > 0 ? Math.round((outcomes.recorded / processed) * 100) : 0;
+      this.lastSweep = {
+        startedAt: new Date(startedAt).toISOString(),
+        finishedAt: new Date(this.now()).toISOString(),
+        attempted: processed,
+        ...outcomes,
+        yieldPct
+      };
+
+      /*
+        One line that answers "is the collector actually collecting?".
+
+        Warn rather than log below half, because a sweep quietly discarding most of its
+        samples still looks like a working collector in every other signal: the cron fires,
+        rows appear, no exception is thrown. The yield is the only thing that says the
+        baseline is being built out of whatever survived.
+      */
+      const summary =
+        `[fareCollector] Sweep done: ${outcomes.recorded}/${processed} recorded (${yieldPct}% yield) — ` +
+        `no_results=${outcomes.no_results} provider_error=${outcomes.provider_error} ` +
+        `rejected=${outcomes.rejected_by_fare_history}`;
+      if (yieldPct < 50) console.warn(`${summary}  <-- LOW YIELD`);
+      else console.log(summary);
     }
 
     /*
