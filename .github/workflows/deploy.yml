@@ -1,3 +1,36 @@
+# Build KAIRO and publish it to GitHub Pages.
+#
+# -------------------------------------------------------------------------------------
+# WHY THIS WAS REWRITTEN
+#
+# The previous version pushed dist/ to a `gh-pages` branch with peaceiris/actions-gh-pages.
+# That push then triggered GitHub's own auto-generated `pages-build-deployment` workflow,
+# which did the actual publishing. Two workflows, two failure surfaces, and only one of
+# them visible in this file.
+#
+# On run #75 that split cost a deploy: THIS workflow reported Success in 42s while
+# pages-build-deployment #126 failed after 10m 34s with "Timeout reached, aborting!" —
+# its build step produced a perfectly good 406 KB artifact and the publish step hung.
+# Nothing in the repository could have predicted or prevented that, because the failing
+# job was not described here.
+#
+# The official Actions method publishes the artifact directly. There is no `gh-pages`
+# branch, no second workflow, and one place to look when a deploy fails.
+#
+# The old file also carried `permissions: pages/id-token` and a `pages` concurrency group,
+# which belong to THIS method and did nothing under the branch method. They are now load-
+# bearing rather than decorative.
+#
+# -------------------------------------------------------------------------------------
+# ONE-TIME MANUAL STEP — THE DEPLOY WILL FAIL WITHOUT IT
+#
+#   Settings > Pages > Build and deployment > Source: "GitHub Actions"
+#
+# While that still reads "Deploy from a branch", deploy-pages has nothing to publish to
+# and fails immediately. The `gh-pages` branch can be deleted afterwards; so can the
+# `gh-pages` devDependency and the predeploy/deploy scripts in package.json, which are
+# now the only remaining users of the old path.
+
 name: Deploy to GitHub Pages
 
 on:
@@ -6,41 +39,86 @@ on:
       - main
   workflow_dispatch:
 
+# Read the source; mint an OIDC token so deploy-pages can prove it is this workflow.
+# contents:write is gone — nothing pushes to a branch any more.
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
+# One deployment at a time, and NEVER cancel one that is already running.
+#
+# The old file had cancel-in-progress: true, which is right for CI and wrong for
+# deployments: a second push could kill a publish that was midway through, leaving the
+# live site in whatever state it happened to be in. Queued runs still collapse to the
+# latest, so a burst of pushes deploys once.
 concurrency:
   group: 'pages'
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
+      # Node 20 is deprecated on the runners and was being force-upgraded to 24 with a
+      # warning on every run. 22 is current LTS and is what vite 8 / vitest 4 expect.
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
+      # The gate stays. A green deploy of a broken bundle is worse than a red build.
       - name: Run tests
         run: npm test
 
+      # Checked BEFORE the build so a misconfigured repository fails in seconds.
+      #
+      # NEW BEHAVIOUR, DELIBERATE: an unset secret now fails the run. It used to build
+      # anyway, and the bundle fell back to the hardcoded PRODUCTION_API_URL in
+      # src/lib/apiBase.js. That fallback exists so real visitors still reach a working API
+      # when CI is misconfigured — it is not a reason to leave CI misconfigured, as the
+      # comment on it says. If you would rather ship than be told, delete this step.
+      - name: Verify VITE_API_URL was provided
+        run: |
+          if [ -z "${{ secrets.VITE_API_URL }}" ]; then
+            echo "::error::VITE_API_URL secret is not set. The bundle would silently fall back to the hardcoded backend URL in src/lib/apiBase.js."
+            exit 1
+          fi
+
+      # No actions/configure-pages step: vite.config.js hardcodes base: '/kairo/', so there
+      # is no base path to inject. One less action that can fail.
       - name: Build site
         run: npm run build
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Records the deployment against the github-pages environment and surfaces the live
+    # URL on the run summary, so a hung publish is visible here instead of in a workflow
+    # nobody wrote.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
