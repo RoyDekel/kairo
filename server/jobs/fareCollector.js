@@ -42,6 +42,38 @@ export class FareCollector {
     return raw.split(',').map((code) => code.trim().toUpperCase()).filter(Boolean);
   }
 
+  /**
+   * Destinations to sample, and the reason this is not simply "the catalog".
+   *
+   * shared/catalog.js carries 3,269 airports. Crossed with one home and four horizons that
+   * is 13,072 upstream searches per sweep — roughly 7.3 hours of pure sleep() before any
+   * network time, against a reverse-engineered Google Flights endpoint that will start
+   * refusing long before the sweep ends. It also spreads a fixed daily budget of requests
+   * so thinly that no single route ever reaches MIN_OBS_FOR_FORECAST.
+   *
+   * A forecast needs depth on a few routes, not one observation each on thousands. Left
+   * unset this falls back to VITE_FEATURED_HUBS, which is the list the UI already promotes.
+   */
+  get destinationAirports() {
+    const raw = process.env.COLLECTOR_DESTINATIONS || process.env.VITE_FEATURED_HUBS || '';
+    const configured = raw
+      .split(',')
+      .map((code) => code.trim().toUpperCase())
+      .filter((code) => code && this.airports[code]);
+
+    return configured.length > 0 ? configured : Object.keys(this.airports);
+  }
+
+  /**
+   * Hard ceiling on tasks per sweep, so an interrupted sweep resumes instead of restarting.
+   *
+   * 0 means unlimited. Any positive value makes `cursorIndex` meaningful: the sweep stops
+   * after N tasks and the next one picks up where this one stopped.
+   */
+  get maxTasksPerSweep() {
+    return Math.max(0, Number(process.env.COLLECTOR_MAX_TASKS_PER_SWEEP || 0));
+  }
+
   get horizons() {
     if (process.env.COLLECTOR_HORIZONS) {
       return process.env.COLLECTOR_HORIZONS.split(',').map(Number).filter(Boolean);
@@ -115,7 +147,7 @@ export class FareCollector {
     }
 
     this.isRunning = true;
-    const destinations = Object.keys(this.airports);
+    const destinations = this.destinationAirports;
     const homes = this.homeAirports;
     const horizons = this.horizons;
 
@@ -135,18 +167,35 @@ export class FareCollector {
       return;
     }
 
-    console.log(`[fareCollector] Starting sweep of ${tasks.length} sampling tasks from cursor ${this.cursorIndex}...`);
+    /*
+      Take a bounded slice, not the whole list.
 
-    for (let i = 0; i < tasks.length; i++) {
-      const idx = (this.cursorIndex + i) % tasks.length;
-      const { origin, destination, horizon } = tasks[idx];
+      The previous version always walked every task and then advanced the cursor by
+      tasks.length — which is congruent to 0, so cursorIndex never moved and every sweep
+      restarted at index 0. Harmless while a sweep always completed; not harmless on a host
+      that restarts, because the collector would re-sample the same opening routes forever
+      and the tail of the catalog would never be observed at all. The baseline would then be
+      skewed by catalog order rather than by the market.
+    */
+    const budget = this.maxTasksPerSweep;
+    const count = budget > 0 ? Math.min(budget, tasks.length) : tasks.length;
 
-      await this.sampleOne(origin, destination, horizon);
-      await sleep(this.delayMs);
+    console.log(`[fareCollector] Starting sweep of ${count}/${tasks.length} sampling tasks from cursor ${this.cursorIndex}...`);
+
+    let processed = 0;
+    try {
+      for (let i = 0; i < count; i++) {
+        const idx = (this.cursorIndex + i) % tasks.length;
+        const { origin, destination, horizon } = tasks[idx];
+
+        await this.sampleOne(origin, destination, horizon);
+        processed++;
+        await sleep(this.delayMs);
+      }
+    } finally {
+      // Advance by what was ACTUALLY done, so an interrupted sweep resumes rather than repeats.
+      this.cursorIndex = (this.cursorIndex + processed) % tasks.length;
     }
-
-    // Advance cursor so next sweep continues seamlessly
-    this.cursorIndex = (this.cursorIndex + tasks.length) % tasks.length;
 
     /*
       An opportunistic extra check against the fares this sweep just collected. NOT the
