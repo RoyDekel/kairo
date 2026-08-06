@@ -126,7 +126,7 @@ export default function DestinationCard({
                 }}
                 title={matchTooltip}
               >
-                ★ <span className="num">{rec.matchScore}%</span> match
+                ★ <span className="num">{rec.matchScore}%</span> Match
               </span>
               {/*
                 Confidence sits BESIDE the score rather than inside it. A 90 built on a live
@@ -247,7 +247,7 @@ export default function DestinationCard({
                 style={{ textTransform: 'none', letterSpacing: 0, padding: '4px 10px', fontSize: '0.78rem' }}
                 title={`Typical fare $${rec.typicalPrice}, median of ${rec.historicalSampleSize} recorded quotes for this route`}
               >
-                <span className="num">{rec.savingsPercent}%</span> Below usual
+                <span className="num">{rec.savingsPercent}%</span>{" "}Below usual
               </span>
             )}
           </div>
