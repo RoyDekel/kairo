@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ForecastService } from '../../../server/services/forecastService.js';
 
 function fakeSupabase({ rows = [], fail = false } = {}) {
@@ -97,5 +97,96 @@ describe('ForecastService', () => {
     expect(result.confidenceScore).toBeLessThanOrEqual(95);
     expect(result.predictionInterval.lower).toBeLessThan(result.predictionInterval.upper);
     expect(result.priceHistory.length).toBe(7);
+  });
+
+  describe('Hugging Face Dedicated Endpoint integration', () => {
+    const originalEnv = { ...process.env };
+
+    beforeEach(() => {
+      vi.stubGlobal('fetch', vi.fn());
+    });
+
+    afterEach(() => {
+      process.env = { ...originalEnv };
+      vi.unstubAllGlobals();
+    });
+
+    test('calls Hugging Face Dedicated Endpoint and parses quantiles successfully', async () => {
+      process.env.HF_ENDPOINT_URL = 'https://api-inference.huggingface.co/models/mock-chronos';
+      process.env.HF_API_KEY = 'mock-api-key';
+
+      // 35 daily observations
+      const rows = [];
+      const baseDate = new Date('2026-07-01');
+      for (let i = 0; i < 35; i++) {
+        rows.push({
+          roundtrip_price: 300 + (i % 5) * 5,
+          observed_at: new Date(baseDate.getTime() + i * 86_400_000).toISOString()
+        });
+      }
+
+      const mockResponse = {
+        quantiles: {
+          '0.1': [280, 280, 280, 280, 280, 280, 280],
+          '0.5': [310, 310, 310, 310, 310, 310, 310],
+          '0.9': [340, 340, 340, 340, 340, 340, 340]
+        }
+      };
+
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: async () => [mockResponse]
+      });
+
+      const supabase = fakeSupabase({ rows });
+      const service = new ForecastService({ supabase });
+
+      const result = await service.forecastRoute('TLV', 'LCA', 320);
+
+      // Verify fetch was called with the correct parameters
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api-inference.huggingface.co/models/mock-chronos',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer mock-api-key'
+          }),
+          body: expect.any(String)
+        })
+      );
+
+      expect(result.reason).toBe('huggingface_chronos_forecast');
+      expect(result.forecastMedian).toBe(310);
+      expect(result.predictionInterval.lower).toBe(280);
+      expect(result.predictionInterval.upper).toBe(340);
+      expect(result.verdict).toBe('WAIT'); // currentPrice (320) > forecastMedian (310)
+    });
+
+    test('falls back to seasonal-naive forecast if HF Endpoint fails or returns error status', async () => {
+      process.env.HF_ENDPOINT_URL = 'https://api-inference.huggingface.co/models/mock-chronos';
+
+      const rows = [];
+      const baseDate = new Date('2026-07-01');
+      for (let i = 0; i < 35; i++) {
+        rows.push({
+          roundtrip_price: 300,
+          observed_at: new Date(baseDate.getTime() + i * 86_400_000).toISOString()
+        });
+      }
+
+      global.fetch.mockResolvedValue({
+        ok: false,
+        status: 503
+      });
+
+      const supabase = fakeSupabase({ rows });
+      const service = new ForecastService({ supabase });
+
+      const result = await service.forecastRoute('TLV', 'LCA', 320);
+
+      expect(result.reason).toBe('seasonal_naive_forecast');
+      expect(result.forecastMedian).toBeDefined();
+    });
   });
 });

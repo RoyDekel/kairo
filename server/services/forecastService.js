@@ -126,6 +126,106 @@ export class ForecastService {
       const dailyPrices = dailyTimeline.map(pt => pt.price);
       const M = dailyPrices.length;
 
+      const hfEndpointUrl = process.env.HF_ENDPOINT_URL;
+      const hfApiKey = process.env.HF_API_KEY;
+
+      if (hfEndpointUrl && hfEndpointUrl.trim() !== '') {
+        try {
+          const payload = {
+            inputs: dailyPrices,
+            parameters: {
+              prediction_length: 7,
+              num_samples: 20
+            }
+          };
+
+          const headers = {
+            'Content-Type': 'application/json'
+          };
+          if (hfApiKey && hfApiKey.trim() !== '') {
+            headers['Authorization'] = `Bearer ${hfApiKey}`;
+          }
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+          let response;
+          try {
+            response = await fetch(hfEndpointUrl, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(payload),
+              signal: controller.signal
+            });
+          } finally {
+            clearTimeout(timeoutId);
+          }
+
+          if (!response.ok) {
+            throw new Error(`HF Endpoint returned status ${response.status}`);
+          }
+
+          const responseData = await response.json();
+          let hfForecastMedian = null;
+          let hfLower80 = null;
+          let hfUpper80 = null;
+
+          const data = Array.isArray(responseData) ? responseData[0] : responseData;
+          if (data && data.quantiles) {
+            const q50 = data.quantiles['0.5'] || data.quantiles['50'];
+            const q10 = data.quantiles['0.1'] || data.quantiles['10'];
+            const q90 = data.quantiles['0.9'] || data.quantiles['90'];
+
+            if (Array.isArray(q50) && q50.length > 0) {
+              hfForecastMedian = medianOf(q50.map(Number));
+            }
+            if (Array.isArray(q10) && q10.length > 0) {
+              hfLower80 = Math.min(...q10.map(Number));
+            }
+            if (Array.isArray(q90) && q90.length > 0) {
+              hfUpper80 = Math.max(...q90.map(Number));
+            }
+          } else if (data && Array.isArray(data.mean)) {
+            hfForecastMedian = medianOf(data.mean.map(Number));
+            const std = 25; // fallback
+            hfLower80 = Math.max(10, Math.round(hfForecastMedian - 1.28 * std));
+            hfUpper80 = Math.round(hfForecastMedian + 1.28 * std);
+          }
+
+          if (hfForecastMedian !== null && hfLower80 !== null && hfUpper80 !== null) {
+            const isCheaperThanForecast = currentPrice <= hfForecastMedian;
+            const recommendation = (pricePercentile <= 25 || isCheaperThanForecast) ? 'BUY_NOW' : 'WAIT';
+            
+            const forecastRange = Math.max(10, hfUpper80 - hfLower80);
+            const cv = forecastRange / (hfForecastMedian || 1);
+            const confidenceScore = Math.min(95, Math.max(75, Math.round(95 - cv * 30)));
+            const expectedSavings = Math.max(15, Math.round(currentPrice - Math.min(hfForecastMedian, low90Day)));
+
+            console.log(`[forecastService] HF Dedicated Endpoint forecast succeeded for ${route}. Median: $${hfForecastMedian}`);
+
+            return {
+              verdict: recommendation,
+              reason: 'huggingface_chronos_forecast',
+              sampleSize,
+              low90Day,
+              high90Day,
+              avg90Day,
+              pricePercentile,
+              priceHistory: graphPoints,
+              recommendation,
+              confidenceScore,
+              expectedSavings,
+              forecastMedian: hfForecastMedian,
+              predictionInterval: { lower: hfLower80, upper: hfUpper80 },
+              prices: rawPrices
+            };
+          }
+          console.warn(`[forecastService] HF response format was unrecognized, falling back to seasonal-naive.`);
+        } catch (apiErr) {
+          console.warn(`[forecastService] HF Dedicated Endpoint failed: ${apiErr.message}. Falling back to seasonal-naive.`);
+        }
+      }
+
       // Seasonal period of 7 days (weekly seasonality)
       const S = 7;
       let forecastMedian = avg90Day;
