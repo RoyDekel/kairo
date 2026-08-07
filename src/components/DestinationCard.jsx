@@ -244,10 +244,10 @@ export default function DestinationCard({
             {rec.savingsPercent > 0 && (
               <span
                 className="badge badge-success"
-                style={{ textTransform: 'none', letterSpacing: 0, padding: '4px 10px', fontSize: '0.78rem' }}
+                style={{ textTransform: 'none', letterSpacing: 0, padding: '4px 10px', fontSize: '0.78rem', gap: '4px' }}
                 title={`Typical fare $${rec.typicalPrice}, median of ${rec.historicalSampleSize} recorded quotes for this route`}
               >
-                <span className="num">{rec.savingsPercent}%</span>{" "} Below usual
+                <span className="num">{rec.savingsPercent}%</span> Below usual
               </span>
             )}
           </div>
