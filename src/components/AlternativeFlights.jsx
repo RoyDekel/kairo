@@ -69,6 +69,18 @@ export default function AlternativeFlights({
   setActiveTab
 }) {
   const { session } = useAuth();
+
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const getLocalDateString = () => {
     const d = new Date();
     const year = d.getFullYear();
@@ -477,38 +489,81 @@ export default function AlternativeFlights({
             boxSizing: 'border-box',
             width: '100%'
           }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', width: '100%' }}>
               {/* Trip Type Selector */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <label htmlFor="trip-type-select" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  Trip Type:
-                </label>
-                <select
-                  id="trip-type-select"
-                  aria-label="Trip Type"
-                  value={tripType}
-                  onChange={(e) => setTripType(e.target.value)}
-                  className="input-field"
-                  style={{
-                    padding: '0 28px 0 12px',
-                    height: '46px',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    borderRadius: '6px',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-glass-bright)',
-                    cursor: 'pointer',
-                    appearance: 'none',
-                    WebkitAppearance: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value="round-trip">Round trip</option>
-                  <option value="one-way">One-way</option>
-                  <option value="multi-city">Multi-City</option>
-                </select>
-              </div>
+              {isMobile ? (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '24px',
+                  width: '100%',
+                  borderBottom: '1px solid var(--border-glass-bright, rgba(255, 255, 255, 0.12))',
+                  marginBottom: '8px',
+                  boxSizing: 'border-box'
+                }}>
+                  {[
+                    { value: 'round-trip', label: 'Round-trip' },
+                    { value: 'one-way', label: 'One-way' },
+                    { value: 'multi-city', label: 'Multi-city' }
+                  ].map((opt) => {
+                    const isActive = tripType === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setTripType(opt.value)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '8px 0 12px 0',
+                          fontSize: '0.92rem',
+                          fontWeight: isActive ? '700' : '500',
+                          color: isActive ? 'var(--text-primary, #ffffff)' : 'var(--text-secondary, #94a3b8)',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          outline: 'none',
+                          transition: 'all 0.15s ease',
+                          marginBottom: '-1px',
+                          borderBottom: isActive ? '2px solid var(--text-primary, #ffffff)' : '2px solid transparent'
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label htmlFor="trip-type-select" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    Trip Type:
+                  </label>
+                  <select
+                    id="trip-type-select"
+                    aria-label="Trip Type"
+                    value={tripType}
+                    onChange={(e) => setTripType(e.target.value)}
+                    className="input-field"
+                    style={{
+                      padding: '0 28px 0 12px',
+                      height: '46px',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-glass-bright)',
+                      cursor: 'pointer',
+                      appearance: 'none',
+                      WebkitAppearance: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="round-trip">Round trip</option>
+                    <option value="one-way">One-way</option>
+                    <option value="multi-city">Multi-City</option>
+                  </select>
+                </div>
+              )}
 
               {/* Unified Passengers & Cabin Class Selector */}
               <div className="input-group" ref={passengerRef} style={{ position: 'relative', margin: 0 }}>
