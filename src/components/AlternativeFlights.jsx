@@ -1154,7 +1154,9 @@ export default function AlternativeFlights({
               ) : (
                 paginatedFlights.map((flight) => {
                   const isCheapest = flight.price === cheapestPrice;
-                  const airline = AIRLINES[flight.airlineCode] || AIRLINES.LO;
+                  // Unknown carrier codes fall back to a neutral plane glyph, not a
+                  // specific airline's logo (matches Watchlist/FlightDetails).
+                  const airline = AIRLINES[flight.airlineCode] || { name: 'Unknown', logo: '✈️', color: 'var(--primary)' };
 
                   return (
                     <div
