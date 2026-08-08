@@ -153,7 +153,7 @@ vi.mock('chart.js', () => ({
 
 // Mock react-chartjs-2
 vi.mock('react-chartjs-2', () => ({
-  Line: ({ data, options }) => {
+  Line: ({ data }) => {
     return React.createElement(
       'div',
       { 'data-testid': 'mock-line-chart' },

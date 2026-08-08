@@ -2,13 +2,13 @@
 // needed; JSX itself compiles through the automatic runtime and does not use it.
 import { useState, useEffect, useRef } from 'react';
 import {
-  Calendar, Filter, Sparkles, ArrowRight, Check, Globe,
-  Users, ChevronDown, User, ShieldAlert, ArrowLeftRight
+  Filter, Sparkles, ArrowRight, Check, Globe,
+  Users, ChevronDown, ShieldAlert, ArrowLeftRight
 } from 'lucide-react';
-import { AIRPORTS, AIRLINES, generateFlightsForRoute, getSkyscannerUrl } from '../utils/flightSimulator';
+import { AIRLINES, getSkyscannerUrl } from '../utils/flightSimulator';
 import CustomDatePicker from './CustomDatePicker';
 import AirportAutocomplete from './AirportAutocomplete';
-import { useAuth } from '../contexts/AuthProvider';
+import { useAuth } from '../contexts/authContext';
 import { getApiBase, authHeaders, fetchWithTimeout } from '../lib/apiBase';
 
 const AirlineLogo = ({ flight, fallbackLogo, size = 32 }) => {
@@ -55,16 +55,11 @@ function formatDateDMY(dateStr) {
 }
 
 export default function AlternativeFlights({
-  selectedDate,
   setSelectedDate,
-  activeFlight,
   setActiveFlight,
-  onToggleWatchlist,
-  watchlist,
   // New props for dynamic search
   searchParams,
   setSearchParams,
-  activeRoundtrip,
   setActiveRoundtrip,
   setActiveTab
 }) {
@@ -228,7 +223,10 @@ export default function AlternativeFlights({
             if (errData && errData.error) {
               errMsg = errData.error;
             }
-          } catch (_) {}
+          } catch {
+            // Body was not JSON. errMsg already holds the status-code fallback above, which
+            // is the best description available — keep it and throw that.
+          }
           throw new Error(errMsg);
         }
 

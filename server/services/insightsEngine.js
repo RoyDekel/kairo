@@ -62,7 +62,9 @@ export function computeEventDrivenInsights(flight, searchRequest = {}, events = 
 
   // 4. Recommendation Algorithm (BUY_NOW vs WAIT)
   let recommendation = forecast ? forecast.recommendation : 'WAIT';
-  let riskLevel = 'Low';
+  // No initialiser: the branch chain below ends in an unconditional `else`, so riskLevel is
+  // always assigned before it is read. A default here was dead and hid that fact.
+  let riskLevel;
 
   // For specific flight options, we recalculate recommendation based on their own percentile if forecast is available
   if (forecast && forecast.prices) {
@@ -103,7 +105,7 @@ export function computeEventDrivenInsights(flight, searchRequest = {}, events = 
     : `WAIT ${dropDaysNum} MORE DAYS`;
 
   // Humanized Summary & Rationale
-  let summary = '';
+  let summary;
   if (recommendation === 'BUY_NOW') {
     if (isHighImpactEvent && topEvent) {
       summary = `High travel demand expected for "${topEvent.title}" at ${topEvent.venue} (${topEvent.categoryLabel}). Fares are predicted to rise by ~$${Math.round(expectedSavings * 1.2)} due to event ticket pressure.`;

@@ -1,10 +1,12 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import AIDestinationExplorer from '../components/AIDestinationExplorer';
 import { searchAIDestinations } from '../utils/aiDestinationEngine';
 
-vi.mock('../contexts/AuthProvider', () => ({
+// useAuth lives in authContext.js, not AuthProvider.jsx (split for Fast Refresh — see the
+// comment on AuthContext in src/contexts/authContext.js). The component reads it from
+// there, so the mock has to intercept that module.
+vi.mock('../contexts/authContext', () => ({
   useAuth: () => ({
     session: { access_token: 'fake-token' },
     user: { id: 'test-user-123', email: 'test@example.com' },

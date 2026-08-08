@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, Trash2, ShieldAlert, CheckCircle, Info, PlusCircle, Send } from 'lucide-react';
 import { getApiBase, authHeaders, fetchWithTimeout } from '../lib/apiBase';
 
@@ -8,7 +8,6 @@ export default function AlertsManager({
   notifications, 
   setNotifications, 
   activeFlight,
-  flightDatabase,
   accessToken
 }) {
   const [targetPrice, setTargetPrice] = useState(Math.round(activeFlight.price * 0.95));

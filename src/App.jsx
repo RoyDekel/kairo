@@ -17,7 +17,7 @@ import LandingPage from './components/LandingPage';
 import AIDestinationExplorer from './components/AIDestinationExplorer';
 import BuyVerdict from './components/BuyVerdict';
 import SimulatorPanel from './components/SimulatorPanel';
-import { useAuth } from './contexts/AuthProvider';
+import { useAuth } from './contexts/authContext';
 import * as dataService from './lib/dataService';
 import { getApiBase, authHeaders, fetchWithTimeout } from './lib/apiBase';
 import {
@@ -485,7 +485,7 @@ export default function App() {
             return;
           }
         }
-      } catch (err) {
+      } catch {
         // Silently fall back to simulated telemetry
       }
       

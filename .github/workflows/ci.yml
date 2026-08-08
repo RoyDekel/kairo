@@ -1,0 +1,71 @@
+# Pull-request gate for KAIRO.
+#
+# -------------------------------------------------------------------------------------
+# WHY THIS EXISTS
+#
+# deploy.yml runs `npm test` on push to main. That is a deploy gate, not a review gate:
+# by the time it fails, the broken commit is already on main and the only remedy is a
+# revert. It also means a pull request against this repo reported nothing at all — no
+# checks, no red X, nothing for branch protection to require.
+#
+# This workflow is the half that was missing. It runs the same three commands that define
+# "done" in CLAUDE.md, against the merge result, before anything touches main.
+#
+# It deliberately does NOT deploy. Publishing stays in deploy.yml, triggered by the merge.
+# One workflow that ships, one that judges.
+# -------------------------------------------------------------------------------------
+
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  # Lets a branch be checked before a PR exists, and makes the check re-runnable by hand.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A force-push to a PR branch supersedes the previous run. Unlike deploy.yml, cancelling
+# here is correct: nothing is being published, so there is no half-finished state to
+# protect, and stale runs would otherwise queue up behind every amend.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: test / lint / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Each step is separate on purpose. A single `npm test && npm run lint && npm run build`
+      # would collapse three distinct failure modes into one red X, and the whole point of a
+      # PR check is telling the author which one broke without opening the log.
+      - name: Unit tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      # The build runs WITHOUT VITE_API_URL on purpose. deploy.yml hard-fails when that
+      # secret is missing, because a production bundle must not silently fall back to the
+      # hardcoded URL in src/lib/apiBase.js. Here the only question is whether the code
+      # compiles — secrets are not exposed to pull requests from forks anyway, so requiring
+      # one would make this check permanently unpassable for outside contributions.
+      - name: Production build
+        run: npm run build

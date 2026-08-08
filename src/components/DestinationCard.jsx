@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ArrowRight, Bookmark, CheckCircle, ExternalLink, ChevronDown, ChevronUp, Calendar, MapPin, Info } from 'lucide-react';
 import { destinationFareVerdict } from '../utils/destinationFareVerdict';
 import CityLandmarkIcon from './CityLandmarkIcon';

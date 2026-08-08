@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Sparkles, Compass, WifiOff, Search, AlertTriangle } from 'lucide-react';
-import { AIRPORTS } from '../utils/flightSimulator';
 import { searchAIDestinations, fetchAuthoritativeQuote, DiscoveryUnavailableError } from '../utils/aiDestinationEngine';
 import DestinationCard from './DestinationCard';
 import CustomDatePicker from './CustomDatePicker';
-import { useAuth } from '../contexts/AuthProvider';
+import { useAuth } from '../contexts/authContext';
 import {
   DEFAULT_ORIGIN,
   DEFAULT_DEPARTURE_DATE,

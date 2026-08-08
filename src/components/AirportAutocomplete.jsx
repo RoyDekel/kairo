@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AIRPORTS, FEATURED_HUBS } from '../../shared/catalog.js';
 
 export default function AirportAutocomplete({ label, value, onChange, placeholder, id, style }) {

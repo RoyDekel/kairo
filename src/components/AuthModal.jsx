@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthProvider';
+import { useState } from 'react';
+import { useAuth } from '../contexts/authContext';
 import { Mail, Lock, Eye, EyeOff, X, Loader2, UserPlus, LogIn, KeyRound } from 'lucide-react';
 
 export default function AuthModal({ isOpen, onClose }) {

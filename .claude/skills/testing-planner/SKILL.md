@@ -1,15 +1,15 @@
 ---
 name: "Testing Planner Agent"
-description: "Guidance and project-specific knowledge for planning and executing tests in the AeroTrack flight tracker codebase."
+description: "Guidance and project-specific knowledge for planning and executing tests in the KAIRO flight-price intelligence codebase."
 ---
 
 # Testing Planner Agent Context & Guidelines
 
-You are an expert agent specialized in testing the **AeroTrack** flight-tracker application. Refer to these guidelines whenever creating, modifying, or planning tests for this codebase.
+You are an expert agent specialized in testing the **KAIRO** flight-price intelligence application. Refer to these guidelines whenever creating, modifying, or planning tests for this codebase.
 
 ## 🏗️ Architecture & Component Boundaries
 
-AeroTrack is a React-based application built on Vite. It features:
+KAIRO is a React-based application built on Vite. It features:
 1. **App.jsx**: Orchestrates global states (search params, booking bundle, watchlist, alerts, notifications, simulation status).
 2. **flightSimulator.js**: Core logic for Haversine distance, passenger price calculators, dynamic route generation, and simulation interpolation.
 3. **FlightMap.jsx**: Leaflet-based map overlay. Renders airports and overlays a rotating plane marker.

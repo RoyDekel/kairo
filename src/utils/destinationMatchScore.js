@@ -199,7 +199,11 @@ export function scoreDestination({
  * Reported beside the number rather than inside it, so the card can show a high score
  * honestly labelled as provisional instead of quietly deflating it.
  */
-export function assessConfidence({ priceSource, coverage, hasHistory }) {
+// `coverage` is accepted and deliberately not read: callers already pass it, but no gap is
+// derived from it yet, so folding it in now would silently change every confidence level
+// this function returns. Kept in the signature so the contract stays visible — see the
+// note in docs/product/backlog.md.
+export function assessConfidence({ priceSource, coverage: _coverage, hasHistory }) {
   const gaps = [];
 
   if (priceSource !== 'live') gaps.push('Fare is modelled, not a live quote');
