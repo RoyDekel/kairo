@@ -408,6 +408,144 @@ describe('FliProvider — round trips', () => {
   });
 });
 
+describe('FliProvider — multi-carrier itineraries resolve to a real airline', () => {
+  /*
+    Google reports a multi-carrier itinerary's code as the literal string "multi". The HTML
+    scraper built each segment's carrier from seg[0], which is not the carrier — the carrier
+    (and its flight number) live together at seg[22]. So the token "multi" survived into the
+    output: the flight number rendered as "multi 1302" and the logo lookup fell back to a
+    grey placeholder, because avs.io/gstatic have no logo for "MULTI".
+
+    This builds a raw ds:1 offer node the way Google emits it (itinerary code "multi",
+    per-segment carrier at seg[22][0]) and asserts the mapping recovers the operating carrier.
+  */
+  const sparse = (entries) => {
+    const a = [];
+    for (const [i, v] of Object.entries(entries)) a[Number(i)] = v;
+    return a;
+  };
+
+  // Air Europa TLV -> MAD -> BOG, one stop, reported by Google as a "multi" itinerary.
+  const rawSeg1 = sparse({
+    3: 'TLV', 6: 'MAD', 8: [6, 20], 10: [9, 50], 17: 'Boeing 737-800', 22: ['UX', '1302']
+  });
+  const rawSeg2 = sparse({
+    3: 'MAD', 6: 'BOG', 8: [12, 0], 10: [20, 0], 17: 'Boeing 787-9', 22: ['UX', '963']
+  });
+  const rawLeg = sparse({
+    0: 'multi', 1: ['Air Europa'], 2: [rawSeg1, rawSeg2], 5: [6, 20], 8: [20, 0], 9: 600
+  });
+  const rawOffer = [rawLeg, [[0, 850]]];
+
+  const newProvider = () =>
+    new FliProvider({ search: { search: vi.fn() }, currency: 'USD' });
+
+  test('the HTML mapping reads the carrier from seg[22][0], not seg[0]', () => {
+    const mapped = newProvider().mapRawHtmlOffer(rawOffer, 'TLV', 'BOG', '2026-10-15');
+
+    expect(mapped.primary_airline).toBe('UX');
+    expect(mapped.legs[0].airline).toBe('UX');
+    expect(mapped.legs[0].flight_number).toBe('1302');
+    // The token "multi" must never survive into any segment carrier.
+    for (const leg of mapped.legs) {
+      expect(String(leg.airline).toLowerCase()).not.toBe('multi');
+    }
+  });
+
+  test('the rendered flight carries a real IATA code and flight number, never "multi"', () => {
+    const provider = newProvider();
+    const mapped = provider.mapRawHtmlOffer(rawOffer, 'TLV', 'BOG', '2026-10-15');
+    const flight = provider.mapToFlight(
+      mapped, 'outbound', 'TLV', 'BOG', 100, { adults: 1, children: 0, infants: 0 }
+    );
+
+    expect(flight.airlineCode).toBe('UX');
+    expect(flight.flightNumber).toBe('UX 1302');
+    expect(flight.flightNumber).not.toMatch(/multi/i);
+    // avs.io/gstatic logo URLs are keyed on this code; "MULTI" would 404 to a placeholder.
+    expect(flight.airlineCode.toLowerCase()).not.toBe('multi');
+  });
+});
+
+describe('FliProvider — connecting itineraries surface the layover airport', () => {
+  /*
+    "1 stop" alone hides the one fact a connecting traveller most needs: where the stop is.
+    The provider now carries the layover airport code(s) so the card can render "1 stop · MAD".
+    Derived from the segments, which both the RPC and HTML paths populate.
+  */
+  const legTo = (arrival, over = {}) => ({
+    airline: 'UX',
+    flight_number: '1302',
+    departure_airport: 'TLV',
+    arrival_airport: arrival,
+    departure_datetime: new Date('2026-10-15T06:20:00'),
+    arrival_datetime: new Date('2026-10-15T09:50:00'),
+    duration: 210,
+    ...over
+  });
+
+  const provider = () =>
+    new FliProvider({ search: { search: vi.fn() }, currency: 'USD' });
+
+  test('a one-stop itinerary reports its single layover airport', () => {
+    const offer = {
+      legs: [
+        legTo('MAD'),
+        legTo('BOG', { departure_airport: 'MAD' })
+      ],
+      price: 850,
+      currency: 'USD',
+      duration: 600,
+      stops: 1
+    };
+
+    const flight = provider().mapToFlight(
+      offer, 'outbound', 'TLV', 'BOG', 100, { adults: 1, children: 0, infants: 0 }
+    );
+
+    expect(flight.stops).toBe('1 stop');
+    expect(flight.layoverAirports).toEqual(['MAD']);
+  });
+
+  test('a two-stop itinerary lists both layover airports in order', () => {
+    const offer = {
+      legs: [
+        legTo('MAD'),
+        legTo('LIS', { departure_airport: 'MAD' }),
+        legTo('BOG', { departure_airport: 'LIS' })
+      ],
+      price: 900,
+      currency: 'USD',
+      duration: 900,
+      stops: 2
+    };
+
+    const flight = provider().mapToFlight(
+      offer, 'outbound', 'TLV', 'BOG', 100, { adults: 1, children: 0, infants: 0 }
+    );
+
+    expect(flight.stops).toBe('2 stops');
+    expect(flight.layoverAirports).toEqual(['MAD', 'LIS']);
+  });
+
+  test('a non-stop itinerary has no layover airports', () => {
+    const offer = {
+      legs: [legTo('BOG')],
+      price: 700,
+      currency: 'USD',
+      duration: 300,
+      stops: 0
+    };
+
+    const flight = provider().mapToFlight(
+      offer, 'outbound', 'TLV', 'BOG', 100, { adults: 1, children: 0, infants: 0 }
+    );
+
+    expect(flight.stops).toBe('Direct');
+    expect(flight.layoverAirports).toEqual([]);
+  });
+});
+
 describe('FlightSearchService — provider selection and the estimate flag', () => {
   test('selects fli when FLI_ENABLED=true', () => {
     vi.stubEnv('FLI_ENABLED', 'true');

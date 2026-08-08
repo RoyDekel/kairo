@@ -156,6 +156,27 @@ function parseTimeArray(arr, fallback = [0, 0]) {
   return [hour, min];
 }
 
+/**
+ * The operating carrier IATA code of a Google Flights segment.
+ *
+ * Google stores it at segment index 22, paired with the flight number:
+ * `seg[22] = [carrierCode, flightNumber, operatingCarrierCode?]`. This is the exact slot
+ * `@punitarani/fli`'s RPC decoder (parseLeg) reads, and the same array this file already
+ * reads the flight number from (`seg[22][1]`).
+ *
+ * It is emphatically NOT `seg[0]`. An earlier HTML-scraper mapping read the carrier from
+ * `seg[0]`, which holds something else, so multi-carrier itineraries — whose itinerary
+ * code Google reports as the literal "multi" — never resolved to a real airline. The
+ * token "multi" then leaked into the flight number ("multi 1302") and broke the logo
+ * lookup, since avs.io/gstatic have no logo for "MULTI".
+ */
+function segmentCarrier(seg) {
+  if (Array.isArray(seg) && Array.isArray(seg[22]) && typeof seg[22][0] === 'string') {
+    return seg[22][0];
+  }
+  return '';
+}
+
 export class FliProvider extends FlightProvider {
   constructor({ search = null, currency = null } = {}) {
     super();
@@ -354,105 +375,120 @@ export class FliProvider extends FlightProvider {
     const rawOffers = this.collectAllOffers(parsedData);
     const offers = [];
 
-    for (const offer of rawOffers) {
-      if (!Array.isArray(offer) || offer.length < 2) continue;
-      const leg = offer[0];
-      const priceInfo = offer[1];
-
-      if (!Array.isArray(leg) || leg.length < 10) continue;
-
-      let price = null;
-      if (Array.isArray(priceInfo) && priceInfo[0] && Array.isArray(priceInfo[0]) && typeof priceInfo[0][1] === 'number') {
-        price = priceInfo[0][1];
-      }
-      if (!price || price <= 0) continue;
-
-      let airlineCode = typeof leg[0] === 'string' ? leg[0] : '';
-      let airlineName = Array.isArray(leg[1]) && leg[1][0] ? leg[1][0] : airlineCode;
-
-      const rawSegments = Array.isArray(leg[2]) ? leg[2] : [];
-
-      // Google uses the literal string "multi" as the airline code for multi-carrier
-      // itineraries (codeshare / interline). That is not a real IATA code — avs.io and
-      // gstatic have no logo for it, and "multi 807" is not a flight number anyone can
-      // look up. Resolve to the first segment's operating carrier instead.
-      if (airlineCode.toLowerCase() === 'multi' && rawSegments.length > 0) {
-        const firstSeg = rawSegments[0];
-        if (Array.isArray(firstSeg) && typeof firstSeg[0] === 'string' && firstSeg[0]) {
-          airlineCode = firstSeg[0];
-          // Keep Google's display name (e.g. "ITA Airways") if it was provided and is
-          // not itself "multi", otherwise fall back to the resolved code.
-          if (!airlineName || airlineName.toLowerCase() === 'multi') {
-            airlineName = AIRLINE_NAMES?.[airlineCode] || airlineCode;
-          }
-        }
-      }
-
-      // TRUE stops count: number of segments minus 1 (e.g. 2 segments = 1 stop, 1 segment = 0 / Direct)
-      const stopsCount = Math.max(0, rawSegments.length - 1);
-      const durationMins = typeof leg[9] === 'number' ? leg[9] : null;
-
-      const [year, month, day] = travelDate.split('-').map(Number);
-      const depT = parseTimeArray(leg[5]);
-      const arrT = parseTimeArray(leg[8]);
-
-      const mappedLegs = rawSegments.length > 0 ? rawSegments.map((seg) => {
-        if (!Array.isArray(seg)) return null;
-        const segFrom = seg[3] || from;
-        const segTo = seg[6] || to;
-        const segAirline = seg[0] || airlineCode;
-
-        let segFlightNum = '';
-        if (Array.isArray(seg[22]) && seg[22].length > 1) {
-          segFlightNum = String(seg[22][1]);
-        }
-        let segAircraft = null;
-        if (typeof seg[17] === 'string') {
-          segAircraft = seg[17];
-        }
-
-        const segDepT = parseTimeArray(seg[8], depT);
-        const segArrT = parseTimeArray(seg[10], arrT);
-
-        const segDepDate = new Date(Date.UTC(year, month - 1, day, segDepT[0], segDepT[1]));
-        const segArrDate = new Date(Date.UTC(year, month - 1, day, segArrT[0], segArrT[1]));
-        if (segArrDate < segDepDate) {
-          segArrDate.setUTCDate(segArrDate.getUTCDate() + 1);
-        }
-
-        return {
-          airline: segAirline,
-          flight_number: segFlightNum,
-          aircraft: segAircraft,
-          departure_airport: segFrom,
-          arrival_airport: segTo,
-          departure_datetime: segDepDate,
-          arrival_datetime: segArrDate
-        };
-      }).filter(Boolean) : [
-        {
-          airline: airlineCode,
-          flight_number: '',
-          aircraft: null,
-          departure_airport: from,
-          arrival_airport: to,
-          departure_datetime: new Date(Date.UTC(year, month - 1, day, depT[0], depT[1])),
-          arrival_datetime: new Date(Date.UTC(year, month - 1, day, arrT[0], arrT[1]))
-        }
-      ];
-
-      offers.push({
-        price,
-        currency: this.currency,
-        duration: durationMins,
-        stops: stopsCount,
-        primary_airline: airlineCode,
-        primary_airline_name: airlineName,
-        legs: mappedLegs
-      });
+    for (const rawOffer of rawOffers) {
+      const mapped = this.mapRawHtmlOffer(rawOffer, from, to, travelDate);
+      if (mapped) offers.push(mapped);
     }
 
     return offers;
+  }
+
+  /**
+   * Normalises one raw Google Flights `ds:1` offer node (`[leg, priceInfo, ...]`) into the
+   * SAME offer shape `@punitarani/fli` returns from the RPC path, so mapToFlight can treat
+   * both identically. Returns null for a node with no usable price or leg block.
+   *
+   * Kept separate from fetchLegHtml so this mapping — the one point at which "multi" and
+   * the per-segment carrier are resolved — is unit-testable without a live Google fetch.
+   */
+  mapRawHtmlOffer(rawOffer, from, to, travelDate) {
+    if (!Array.isArray(rawOffer) || rawOffer.length < 2) return null;
+    const leg = rawOffer[0];
+    const priceInfo = rawOffer[1];
+
+    if (!Array.isArray(leg) || leg.length < 10) return null;
+
+    let price = null;
+    if (Array.isArray(priceInfo) && priceInfo[0] && Array.isArray(priceInfo[0]) && typeof priceInfo[0][1] === 'number') {
+      price = priceInfo[0][1];
+    }
+    if (!price || price <= 0) return null;
+
+    let airlineCode = typeof leg[0] === 'string' ? leg[0] : '';
+    let airlineName = Array.isArray(leg[1]) && leg[1][0] ? leg[1][0] : airlineCode;
+
+    const rawSegments = Array.isArray(leg[2]) ? leg[2] : [];
+
+    // Google uses the literal string "multi" as the airline code for multi-carrier
+    // itineraries (codeshare / interline). That is not a real IATA code — avs.io and
+    // gstatic have no logo for it, and "multi 807" is not a flight number anyone can
+    // look up. Resolve to the first segment's operating carrier, read from its real
+    // location (seg[22][0]) via segmentCarrier — not seg[0].
+    if (airlineCode.toLowerCase() === 'multi' && rawSegments.length > 0) {
+      const resolved = segmentCarrier(rawSegments[0]);
+      if (resolved) {
+        airlineCode = resolved;
+        // Keep Google's display name (e.g. "ITA Airways") if it was provided and is
+        // not itself "multi", otherwise fall back to the resolved code.
+        if (!airlineName || airlineName.toLowerCase() === 'multi') {
+          airlineName = AIRLINE_NAMES?.[airlineCode] || airlineCode;
+        }
+      }
+    }
+
+    // TRUE stops count: number of segments minus 1 (e.g. 2 segments = 1 stop, 1 segment = 0 / Direct)
+    const stopsCount = Math.max(0, rawSegments.length - 1);
+    const durationMins = typeof leg[9] === 'number' ? leg[9] : null;
+
+    const [year, month, day] = travelDate.split('-').map(Number);
+    const depT = parseTimeArray(leg[5]);
+    const arrT = parseTimeArray(leg[8]);
+
+    const mappedLegs = rawSegments.length > 0 ? rawSegments.map((seg) => {
+      if (!Array.isArray(seg)) return null;
+      const segFrom = seg[3] || from;
+      const segTo = seg[6] || to;
+      // Operating carrier lives at seg[22][0], paired with the flight number at seg[22][1].
+      const segAirline = segmentCarrier(seg) || airlineCode;
+
+      let segFlightNum = '';
+      if (Array.isArray(seg[22]) && seg[22].length > 1) {
+        segFlightNum = String(seg[22][1]);
+      }
+      let segAircraft = null;
+      if (typeof seg[17] === 'string') {
+        segAircraft = seg[17];
+      }
+
+      const segDepT = parseTimeArray(seg[8], depT);
+      const segArrT = parseTimeArray(seg[10], arrT);
+
+      const segDepDate = new Date(Date.UTC(year, month - 1, day, segDepT[0], segDepT[1]));
+      const segArrDate = new Date(Date.UTC(year, month - 1, day, segArrT[0], segArrT[1]));
+      if (segArrDate < segDepDate) {
+        segArrDate.setUTCDate(segArrDate.getUTCDate() + 1);
+      }
+
+      return {
+        airline: segAirline,
+        flight_number: segFlightNum,
+        aircraft: segAircraft,
+        departure_airport: segFrom,
+        arrival_airport: segTo,
+        departure_datetime: segDepDate,
+        arrival_datetime: segArrDate
+      };
+    }).filter(Boolean) : [
+      {
+        airline: airlineCode,
+        flight_number: '',
+        aircraft: null,
+        departure_airport: from,
+        arrival_airport: to,
+        departure_datetime: new Date(Date.UTC(year, month - 1, day, depT[0], depT[1])),
+        arrival_datetime: new Date(Date.UTC(year, month - 1, day, arrT[0], arrT[1]))
+      }
+    ];
+
+    return {
+      price,
+      currency: this.currency,
+      duration: durationMins,
+      stops: stopsCount,
+      primary_airline: airlineCode,
+      primary_airline_name: airlineName,
+      legs: mappedLegs
+    };
   }
 
   /**
@@ -519,6 +555,15 @@ export class FliProvider extends FlightProvider {
     const durationMins = Number.isFinite(offer.duration) ? offer.duration : null;
     const stopsCount = Number.isFinite(offer.stops) ? offer.stops : Math.max(0, legs.length - 1);
 
+    // Layover airports are the arrival airport of every segment except the last. Derived
+    // from the segments (not offer.layovers) so it works identically on the RPC and HTML
+    // paths — the HTML scraper never produces a layovers array. The UI needs these to say
+    // "1 stop · MAD" instead of a bare "1 stop" that hides where the connection is.
+    const layoverAirports = legs
+      .slice(0, -1)
+      .map((l) => (l && l.arrival_airport ? String(l.arrival_airport) : ''))
+      .filter(Boolean);
+
     let airlineCode = String(first.airline || offer.primary_airline || '');
 
     // Final safety net: "multi" is not a real IATA code. Resolve to the first segment
@@ -559,6 +604,7 @@ export class FliProvider extends FlightProvider {
       // rather than re-parsing 'Direct' / '1 stop' back into a number, so the value the
       // filter tests and the value the user reads can never disagree.
       stopsCount,
+      layoverAirports,
       planeType: first.aircraft || null,
       terminal: `${from} → ${to}`,
       baggage: null,

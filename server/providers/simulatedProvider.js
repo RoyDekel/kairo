@@ -108,6 +108,9 @@ export class SimulatedProvider extends FlightProvider {
         passengerCosts: priceDetails,
         cabinClass: cabinClassName,
         stops: 'Direct',
+        // Simulated itineraries are always non-stop; the field is present so every provider
+        // hands the UI the same shape.
+        layoverAirports: [],
         planeType: aircraftModels[idx],
         terminal: `${originCode} T${idx === 2 ? '1' : '3'} → ${destinationCode} T1`,
         baggage: baggageDesc,
