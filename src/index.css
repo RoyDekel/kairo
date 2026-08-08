@@ -220,6 +220,16 @@
 
   --success: #10b981;
   --success-glow: rgba(16, 185, 129, 0.15);
+  /*
+    Text-safe success green, separate from --success. --success (#10b981) is tuned for
+    icons/badges against a flat background and only clears ~2.5:1 contrast as body text on
+    this theme's near-white glass -- WCAG AA needs 4.5:1. #34d399 (the old .auth-message-
+    success color) was worse: ~1.3:1 against the success banner's own tinted background,
+    because it was tuned against the dark theme only and never re-checked against light,
+    the app's default theme. #065f46 clears ~5.2:1 here; .dark-theme below restores the
+    original #34d399, which was already fine (~7.5:1) against the dark banner background.
+  */
+  --success-text: #065f46;
   --warning: #f59e0b;
   --warning-glow: rgba(245, 158, 11, 0.15);
   --danger: #ef4444;
@@ -291,6 +301,7 @@
   --success: #059669;
   /* Emerald */
   --success-glow: rgba(5, 150, 105, 0.2);
+  --success-text: #34d399;
   --warning: #d97706;
   /* Amber */
   --warning-glow: rgba(217, 119, 6, 0.2);
@@ -863,7 +874,17 @@ h6 {
 }
 
 .auth-modal {
-  background: var(--bg-glass);
+  /*
+    Deliberately opaque, not var(--bg-glass). --bg-glass (0.75-0.8 alpha) is tuned for
+    panels that sit on top of an already-flat --bg-primary section, where the low opacity
+    reads as a subtle tint. This modal instead floats over the live, unpredictable page
+    behind auth-overlay's scrim, so the same alpha let page content bleed through and made
+    the whole card look broken/see-through. var(--bg-secondary) is the same opaque-fallback
+    this codebase already uses for glass panels that need to guarantee a solid surface (see
+    the mobile .glass-panel override below) -- reusing it here keeps the card fully legible
+    while backdrop-filter still frosts whatever peeks past the rounded corners.
+  */
+  background: var(--bg-secondary);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border-glass-bright);
@@ -968,7 +989,7 @@ h6 {
 
 .auth-message-success {
   background: var(--success-glow);
-  color: #34d399;
+  color: var(--success-text);
   border: 1px solid rgba(52, 211, 153, 0.25);
 }
 
