@@ -60,6 +60,17 @@ export function AuthProvider({ children }) {
       },
     });
     if (error) throw error;
+    // With email confirmations enabled, Supabase deliberately does NOT return an error when
+    // the email already belongs to a confirmed account -- that would leak which addresses are
+    // registered (anti-enumeration). Instead signUp resolves successfully but hands back a user
+    // whose `identities` array is empty. Detect that and raise the same "User already registered"
+    // error Supabase gives in other configs, so AuthModal's existing message map surfaces it as
+    // a real error rather than the misleading "check your email" success state.
+    // Guard for shape: only an explicit empty array is the signal -- a missing/undefined
+    // `identities` must not trip this, to avoid false positives on unexpected response shapes.
+    if (Array.isArray(data?.user?.identities) && data.user.identities.length === 0) {
+      throw new Error('User already registered');
+    }
     return data;
   };
 
