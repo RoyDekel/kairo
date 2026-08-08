@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, Sun, Moon, LogIn, LogOut, Zap, Sparkles, ArrowRight } from 'lucide-react';
+import { Bell, Sun, Moon, LogIn, LogOut, Zap, Sparkles, ArrowRight, CheckCircle } from 'lucide-react';
 import {
   AIRPORTS,
   generateFlightsForRoute,
@@ -83,11 +83,54 @@ function useMediaQuery(query) {
 
 export default function App() {
   // Auth state
-  const { user, session, isAuthenticated, signOut } = useAuth();
+  const { user, session, isAuthenticated, loading: authLoading, signOut } = useAuth();
   const userId = user?.id;
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalInitialMode, setAuthModalInitialMode] = useState('signin');
+  const [authModalNotice, setAuthModalNotice] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  // Post-email-confirmation toast (top-right, auto-dismiss) -- see LandingPage.jsx for the
+  // sibling pattern this mirrors.
+  const [confirmationToastMsg, setConfirmationToastMsg] = useState(null);
+
+  /*
+    Handles the redirect Supabase sends the browser back to after the user clicks the
+    confirmation link in the signup email -- see EMAIL_CONFIRMATION_REDIRECT_URL in
+    AuthProvider.jsx, which pins that link to `?confirmed=true` on this exact page (no
+    client-side router here; it's a query string on the single SPA mount, not a route).
+
+    `authLoading` is AuthProvider's own getSession() resolving -- that round trip IS the
+    "short check" the confirmation flow needs, so there's no reason to add a second timer:
+    once it flips false, isAuthenticated reflects whatever Supabase actually did with the
+    link. A valid, unused link leaves the browser signed in (welcome toast); an
+    expired-or-already-used one does not (fall back to the sign-in modal with an
+    explanation instead of leaving the user looking at a dead landing page).
+  */
+  useEffect(() => {
+    if (authLoading) return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('confirmed') !== 'true') return;
+
+    // Strip the param immediately so a refresh or back-navigation doesn't replay this.
+    params.delete('confirmed');
+    const newSearch = params.toString();
+    const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash;
+    window.history.replaceState({}, '', newUrl);
+
+    if (isAuthenticated) {
+      setConfirmationToastMsg('Email confirmed! Welcome to KAIRO.');
+      setTimeout(() => setConfirmationToastMsg(null), 5000);
+    } else {
+      setAuthModalInitialMode('signin');
+      setAuthModalNotice(
+        'That confirmation link has expired or was already used. Sign in below, or sign up again to get a new link.'
+      );
+      setIsAuthModalOpen(true);
+    }
+  }, [authLoading, isAuthenticated]);
 
   // Mobile chrome: which navigation to render, the contextual bottom CTA, and
   // keeping the active nav pill inside the horizontally scrolling rail.
@@ -1084,8 +1127,37 @@ export default function App() {
       {/* AUTH MODAL */}
       <AuthModal
         isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setAuthModalNotice('');
+        }}
+        initialMode={authModalInitialMode}
+        notice={authModalNotice}
       />
+
+      {/*
+        EMAIL-CONFIRMATION TOAST — fixed top-right, auto-dismiss. Mirrors the toast pattern
+        in LandingPage.jsx (this app has no shared toast component to reuse yet).
+      */}
+      {confirmationToastMsg && (
+        <div className="animate-fade-in" style={{
+          position: 'fixed',
+          top: '80px',
+          right: '24px',
+          zIndex: 'var(--z-modal)',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--success-glow)',
+          borderRadius: 'var(--radius-md)',
+          padding: '12px 18px',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <CheckCircle size={18} color="var(--success)" />
+          <span>{confirmationToastMsg}</span>
+        </div>
+      )}
 
       {/*
         MOBILE CONTEXTUAL CTA — mobile only, landing page only.

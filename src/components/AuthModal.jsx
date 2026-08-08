@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/authContext';
 import { Mail, Lock, Eye, EyeOff, X, Loader2, UserPlus, LogIn, KeyRound } from 'lucide-react';
 
-export default function AuthModal({ isOpen, onClose }) {
+export default function AuthModal({ isOpen, onClose, initialMode = 'signin', notice = '' }) {
   const { signIn, signUp, resetPassword, supabaseAvailable } = useAuth();
-  
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot'
+
+  const [mode, setMode] = useState(initialMode); // 'signin' | 'signup' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -13,6 +13,14 @@ export default function AuthModal({ isOpen, onClose }) {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Re-sync when the caller re-opens the modal in a different mode (e.g. App.jsx forcing
+  // 'signin' after an expired/reused email-confirmation link) -- `useState(initialMode)`
+  // only reads its argument on first mount, so without this the modal would stay stuck in
+  // whatever mode it opened with the very first time.
+  useEffect(() => {
+    if (isOpen) setMode(initialMode);
+  }, [isOpen, initialMode]);
 
   if (!isOpen) return null;
 
@@ -129,6 +137,11 @@ export default function AuthModal({ isOpen, onClose }) {
         </div>
 
         {/* Error / Success Messages */}
+        {notice && !error && !successMsg && (
+          <div className="auth-message auth-message-notice">
+            {notice}
+          </div>
+        )}
         {error && (
           <div className="auth-message auth-message-error">
             {error}

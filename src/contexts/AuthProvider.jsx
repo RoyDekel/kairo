@@ -2,6 +2,20 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { AuthContext } from './authContext';
 
+/*
+  Hardcoded, not `window.location.origin + window.location.pathname`, for the same reason
+  src/lib/apiBase.js hardcodes PRODUCTION_API_URL: this is a GitHub Pages SPA served under
+  `base: '/kairo/'` (vite.config.js), so the origin+pathname it was computing was already
+  the right shape in production -- but Supabase requires every redirect target to be on an
+  allow-list configured in the Supabase dashboard, and a value that quietly changes with
+  whatever host/path the signup happened to be run from (a preview deploy, a stray query
+  string, etc.) can't be allow-listed. Pinning it to the one canonical production URL keeps
+  the confirmation link deterministic and matches what's actually registered with Supabase.
+  `?confirmed=true` is read on mount in App.jsx to show a welcome toast (or, if the link was
+  expired/reused and the user isn't actually authenticated, fall back to the sign-in modal).
+*/
+const EMAIL_CONFIRMATION_REDIRECT_URL = 'https://roydekel.github.io/kairo/?confirmed=true';
+
 // This file exports exactly one thing, and it must stay that way: the context and the
 // `useAuth` hook live in ./authContext.js so Fast Refresh can keep auth state across edits.
 export function AuthProvider({ children }) {
@@ -42,7 +56,7 @@ export function AuthProvider({ children }) {
       email,
       password,
       options: {
-        emailRedirectTo: window.location.origin + window.location.pathname,
+        emailRedirectTo: EMAIL_CONFIRMATION_REDIRECT_URL,
       },
     });
     if (error) throw error;
