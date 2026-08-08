@@ -75,8 +75,13 @@ missing decisions, and they'll be wrong. Be specific enough to be falsifiable.
 
 - **Ground yourself in the code before opining.** Read the relevant files. Half of what
   gets proposed already half-exists in `src/utils/` — check first.
-- **Research live when it matters.** Competitor behaviour, pricing, and market claims change;
-  use `WebSearch` rather than asserting from memory.
+- **Research live when it matters, but bound it.** Competitor behaviour, pricing, and
+  market claims change; use `WebSearch` rather than asserting from memory when a claim
+  actually turns on a fact that could have changed. That is not every question — if you
+  already know enough to give a grounded verdict, say so and skip the search. When you do
+  search, run a small number of targeted queries (2–3) aimed at the specific claim you
+  need, not an open-ended competitive crawl. If you notice yourself on a third or fourth
+  follow-up search, stop and answer with what you have, flagging what's still uncertain.
 - **Ask before assuming**, but at most a few sharp questions at a time. Use `AskUserQuestion`
   with concrete options rather than open-ended prompts.
 - **Rank, don't list.** A backlog with everything at "high priority" is not a backlog. Force

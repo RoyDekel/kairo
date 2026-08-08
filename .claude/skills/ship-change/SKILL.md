@@ -1,13 +1,28 @@
 ---
 name: ship-change
-description: The single path by which any code change reaches main in KAIRO — branch, commit, push, open a pull request, wait for CI, merge. Use at the end of every task that modified files, whether it was a feature, a bug fix, a config change, or a docs change. Both feature-dev and bug-fixer end here. Also use when asked to "open a PR", "ship this", "push this up", or "merge it".
+description: The single path by which any code change reaches main in KAIRO — branch, commit, push, open a pull request, wait for CI, merge. Only invoke this when Roy has explicitly asked to ship, merge, open a PR, or push a change up — not automatically just because files were edited. Also use when asked to "open a PR", "ship this", "push this up", or "merge it".
 ---
 
 # Shipping a change to KAIRO
 
+**Do not run this unless Roy explicitly asked for it in the current request.** Finishing
+implementation and tests does not by itself mean the change should ship — that is a
+separate decision. If Roy didn't ask to ship, stop after tests pass and say "Ready to
+ship — say the word" instead of starting this skill.
+
 `main` is protected. Nothing is pushed to it directly — including by you. Every change
 travels: **branch → commit → push → PR → green CI → merge**. `deploy.yml` fires on the
 merge and publishes to GitHub Pages, so a merge *is* a production deploy. Treat it that way.
+
+## If a git command fails with a lock error
+
+If any git command fails with something like `Unable to create '.git/index.lock': File
+exists` or `Unable to create '.git/HEAD.lock'`: **stop immediately and tell Roy.** Do not
+rename, move, or delete the lock file yourself, and do not retry in a loop. A real lock
+almost always means another git process (possibly a previous session) is mid-operation or
+crashed mid-operation — only Roy can safely judge which. Repeatedly working around it
+yourself is how a repo ends up with a graveyard of `.lock.bak`/`.lock.stale` files and a
+`.git` directory that other commands (`git log --all`, `git fetch`) start failing on.
 
 ## Prerequisite
 

@@ -15,6 +15,24 @@ stated opinions about scope. Read `CLAUDE.md` at the repo root before you touch 
 pattern is worse than no feature — it doubles the surface area that the next change has to
 keep consistent. Before proposing an approach, you have grepped for anything adjacent.
 
+## Scope discipline
+
+Match the depth of this workflow to the size of the task. Not every request needs every step.
+
+- **Trivial** (copy change, one obvious prop, a style tweak, a one-line addition with no new
+  branching logic): read the file you're changing plus its immediate neighbours, skip
+  `Explore` delegation, make the change, run the tests that cover that file, state the plan
+  in one line instead of the full step 3, and stop. Do not invoke `ship-change` unless asked.
+- **Medium** (a new component, a new endpoint, a change touching 2–5 related files): follow
+  the full workflow below, but keep exploration to the files actually adjacent to the change.
+- **Large / architectural** (a new provider, anything touching the verdict engines, auth, or
+  the budget/cache layer, or a request that's genuinely ambiguous in shape): follow the full
+  workflow, use `Explore` when it saves real time, and treat step 3's go-ahead as required,
+  not optional.
+
+If you're unsure which tier a request is, say which tier you're treating it as and why,
+in one line, before proceeding.
+
 ## Workflow
 
 ### 1. Understand the ask
@@ -33,8 +51,11 @@ Non-negotiable pre-work:
 - Check `shared/catalog.js` if the feature touches airports, cities, or destinations.
 - Identify which caches / budget meters the feature must go through.
 
-For anything spanning more than ~4 files, delegate the sweep to the `Explore` agent rather
-than reading everything yourself.
+Delegate the sweep to the `Explore` agent only when repository exploration is genuinely
+expensive — many unfamiliar files, an unclear naming convention, or a search that would
+otherwise take a long back-and-forth of reads. File count alone is not the trigger: a
+feature touching 8 files you already understand is not "expensive," and a change to one
+unfamiliar file can be. Never delegate merely because a rough file count crossed a number.
 
 ### 3. Plan — and present it before coding
 Output, briefly:
@@ -68,18 +89,23 @@ state the plan in two lines and proceed.
 - Run `npm test`, `npm run lint`, `npm run build`. All three, every time.
 - If the feature is user-visible and interactive, consider a Playwright spec in `tests/`.
 
-### 6. Ship it
-Follow the **`ship-change` skill** — it is the only path to `main`. In short: branch,
-commit, push, open a PR with a filled-in body, wait for CI, merge on green, verify the
-deploy reached the live site.
+### 6. Stop, or ship — only on explicit request
+Implementing and testing a feature does not by itself mean it should ship. Once tests,
+lint, and build are green:
 
-Before you start it, read the skill's **stop-list**. Feature work lands on it often —
-anything touching the verdict engines, auth, the budget/cache layer, a new npm dependency,
-or a diff over ~400 lines opens the PR and then stops for Roy's review instead of merging.
-That is not a failure state; say which row matched and hand it over.
+- **If Roy did not explicitly ask you to ship, merge, open a PR, or push this up in this
+  request**: stop here. Report what changed file by file, verbatim test/lint/build
+  results, and end with "Ready to ship — say the word."
+- **If Roy did ask for it**: follow the **`ship-change` skill** — it is the only path to
+  `main`. In short: branch, commit, push, open a PR with a filled-in body, wait for CI,
+  merge on green, verify the deploy reached the live site. Read the skill's **stop-list**
+  first — feature work lands on it often (verdict engines, auth, the budget/cache layer, a
+  new npm dependency, a diff over ~400 lines). That is not a failure state; say which row
+  matched and hand it over instead of merging.
 
-Report at the end: what changed file by file, verbatim test/lint/build results, the PR URL,
-the deploy status, and anything you deliberately did not do.
+Report at the end: what changed file by file, verbatim test/lint/build results, and — only
+if you actually shipped — the PR URL, the deploy status, and anything you deliberately did
+not do.
 
 ## Anti-patterns you refuse
 
