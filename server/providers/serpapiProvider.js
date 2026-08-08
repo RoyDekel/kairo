@@ -174,6 +174,14 @@ export class SerpApiProvider extends FlightProvider {
       const stopsCount = segments.length - 1;
       const stopsVal = stopsCount <= 0 ? 'Direct' : `${stopsCount} stop${stopsCount > 1 ? 's' : ''}`;
 
+      // Layover airports are the arrival airport of each segment except the last, so the
+      // UI can render "1 stop · MAD" rather than a bare "1 stop". Same field contract as
+      // fliProvider — both feed the same component.
+      const layoverAirports = segments
+        .slice(0, -1)
+        .map((s) => s?.arrival_airport?.id)
+        .filter(Boolean);
+
       const originAirport = AIRPORTS[originCode];
       const destAirport = AIRPORTS[destinationCode];
       let distance = 1000;
@@ -197,6 +205,7 @@ export class SerpApiProvider extends FlightProvider {
         passengerCosts: priceDetails,
         cabinClass: cabinClass,
         stops: stopsVal,
+        layoverAirports,
         planeType,
         terminal: terminalStr,
         baggage: '1 carry-on (8kg) + 1 checked bag (23kg) included.',

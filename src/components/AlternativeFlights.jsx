@@ -6,6 +6,7 @@ import {
   Users, ChevronDown, ShieldAlert, ArrowLeftRight
 } from 'lucide-react';
 import { AIRLINES, getSkyscannerUrl } from '../utils/flightSimulator';
+import { formatStopsLabel } from '../utils/flightDisplay';
 import CustomDatePicker from './CustomDatePicker';
 import AirportAutocomplete from './AirportAutocomplete';
 import { useAuth } from '../contexts/authContext';
@@ -1226,7 +1227,7 @@ export default function AlternativeFlights({
                           <div style={{ width: '50px', height: '1.5px', background: 'var(--border-glass)', margin: '4px 0', position: 'relative' }}>
                             <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--text-muted)', position: 'absolute', top: '-1.2px', right: 0 }}></div>
                           </div>
-                          <span className="num" style={{ fontSize: '0.65rem', color: 'var(--success)', fontWeight: 600 }}>{flight.stops}</span>
+                          <span className="num" style={{ fontSize: '0.65rem', color: 'var(--success)', fontWeight: 600 }}>{formatStopsLabel(flight.stops, flight.layoverAirports)}</span>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <div className="num" style={{ fontWeight: 700, fontSize: '1.05rem' }}>{flight.arrivalTime}</div>
