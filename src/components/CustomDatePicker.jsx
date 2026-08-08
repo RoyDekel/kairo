@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getTodayDateString } from '../utils/searchDefaults';
 

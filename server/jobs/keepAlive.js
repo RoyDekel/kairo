@@ -91,6 +91,15 @@ export async function pingOnce(url, { fetchImpl = fetch, timeoutMs = REQUEST_TIM
     */
     console.warn(`[keepAlive] Ping failed: ${err.name === 'AbortError' ? `timed out after ${timeoutMs}ms` : err.message}`);
     return false;
+  } finally {
+    /*
+      The abort timer must be cancelled on every exit path, not just the slow one. Without
+      this, each ping left a live timer holding a reference to its AbortController until the
+      full timeout elapsed — once every cron tick, forever, on a process that is meant to run
+      for months. It also meant a controller for an already-settled request was still aborted
+      later, which is harmless here only by luck.
+    */
+    clearTimeout(timeoutId);
   }
 }
 

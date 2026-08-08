@@ -215,9 +215,11 @@ export const getFlightTelemetry = (progress, originCoords, destinationCoords) =>
   let heading = (Math.atan2(yBearing, xBearing) * 180) / Math.PI;
   heading = (heading + 360) % 360;
 
-  let altitude = 0;
-  let speed = 0;
-  let status = 'Scheduled';
+  // Declared without initialisers: the branch chain below ends in an unconditional `else`,
+  // so every path assigns all three. Seeding them here only produced values nothing read.
+  let altitude;
+  let speed;
+  let status;
 
   if (progress <= 0) {
     status = 'Scheduled';

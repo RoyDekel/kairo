@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Sparkles, Plane, Activity, Bell, ArrowRight, CheckCircle, Zap, Ticket, Globe, Star, TrendingDown, Clock, ShieldCheck, HelpCircle, ChevronDown, ChevronUp, Share2, Copy, Search, Compass } from 'lucide-react';
-import { AIRPORTS } from '../utils/flightSimulator';
+import { useState, useEffect } from 'react';
+import { Sparkles, Bell, ArrowRight, CheckCircle, Zap, Clock, HelpCircle, ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { getZeroClickDemoData } from '../utils/priceConfidenceEngine';
-import { useAuth } from '../contexts/AuthProvider';
+import { useAuth } from '../contexts/authContext';
 import PriceHistoryGraph from './PriceHistoryGraph';
 
-export default function LandingPage({ onOpenAuth, setActiveTab }) {
+export default function LandingPage({ onOpenAuth }) {
   const { user } = useAuth();
   const demoData = getZeroClickDemoData();
   const [animatedStepIdx, setAnimatedStepIdx] = useState(0);

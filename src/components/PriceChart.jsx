@@ -1,4 +1,3 @@
-import React from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -12,9 +11,8 @@ import {
   Filler
 } from 'chart.js';
 import { generatePriceHistory } from '../utils/flightSimulator';
-import { getPriceConfidenceInsight } from '../utils/priceConfidenceEngine';
 import { CANVAS_FONT_MONO } from '../utils/canvasFonts';
-import { TrendingUp, Info, AlertCircle } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 
 // Register Chart.js components
 ChartJS.register(

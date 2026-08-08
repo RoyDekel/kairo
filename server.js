@@ -71,7 +71,7 @@ const requireAuth = async (req, res, next) => {
     }
     req.user = user;
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ error: 'Unauthorized: Token validation failed' });
   }
 };

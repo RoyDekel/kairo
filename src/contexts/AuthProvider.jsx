@@ -1,16 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { AuthContext } from './authContext';
 
-const AuthContext = createContext(null);
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
-
+// This file exports exactly one thing, and it must stay that way: the context and the
+// `useAuth` hook live in ./authContext.js so Fast Refresh can keep auth state across edits.
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
