@@ -56,6 +56,36 @@ describe('AuthModal — Create Account flow', () => {
     expect(successMsg).toHaveClass('auth-message-success');
   });
 
+  test('shows the "already exists" error (not the success message) when signUp reports an existing email', async () => {
+    // AuthProvider.signUp surfaces the anti-enumeration "already registered" case (Supabase
+    // returns success with an empty identities array) as an Error carrying the text
+    // "User already registered", which AuthModal's error map turns into a friendly message.
+    signUp.mockRejectedValueOnce(new Error('User already registered'));
+
+    render(<AuthModal isOpen={true} onClose={() => {}} />);
+
+    fireEvent.click(screen.getByText('Sign Up'));
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'taken@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'password123' },
+    });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), {
+      target: { value: 'password123' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+    const errorMsg = await screen.findByText(
+      'An account with this email already exists. Try signing in instead.'
+    );
+    expect(errorMsg).toHaveClass('auth-message-error');
+    expect(
+      screen.queryByText('Account created! Check your email to confirm your account.')
+    ).not.toBeInTheDocument();
+  });
+
   /*
     The two bugs Roy reported (see-through modal background, unreadable success text) are
     both CSS-paint problems: jsdom has no layout/paint pipeline, so no amount of RTL
