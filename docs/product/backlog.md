@@ -23,8 +23,8 @@
 ---
 
 ## [KAI-002] P1 — Nightly batch forecast + `forecast_cache` table
-**Status**: shipped (PR #7, live 2026-08-09; both flags enabled in prod) — **cache-hit-rate
-tuning open**, see the last open question.
+**Status**: shipped (PR #7, live 2026-08-09; both flags enabled in prod) — **cache confirmed
+serving hits in prod**; remaining work is measuring the real hit rate, see the last open question.
 **Spec**: full spec at `docs/product/specs/p1-nightly-batch-forecast.md` — that file is the
 build contract; this entry is the backlog pointer.
 **User**: every KAIRO user who searches a featured-hub route and waits on the "Should I
@@ -64,19 +64,18 @@ narrative (P4), discovery verdict chips, an automated purge cron.
   live compute if the batch sleeps through its slot.
 - **Touches the verdict-serving path — on the `ship-change` stop-list. Ships as a PR for Roy,
   not an agent self-merge.**
-- **OPEN — cache-hit-rate tuning (post-launch).** With both flags enabled in prod, the batch
-  writes rows correctly but `/api/flights` never logged a cache hit — every request falls
-  through to live compute. Miss-reason logging shipped (PR #8, live 2026-08-09) to identify
-  which gate rejects. **Leading hypothesis: the read-path drift gate** — the cached verdict is
-  computed against the collector's route-level *sampled* fare, while a live search prices a
-  *specific* itinerary, so the two routinely differ by >8% and the guardrail (correctly)
-  declines to serve. **Next step**: read the `[forecastCache] MISS …` line on a featured
-  `TLV→hub` search; if it reports `drift`, decide between (a) widening
-  `FORECAST_PRICE_DRIFT_TOLERANCE` above 8%, (b) accepting a low hit rate on itinerary-specific
-  searches, or (c) re-scoping the cache toward the discovery/estimates path (route-level prices,
-  closer to the sampled fare) where the hit rate would be structurally higher. The ≥80%
-  hit-rate success metric above is on hold until this is resolved — it may not be achievable on
-  `/api/flights` as currently keyed.
+- **OPEN — measure the real cache-hit rate (post-launch).** RESOLVED that the cache works:
+  prod logs on 2026-08-09 show repeated `[api/flights] Forecast cache hit` on `TLV→KRK` and
+  `TLV→CDG`, each skipping live compute. The earlier "never hits" symptom was deploy/warm-up
+  timing, not the drift gate — those searches passed the 8% gate, so the guardrail is admitting
+  real traffic rather than blocking it. The earlier drift-heavy hypothesis was too pessimistic
+  for the routes users actually search. **Remaining work is measurement, not a fix**: over a
+  representative window, compare `cache hit` lines against `[forecastCache] MISS … drift` /
+  `… stale` lines (miss-reason logging shipped in PR #8) to establish the true hit rate against
+  the ≥80% target. `FORECAST_PRICE_DRIFT_TOLERANCE` stays at 8% unless drift-misses turn out to
+  dominate on off-sample dates — only then consider (a) widening it, or (b) also serving the
+  discovery/estimates path, where route-level prices sit closer to the sampled fare and the hit
+  rate would be structurally higher.
 
 ## [KAI-001] Remove the 11 setState-in-effect cascading renders
 **Status**: proposed
