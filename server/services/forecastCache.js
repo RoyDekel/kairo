@@ -143,8 +143,23 @@ export class ForecastCache {
    * @param {number} livePrice the fare the user is actually being shown right now.
    */
   async get(route, currency, livePrice, { staleHours = DEFAULT_STALE_HOURS, driftTolerance = DEFAULT_DRIFT_TOLERANCE } = {}) {
-    if (!this.supabase) return null;
     const validCurrency = String(currency || 'USD').toUpperCase().trim();
+    const label = `${route}/${validCurrency}`;
+
+    // Miss visibility (P1 diagnostics). Batch writes rows but /api/flights never logged a
+    // hit, so a miss was indistinguishable from a hit: we could not tell no_row from stale
+    // from drift. Every branch below that returns null now says WHY, with the numbers.
+    //
+    // NOISE CONTROL: only featured routes have rows, so a row-rejected miss (stale / drift /
+    // bad columns) is rare and high-signal — always logged. But no_row and no-client fire on
+    // EVERY non-featured search, which would flood the logs, so they are gated behind
+    // FORECAST_CACHE_DEBUG (default off; see .env.example).
+    const debug = process.env.FORECAST_CACHE_DEBUG === 'true';
+
+    if (!this.supabase) {
+      if (debug) console.warn(`[forecastCache] MISS ${label}: no supabase client`);
+      return null;
+    }
 
     try {
       const { data, error } = await this.supabase
@@ -155,32 +170,50 @@ export class ForecastCache {
         .limit(1);
 
       if (error) {
-        console.warn(`[forecastCache] Read failed for ${route}/${validCurrency}: ${error.message}`);
+        console.warn(`[forecastCache] Read failed for ${label}: ${error.message}`);
         return null;
       }
 
       const row = Array.isArray(data) ? data[0] : null;
-      if (!row) return null;
+      if (!row) {
+        if (debug) console.warn(`[forecastCache] MISS ${label}: no cached row`);
+        return null;
+      }
 
       // Gate 1: freshness.
       const computedAt = Date.parse(row.computed_at);
-      if (!Number.isFinite(computedAt)) return null;
+      if (!Number.isFinite(computedAt)) {
+        console.warn(`[forecastCache] MISS ${label}: unparseable computed_at on row (${row.computed_at})`);
+        return null;
+      }
       const ageHours = (this.now() - computedAt) / 3_600_000;
-      if (ageHours > staleHours) return null;
+      if (ageHours > staleHours) {
+        console.warn(`[forecastCache] MISS ${label}: stale ${ageHours.toFixed(1)}h > ${staleHours}h`);
+        return null;
+      }
 
       // Gate 2: price drift — the trust guardrail. Without a valid computed_current_price to
       // compare against, or a valid live price, we cannot prove the verdict is still relevant,
       // so we recompute live rather than serve it.
       const computedPrice = Number(row.computed_current_price);
-      if (!Number.isFinite(computedPrice) || computedPrice <= 0) return null;
-      if (!Number.isFinite(livePrice) || livePrice <= 0) return null;
+      if (!Number.isFinite(computedPrice) || computedPrice <= 0) {
+        console.warn(`[forecastCache] MISS ${label}: no computed_current_price on row`);
+        return null;
+      }
+      if (!Number.isFinite(livePrice) || livePrice <= 0) {
+        console.warn(`[forecastCache] MISS ${label}: no live price to compare (${livePrice})`);
+        return null;
+      }
 
       const drift = Math.abs(livePrice - computedPrice) / computedPrice;
-      if (drift > driftTolerance) return null;
+      if (drift > driftTolerance) {
+        console.warn(`[forecastCache] MISS ${label}: drift ${drift.toFixed(2)} > ${driftTolerance} (live ${livePrice} vs cached ${computedPrice})`);
+        return null;
+      }
 
       return row.payload ?? null;
     } catch (err) {
-      console.warn(`[forecastCache] Read unreachable for ${route}/${validCurrency}: ${err.message}`);
+      console.warn(`[forecastCache] Read unreachable for ${label}: ${err.message}`);
       return null;
     }
   }

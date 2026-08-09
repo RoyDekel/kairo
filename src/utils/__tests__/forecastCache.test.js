@@ -161,6 +161,138 @@ describe('ForecastCache.get — miss and error handling', () => {
   });
 });
 
+describe('ForecastCache.get — miss-reason logging (P1 diagnostics)', () => {
+  const originalEnv = { ...process.env };
+  afterEach(() => {
+    process.env = { ...originalEnv };
+    vi.restoreAllMocks();
+  });
+
+  // Every case here also re-asserts the RETURN CONTRACT: logging must never change what get()
+  // resolves to (payload on hit, null on every miss).
+
+  test('drift gate logs the reason with live/cached numbers, always (row exists)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cache = new ForecastCache({
+      supabase: stubSupabase({ forecast_cache: { rows: [cacheRow({ ageHours: 1, computedPrice: 500 })] } }),
+      now: () => NOW
+    });
+
+    // 500 -> 560 is 12% drift, past the 8% tolerance.
+    const res = await cache.get('TLV-CDG', 'USD', 560, { staleHours: 26, driftTolerance: 0.08 });
+
+    expect(res).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line = warn.mock.calls[0][0];
+    expect(line).toContain('MISS TLV-CDG/USD');
+    expect(line).toContain('drift');
+    expect(line).toContain('0.12');
+    expect(line).toContain('> 0.08');
+    expect(line).toContain('live 560');
+    expect(line).toContain('cached 500');
+  });
+
+  test('stale gate logs the reason with the age in hours, always (row exists)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cache = new ForecastCache({
+      supabase: stubSupabase({ forecast_cache: { rows: [cacheRow({ ageHours: 31.2 })] } }),
+      now: () => NOW
+    });
+
+    const res = await cache.get('TLV-CDG', 'USD', 505, { staleHours: 26, driftTolerance: 0.08 });
+
+    expect(res).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line = warn.mock.calls[0][0];
+    expect(line).toContain('MISS TLV-CDG/USD');
+    expect(line).toContain('stale 31.2h > 26h');
+  });
+
+  test('missing computed_current_price logs the reason, always (row exists)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cache = new ForecastCache({
+      supabase: stubSupabase({ forecast_cache: { rows: [cacheRow({ computedPrice: null })] } }),
+      now: () => NOW
+    });
+
+    const res = await cache.get('TLV-CDG', 'USD', 500, { staleHours: 26, driftTolerance: 0.08 });
+
+    expect(res).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('MISS TLV-CDG/USD: no computed_current_price');
+  });
+
+  test('unparseable computed_at logs the reason, always (row exists)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cache = new ForecastCache({
+      supabase: stubSupabase({ forecast_cache: { rows: [{ payload: seasonalPayload(), computed_at: 'not-a-date', computed_current_price: 500 }] } }),
+      now: () => NOW
+    });
+
+    const res = await cache.get('TLV-CDG', 'USD', 500, { staleHours: 26, driftTolerance: 0.08 });
+
+    expect(res).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('MISS TLV-CDG/USD: unparseable computed_at');
+  });
+
+  test('no cached row is SILENT by default (noise control)', async () => {
+    delete process.env.FORECAST_CACHE_DEBUG;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cache = new ForecastCache({
+      supabase: stubSupabase({ forecast_cache: { rows: [] } }),
+      now: () => NOW
+    });
+
+    const res = await cache.get('TLV-BCN', 'USD', 500);
+
+    expect(res).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('no cached row LOGS when FORECAST_CACHE_DEBUG=true', async () => {
+    process.env.FORECAST_CACHE_DEBUG = 'true';
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cache = new ForecastCache({
+      supabase: stubSupabase({ forecast_cache: { rows: [] } }),
+      now: () => NOW
+    });
+
+    const res = await cache.get('TLV-BCN', 'USD', 500);
+
+    expect(res).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('MISS TLV-BCN/USD: no cached row');
+  });
+
+  test('no supabase client is SILENT by default, LOGS under FORECAST_CACHE_DEBUG', async () => {
+    delete process.env.FORECAST_CACHE_DEBUG;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cache = new ForecastCache({ supabase: null, now: () => NOW });
+
+    expect(await cache.get('TLV-CDG', 'USD', 500)).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+
+    process.env.FORECAST_CACHE_DEBUG = 'true';
+    expect(await cache.get('TLV-CDG', 'USD', 500)).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('MISS TLV-CDG/USD: no supabase client');
+  });
+
+  test('a HIT logs nothing and returns the payload (contract unchanged)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const cache = new ForecastCache({
+      supabase: stubSupabase({ forecast_cache: { rows: [cacheRow({ ageHours: 2, computedPrice: 500 })] } }),
+      now: () => NOW
+    });
+
+    const res = await cache.get('TLV-CDG', 'USD', 505, { staleHours: 26, driftTolerance: 0.08 });
+
+    expect(res).toEqual(seasonalPayload());
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
 describe('ForecastCache.put — write shape (AC 5)', () => {
   test('upserts one row whose payload round-trips and whose scalars are lifted', async () => {
     const supabase = stubSupabase({ forecast_cache: {} });
