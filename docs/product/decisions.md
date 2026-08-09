@@ -18,6 +18,57 @@
 
 ---
 
+### 2026-08-09 — P1 batch "current price" is the latest observation, not a fresh live quote
+**Decision**: the nightly forecast batch computes each route's verdict against the most
+recent `fare_observations` row for that route+currency, not against a freshly fetched live
+quote. Routes with no observation are skipped, not priced.
+**Context**: `forecastService.forecastRoute` takes `currentPrice` as an argument, but the
+batch runs off the request path and has no live quote to hand it. Something has to stand in.
+**Reasoning**: a live provider search per route in the batch would multiply the exact metered
+API calls (SerpApi / fli) the batch exists to move off the hot path, and re-couple the batch
+to provider rate limits — the cost lens kills it. `currentPrice` only feeds `pricePercentile`,
+the BUY/WAIT rule and `expectedSavings`; the latest observed fare is the honest, zero-cost
+stand-in for those, and the collector already keeps it fresh on exactly the featured routes
+the batch covers. The staleness this introduces is bounded by the read-path drift gate (next
+entry), not left open.
+**Alternatives considered**:
+- *Fresh live quote per route* — most accurate `currentPrice`, but pays the per-route provider
+  cost the feature is designed to eliminate, and puts the batch back under the rate limiter.
+- *Split `forecastRoute` into a price-independent model half (cache it) and a price-relative
+  half (recompute live)* — the clean end state, but it refactors the verdict engine, which is
+  on the `ship-change` stop-list, and risks a second source of truth for the decision rule.
+  Deferred as a follow-up rather than bundled into P1.
+**What would change this**: if the drift gate turns out to fire on a large fraction of
+featured-route searches (meaning the latest observation is routinely far from live price), the
+stand-in is too stale and the split-derivation refactor becomes worth its risk.
+
+### 2026-08-09 — P1 read path guards the cached verdict with a price-drift gate (default 8%)
+**Decision**: `/api/flights` serves a cached verdict only when the user's live roundtrip price
+is within `FORECAST_PRICE_DRIFT_TOLERANCE` (default 0.08) of the `computed_current_price` the
+verdict was calculated against — in addition to a time-freshness check
+(`FORECAST_STALE_HOURS`, default 26h). Outside either bound it recomputes live. This gate is
+non-negotiable in the design.
+**Context**: the cached verdict is computed against the last *observed* fare (see previous
+entry), which can diverge from the price the user is actually looking at. Serving it blind
+would risk showing a BUY/WAIT that no longer matches the fare on screen.
+**Reasoning**: the product's one unrecoverable failure is a confidently wrong verdict a user
+acts on with their own money — "a plausible-looking wrong answer is the one failure mode users
+act on" (`ship-change` stop-list). A verdict computed against a materially different price is
+exactly that. Rather than duplicate the engine's decision logic on the read path (which would
+create a second, drift-prone source of truth for the verdict), the gate bounds the price
+error and, when it's exceeded, falls back to the one authoritative computation. The default 8%
+is a starting knob, not a proven threshold.
+**Alternatives considered**:
+- *Serve any fresh cache row regardless of price* — simplest, but re-opens the confidently-
+  wrong-verdict failure mode the whole product is built to avoid.
+- *Recompute `pricePercentile` and the recommendation on the read path against the live price*
+  — avoids the staleness without a live history read, but re-implements the decision rule
+  outside the engine, i.e. two places that can disagree about BUY vs WAIT. Rejected for P1 for
+  the same reason the engine is stop-listed; noted as a possible refinement.
+**What would change this**: production data on how often the gate fires and whether cache-served
+verdicts ever disagree with a same-moment live recompute. If disagreement shows up, tighten the
+tolerance before adding logic; if the gate rarely fires, it can be loosened to raise hit rate.
+
 ### 2026-08-08 — `set-state-in-effect` downgraded to a warning, not suppressed, not fixed
 **Decision**: `react-hooks/set-state-in-effect` drops from `error` to `warn` in
 `eslint.config.js`. The 11 existing violations stay in the code, catalogued as

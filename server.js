@@ -10,9 +10,11 @@ import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
 import { flightSearchCache } from './server/services/flightSearchCache.js';
 import { fareHistory, FareHistory } from './server/services/fareHistory.js';
 import { forecastService } from './server/services/forecastService.js';
+import { forecastCache } from './server/services/forecastCache.js';
 import { openSkyProvider } from './server/providers/openSkyProvider.js';
 import { getServerSupabase } from './server/services/supabaseServer.js';
 import { startFareCollector } from './server/jobs/fareCollector.js';
+import { startForecastBatch } from './server/jobs/forecastBatch.js';
 import { startAlertEvaluator } from './server/jobs/alertEvaluator.js';
 import { startKeepAlive } from './server/jobs/keepAlive.js';
 import { verifySchema } from './server/services/schemaCheck.js';
@@ -666,7 +668,38 @@ app.get('/api/flights', requireAuth, async (req, res) => {
     const cheapestReturnPrice = cheapestReturnRaw?.price || 0;
     const currentRoundtripPrice = cheapestOutboundPrice + cheapestReturnPrice;
 
-    const forecast = await forecastService.forecastRoute(origin, destination, currentRoundtripPrice, FARE_CURRENCY);
+    /*
+      Serve a precomputed verdict from forecast_cache when one is fresh AND still
+      price-relevant, so this request does not pay for a ~1,000-row read, the daily-index
+      rebuild, and (once HF_ENDPOINT_URL is set) a 4s Chronos call. Guarded by its OWN flag,
+      independent of the batch writer, so the cache can be populated and inspected before
+      reads flip on — the same independence pattern as ESTIMATES_USE_REAL_PROVIDER vs
+      FLI_ENABLED.
+
+      forecastCache.get already swallows its own errors and returns null; the extra try/catch
+      makes the "the response must never fail because of the cache" contract explicit even if
+      that ever changes. Any miss / staleness / drift / read error falls through to the exact
+      live forecastRoute call that ran here before this feature existed.
+    */
+    let forecast = null;
+    if (process.env.FORECAST_CACHE_READ_ENABLED === 'true') {
+      try {
+        const route = FareHistory.routeKey(origin, destination);
+        forecast = await forecastCache.get(route, FARE_CURRENCY, currentRoundtripPrice, {
+          staleHours: Number(process.env.FORECAST_STALE_HOURS || 26),
+          driftTolerance: Number(process.env.FORECAST_PRICE_DRIFT_TOLERANCE || 0.08)
+        });
+        if (forecast) {
+          console.log(`[api/flights] Forecast cache hit for ${origin}->${destination}; skipping live forecast.`);
+        }
+      } catch (err) {
+        console.warn(`[api/flights] Forecast cache read failed for ${origin}->${destination}: ${err.message}`);
+        forecast = null;
+      }
+    }
+    if (!forecast) {
+      forecast = await forecastService.forecastRoute(origin, destination, currentRoundtripPrice, FARE_CURRENCY);
+    }
 
     const events = await eventSearchService.getEventsForDestination(destination, departureDate, returnDate);
 
@@ -789,6 +822,14 @@ app.listen(PORT, async () => {
   startKeepAlive();
 
   startFareCollector();
+
+  /*
+    Precomputes forecast verdicts off the request path (see forecastBatch.js). Subject to the
+    same keep-alive precondition as the collector: a nightly cron only fires while the process
+    is awake. Both flags (FORECAST_BATCH_ENABLED, FORECAST_CACHE_READ_ENABLED) default off, so
+    this is a no-op until Roy enables it.
+  */
+  startForecastBatch();
 
   /*
     Deliberately not chained to the collector. A sweep runs for hours by design, and an

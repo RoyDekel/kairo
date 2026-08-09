@@ -22,6 +22,48 @@
 
 ---
 
+## [KAI-002] P1 — Nightly batch forecast + `forecast_cache` table
+**Status**: in progress (feature-dev building; not yet shipped)
+**Spec**: full spec at `docs/product/specs/p1-nightly-batch-forecast.md` — that file is the
+build contract; this entry is the backlog pointer.
+**User**: every KAIRO user who searches a featured-hub route and waits on the "Should I
+Book?" verdict — and, second, whoever eventually turns on the Chronos endpoint, who today
+cannot because a live HF call times out on the request path.
+**Problem**: `forecastService.forecastRoute` runs inside the `/api/flights` request
+(server.js:669) — a ~1,000-row read, a daily-index rebuild, and (once `HF_ENDPOINT_URL` is
+set) a 4s-timeout Chronos call. On Render's free tier a scale-to-zero HF endpoint
+cold-starts slower than 4s, so live calls abort into seasonal-naive on nearly every request.
+Precompute is the prerequisite that makes the endpoint usable at all.
+**Why now**: it is the gate for the entire forecasting arc — P2 (Chronos), P3 (events
+covariate) and P4 (LLM narrative) all sit behind it (see `roadmap.md`). It also pays off
+immediately on the current seasonal-naive engine by taking forecast compute off the request
+path, so it is not blocked on any external spend.
+**Solution**: a nightly `node-cron` job (mirroring `fareCollector`) precomputes verdicts for
+the featured routes and upserts them into a Supabase `forecast_cache` table; `/api/flights`
+serves the cached verdict when it is time-fresh and still price-relevant, else falls back to
+live compute. Writer and reader gated by independent flags, both default off.
+**Acceptance criteria**: the 13 numbered criteria in the spec (§6). Headline checks:
+- [ ] `supabase/forecast_cache.sql` — PK `(route, currency)`, RLS enabled, no policy.
+- [ ] Batch upserts one row per featured route using the latest observation as `currentPrice`;
+      writes null-verdict tiers, skips no-observation routes, does not cache transient errors.
+- [ ] Read path serves a fresh, price-relevant cached verdict without calling `forecastRoute`,
+      and falls back to live on miss / staleness / drift / read error — never failing the response.
+**Success metric**: p95 `/api/flights` latency on featured routes (measurable drop once reads
+are on; no 4s tail once HF is enabled) + featured-route cache-hit rate (target ≥80%).
+**Cost**: net **reduction** in per-request cost — no live provider call added; batch reads the
+latest `fare_observations` row rather than issuing a fresh quote. One nightly write per
+featured route. Requires `SUPABASE_SERVICE_KEY`.
+**Out of scope**: standing up the Chronos endpoint (P2), the events covariate (P3), the LLM
+narrative (P4), discovery verdict chips, an automated purge cron.
+**Risks / open questions**:
+- **Price-staleness is the real risk, bounded by the read-path drift gate** (default 8%). See
+  decisions.md, 2026-08-09.
+- The nightly cron only fires while the process is awake — same Render free-tier fragility as
+  the collector; requires `KEEPALIVE_ENABLED` + an external pinger. Read path falls back to
+  live compute if the batch sleeps through its slot.
+- **Touches the verdict-serving path — on the `ship-change` stop-list. Ships as a PR for Roy,
+  not an agent self-merge.**
+
 ## [KAI-001] Remove the 11 setState-in-effect cascading renders
 **Status**: proposed
 **User**: every KAIRO user, on the two screens they spend the most time on — the search
