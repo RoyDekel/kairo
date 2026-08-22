@@ -156,9 +156,20 @@ export class ForecastService {
    * @param {string} destination
    * @param {number} currentPrice
    * @param {string} currency
+   * @param {{source?: 'live'|'batch'}} options
+   *   `source: 'batch'` marks a call from forecastBatch.js, the ONLY caller allowed to
+   *   reach HF_ENDPOINT_URL while FORECAST_LIVE_HF_ENABLED=false. See the flag check below
+   *   for why: HF Inference Endpoints bill per compute-hour the instance is running, not
+   *   per request, with a scale-to-zero idle timer that every request resets. The nightly
+   *   batch alone keeps that bounded to roughly one run a day; a live /api/flights request
+   *   hitting an uncached-but-eligible route calls the exact same paid endpoint on the
+   *   spot, and steady search traffic can keep re-arming the idle timer all day, defeating
+   *   scale-to-zero entirely. Defaults to 'live' so an un-migrated call site (or a test)
+   *   still exercises the same HF path as before this flag existed.
    * @returns {Promise<object>}
    */
-  async forecastRoute(origin, destination, currentPrice, currency = 'USD') {
+  async forecastRoute(origin, destination, currentPrice, currency = 'USD', options = {}) {
+    const { source = 'live' } = options;
     const route = FareHistory.routeKey(origin, destination);
     const validCurrency = String(currency || 'USD').toUpperCase().trim();
 
@@ -293,7 +304,11 @@ export class ForecastService {
       const hfEndpointUrl = process.env.HF_ENDPOINT_URL;
       const hfApiKey = process.env.HF_API_KEY;
 
-      if (hfEndpointUrl && hfEndpointUrl.trim() !== '') {
+      // Default true: HF stays the live path's default too, unless explicitly turned off.
+      const liveHfEnabled = process.env.FORECAST_LIVE_HF_ENABLED !== 'false';
+      const hfAllowedForCaller = source === 'batch' || liveHfEnabled;
+
+      if (hfEndpointUrl && hfEndpointUrl.trim() !== '' && hfAllowedForCaller) {
         try {
           const payload = {
             inputs: dailyPrices,

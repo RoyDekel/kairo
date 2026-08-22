@@ -97,7 +97,13 @@ export class ForecastBatch {
       return { ok: false, reason: 'no_observation', route };
     }
 
-    const forecast = await this.forecastService.forecastRoute(origin, destination, latest.price, currency);
+    const forecast = await this.forecastService.forecastRoute(
+      origin,
+      destination,
+      latest.price,
+      currency,
+      { source: 'batch' }
+    );
 
     if (TRANSIENT_REASONS.has(forecast.reason)) {
       console.warn(`[forecastBatch] Skipped ${route}: transient forecast reason "${forecast.reason}".`);

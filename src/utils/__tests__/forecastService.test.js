@@ -188,5 +188,44 @@ describe('ForecastService', () => {
       expect(result.reason).toBe('seasonal_naive_forecast');
       expect(result.forecastMedian).toBeDefined();
     });
+
+    test('FORECAST_LIVE_HF_ENABLED=false blocks a live-path call but not a batch-path call', async () => {
+      process.env.HF_ENDPOINT_URL = 'https://api-inference.huggingface.co/models/mock-chronos';
+      process.env.HF_API_KEY = 'mock-api-key';
+      process.env.FORECAST_LIVE_HF_ENABLED = 'false';
+
+      const rows = [];
+      const baseDate = new Date('2026-07-01');
+      for (let i = 0; i < 35; i++) {
+        rows.push({
+          roundtrip_price: 300,
+          observed_at: new Date(baseDate.getTime() + i * 86_400_000).toISOString()
+        });
+      }
+
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          quantiles: {
+            '0.1': [280, 280, 280, 280, 280, 280, 280],
+            '0.5': [310, 310, 310, 310, 310, 310, 310],
+            '0.9': [340, 340, 340, 340, 340, 340, 340]
+          }
+        })
+      });
+
+      const supabase = fakeSupabase({ rows });
+      const service = new ForecastService({ supabase });
+
+      // Default source ('live'): the flag blocks it, so HF is never called.
+      const liveResult = await service.forecastRoute('TLV', 'LCA', 320);
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(liveResult.reason).toBe('seasonal_naive_forecast');
+
+      // Explicit batch source: unaffected by the live-only flag.
+      const batchResult = await service.forecastRoute('TLV', 'LCA', 320, 'USD', { source: 'batch' });
+      expect(global.fetch).toHaveBeenCalled();
+      expect(batchResult.reason).toBe('huggingface_chronos_forecast');
+    });
   });
 });
