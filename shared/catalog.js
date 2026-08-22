@@ -12,9 +12,15 @@
  * be imported from either runtime.
  */
 
+// Polyfill global process for browser compatibility
+if (typeof globalThis !== 'undefined' && !globalThis.process) {
+  globalThis.process = { env: {} };
+}
+
 import { GENERATED_AIRPORTS } from './catalog.generated.js';
 
 export const FEATURED_HUBS = (process.env.VITE_FEATURED_HUBS
+  || (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_FEATURED_HUBS)
   || 'TLV,LHR,CDG,JFK,DXB,FCO,NRT,ATH,BCN,PRG,LIS').split(',');
 
 export const AIRPORTS = GENERATED_AIRPORTS;

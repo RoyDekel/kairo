@@ -47,9 +47,10 @@ describe('AIDestinationExplorer Component', () => {
       />
     );
 
-    // Verify initial empty state heading is NOT rendered and badge is rendered
+    // Verify initial empty state heading is NOT rendered and no scan status badge is shown yet
+    // (the "N Destinations Scanned" badge only appears once the server has returned results)
     expect(screen.queryByRole('heading', { name: /Ready to Find Your Next Trip\?/i })).not.toBeInTheDocument();
-    expect(screen.getByText('Click Search Routes to scan')).toBeInTheDocument();
+    expect(screen.queryByText(/Destinations Scanned/i)).not.toBeInTheDocument();
 
     // Verify searchAIDestinations was NOT called automatically on mount
     expect(searchAIDestinations).not.toHaveBeenCalled();
@@ -108,6 +109,9 @@ describe('AIDestinationExplorer Component', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Barcelona' })).toBeInTheDocument();
     });
+
+    // The scan-count badge now lives in the results section, not the search controls
+    expect(screen.getByText('1 Destinations Scanned')).toBeInTheDocument();
   });
 
   test('renders no events state after empty search result', async () => {

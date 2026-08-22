@@ -226,19 +226,14 @@ export default function AIDestinationExplorer({
       
       {/* EXPLORER HEADER & CONTROL PANEL */}
       <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px', overflow: 'visible' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Compass size={22} style={{ color: 'var(--primary)' }} />
-              When to Go
-            </h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              Got dates but no destination? KAIRO scans every route from your origin and pairs the cheapest fares with live concerts, matches, and festivals.
-            </p>
-          </div>
-          <div className="badge badge-info" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-            {hasSearched ? `${aiRecommendations.length} Destinations Scanned` : 'Click Search Routes to scan'}
-          </div>
+        <div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Compass size={22} style={{ color: 'var(--primary)' }} />
+            When to Go
+          </h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            Got dates but no destination? KAIRO scans every route from your origin and pairs the cheapest fares with live concerts, matches, and festivals.
+          </p>
         </div>
 
         {/* CONTROLS GRID */}
@@ -439,23 +434,28 @@ export default function AIDestinationExplorer({
         ) : (
           <>
             {/* SORT CONTROL — same shape as the Search & Compare listings control. */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', margin: '0 0 4px 2px' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Sort:</span>
-              <div style={{ display: 'flex', background: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px solid var(--border-glass)', padding: '2px' }}>
-                <button
-                  onClick={() => changeSort('match')}
-                  aria-pressed={sortKey === 'match'}
-                  style={{ padding: '4px 10px', borderRadius: '4px', border: 'none', background: sortKey === 'match' ? 'var(--bg-secondary)' : 'transparent', color: sortKey === 'match' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem' }}
-                >
-                  Best match
-                </button>
-                <button
-                  onClick={() => changeSort('price')}
-                  aria-pressed={sortKey === 'price'}
-                  style={{ padding: '4px 10px', borderRadius: '4px', border: 'none', background: sortKey === 'price' ? 'var(--bg-secondary)' : 'transparent', color: sortKey === 'price' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem' }}
-                >
-                  Cheapest
-                </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', margin: '0 0 4px 2px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Sort:</span>
+                <div style={{ display: 'flex', background: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px solid var(--border-glass)', padding: '2px' }}>
+                  <button
+                    onClick={() => changeSort('match')}
+                    aria-pressed={sortKey === 'match'}
+                    style={{ padding: '4px 10px', borderRadius: '4px', border: 'none', background: sortKey === 'match' ? 'var(--bg-secondary)' : 'transparent', color: sortKey === 'match' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem' }}
+                  >
+                    Best match
+                  </button>
+                  <button
+                    onClick={() => changeSort('price')}
+                    aria-pressed={sortKey === 'price'}
+                    style={{ padding: '4px 10px', borderRadius: '4px', border: 'none', background: sortKey === 'price' ? 'var(--bg-secondary)' : 'transparent', color: sortKey === 'price' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem' }}
+                  >
+                    Cheapest
+                  </button>
+                </div>
+              </div>
+              <div className="badge badge-info" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+                {aiRecommendations.length} Destinations Scanned
               </div>
             </div>
 
