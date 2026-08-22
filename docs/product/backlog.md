@@ -122,18 +122,39 @@ narrative (P4), discovery verdict chips, an automated purge cron.
   live compute if the batch sleeps through its slot.
 - **Touches the verdict-serving path — on the `ship-change` stop-list. Ships as a PR for Roy,
   not an agent self-merge.**
-- **OPEN — measure the real cache-hit rate (post-launch).** RESOLVED that the cache works:
-  prod logs on 2026-08-09 show repeated `[api/flights] Forecast cache hit` on `TLV→KRK` and
-  `TLV→CDG`, each skipping live compute. The earlier "never hits" symptom was deploy/warm-up
-  timing, not the drift gate — those searches passed the 8% gate, so the guardrail is admitting
-  real traffic rather than blocking it. The earlier drift-heavy hypothesis was too pessimistic
-  for the routes users actually search. **Remaining work is measurement, not a fix**: over a
-  representative window, compare `cache hit` lines against `[forecastCache] MISS … drift` /
-  `… stale` lines (miss-reason logging shipped in PR #8) to establish the true hit rate against
-  the ≥80% target. `FORECAST_PRICE_DRIFT_TOLERANCE` stays at 8% unless drift-misses turn out to
-  dominate on off-sample dates — only then consider (a) widening it, or (b) also serving the
-  discovery/estimates path, where route-level prices sit closer to the sampled fare and the hit
-  rate would be structurally higher.
+- **MEASURED (2026-08-22) — real cache-hit rate is ~8%, far below the ≥80% target, and the
+  cause is not staleness.** Render logs from 2026-08-19 through 2026-08-22 (`flight-tracker-
+  backend`, via the Render MCP connector): 4 `[api/flights] Forecast cache hit` lines against
+  45 `[forecastCache] MISS … drift` lines — **0 stale misses, all 45 were the price-drift
+  gate**, and 38 of those 45 are the same route, `TLV-KRK`.
+  **Root cause: the drift gate is comparing prices across *different departure dates*, not
+  measuring real price movement over time.** `fare_observations` for `TLV-KRK` shows the
+  collector writing rows for several departure dates per sweep — `2026-11-20` at ~$134,
+  `2026-10-21` at ~$139, `2026-09-05` at ~$249, `2026-08-22`/`2026-09-21` at $565–$734 — a
+  5.5x spread that is entirely normal seasonality, not volatility. The batch's "latest
+  observation" stand-in (`decisions.md`, 2026-08-09) selects whichever row the collector
+  happened to write *last* in a sweep, with no departure-date filter — so
+  `computed_current_price` in `forecast_cache` can land on the $134 far-future row while a
+  user is searching a $613 near-term date. An 8% tolerance can never absorb a same-route,
+  different-date gap that large; the gate isn't wrong, the comparison itself is
+  apples-to-oranges. Confirmed at
+  `docs/product/specs/p1-nightly-batch-forecast.md` §3.2 — the batch's price selection has no
+  departure-date awareness at all.
+  **This changes the diagnosis from the 2026-08-09 entry above** (which read the same drift
+  gate as correctly admitting real traffic, based on 4 hits and no visibility into the miss
+  volume) — with the miss count now measured, drift dominates overwhelmingly, and the fix
+  implied by "widen `FORECAST_PRICE_DRIFT_TOLERANCE`" would not help, since no tolerance
+  short of ~500% absorbs a seasonal fare spread.
+  **Not fixed. Options for whoever picks this up** (touches `forecastBatch.js` and/or
+  `forecastCache.js` — on the `ship-change` stop-list, needs a PR): (a) have the batch select
+  the latest observation **per departure-date bucket** closest to a canonical horizon (e.g.
+  the collector's own horizon grid) instead of just the newest row regardless of date: (b)
+  key `forecast_cache` rows by `(route, currency, horizon_bucket)` instead of just
+  `(route, currency)`, so the cached verdict actually matches the date range being searched —
+  a bigger schema change; (c) as a cheaper stopgap, have the batch pick the observation whose
+  `departure_date` is closest to "today + a representative horizon" (e.g. 30 days out) rather
+  than most-recently-written, which would at least make the mismatch bounded and typical
+  rather than arbitrary.
 
 ## [KAI-001] Remove the 11 setState-in-effect cascading renders
 **Status**: proposed
