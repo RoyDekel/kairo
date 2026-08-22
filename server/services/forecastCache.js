@@ -7,17 +7,30 @@ import { getServerSupabase } from './supabaseServer.js';
  * both stay free of inline Supabase, and both become unit-testable against the same stub.
  *
  * -------------------------------------------------------------------------------------
- * WHY THE READ HAS TWO GATES, NOT ONE
+ * WHY THE READ GATES ON TIME, AND ONLY SANITY-CHECKS PRICE
  *
- * A row is served only if it is BOTH time-fresh AND still price-relevant.
+ * A row is served if it is time-fresh and its cached price is not absurdly far from the
+ * live one.
  *
  *   1. Freshness (computed_at within staleHours). A missing nightly run means the batch was
- *      asleep — live compute is the honest fallback, not a day-old verdict.
- *   2. Drift. The cached verdict was computed against the LAST OBSERVED fare (the batch has
- *      no live quote — see forecastBatch §3.2). If the user's live fare has since drifted
- *      past driftTolerance, the BUY/WAIT could have flipped, so we recompute live rather than
- *      serve a price-stale verdict. This is the trust guardrail; it is deliberately part of
- *      the cache read, not the writer.
+ *      asleep — live compute is the honest fallback, not a day-old verdict. The fields that
+ *      genuinely age are 90-day-window statistics and the Chronos forecast itself, i.e.
+ *      properties of WHEN the model ran, so time is the correct gate for them.
+ *   2. Price sanity — a DATA-INTEGRITY check, not a decision-freshness one. A live price
+ *      more than sanityMultiple x (or under 1/sanityMultiple of) computed_current_price is
+ *      more likely a currency mismatch, a bad fare_observations row or a provider glitch
+ *      than a real fare; recomputing live is cheap insurance against a corrupt row.
+ *
+ * THIS REPLACED AN 8% PRICE-DRIFT GATE (KAI-004, decisions.md 2026-08-22). That gate — "the
+ * trust guardrail", decisions.md 2026-08-09 — rejected ~92% of production reads, because the
+ * batch's computed_current_price can come from a different departure date than the user is
+ * searching, and fares vary 5x+ by date as ordinary seasonality. It was redundant besides:
+ * server.js never hands this payload to the client, only to insightsEngine's
+ * computeEventDrivenInsights, which recomputes recommendation, pricePercentile and
+ * expectedSavings from the LIVE per-flight price on every request. The stale-price risk the
+ * gate defended against was already handled one layer downstream. That invariant is now
+ * locked by src/utils/__tests__/insightsEngine.test.js — it is what makes this safe, so do
+ * not weaken it without re-reading that test.
  *
  * get() never throws. A read failure returns null and the caller falls through to live
  * compute — the /api/flights response must never fail because of this cache.
@@ -26,8 +39,8 @@ import { getServerSupabase } from './supabaseServer.js';
 /** Default staleness window (hours). 26h keeps a 02:00 nightly run always fresh; see .env. */
 export const DEFAULT_STALE_HOURS = 26;
 
-/** Default price-drift tolerance (fraction). 0.08 = 8%; the trust guardrail. See .env. */
-export const DEFAULT_DRIFT_TOLERANCE = 0.08;
+/** Default price sanity multiple. 5x catches a corrupt row, not a seasonal spread. See .env. */
+export const DEFAULT_SANITY_MULTIPLE = 5;
 
 export class ForecastCache {
   constructor({
@@ -138,19 +151,20 @@ export class ForecastCache {
 
   /**
    * The cached payload for (route, currency), or null if it fails EITHER gate — freshness or
-   * price drift — or if the row is missing or the read errors. Never throws.
+   * the price sanity check — or if the row is missing or the read errors. Never throws.
    *
    * @param {number} livePrice the fare the user is actually being shown right now.
    */
-  async get(route, currency, livePrice, { staleHours = DEFAULT_STALE_HOURS, driftTolerance = DEFAULT_DRIFT_TOLERANCE } = {}) {
+  async get(route, currency, livePrice, { staleHours = DEFAULT_STALE_HOURS, sanityMultiple = DEFAULT_SANITY_MULTIPLE } = {}) {
     const validCurrency = String(currency || 'USD').toUpperCase().trim();
     const label = `${route}/${validCurrency}`;
 
     // Miss visibility (P1 diagnostics). Batch writes rows but /api/flights never logged a
     // hit, so a miss was indistinguishable from a hit: we could not tell no_row from stale
-    // from drift. Every branch below that returns null now says WHY, with the numbers.
+    // from a price rejection. Every branch below that returns null now says WHY, with the
+    // numbers — that logging is what measured the 8% hit rate KAI-004 then fixed.
     //
-    // NOISE CONTROL: only featured routes have rows, so a row-rejected miss (stale / drift /
+    // NOISE CONTROL: only featured routes have rows, so a row-rejected miss (stale / sanity /
     // bad columns) is rare and high-signal — always logged. But no_row and no-client fire on
     // EVERY non-featured search, which would flood the logs, so they are gated behind
     // FORECAST_CACHE_DEBUG (default off; see .env.example).
@@ -192,9 +206,9 @@ export class ForecastCache {
         return null;
       }
 
-      // Gate 2: price drift — the trust guardrail. Without a valid computed_current_price to
-      // compare against, or a valid live price, we cannot prove the verdict is still relevant,
-      // so we recompute live rather than serve it.
+      // Gate 2: price sanity. A row with no usable computed_current_price, or a request with
+      // no usable live price, cannot be sanity-checked at all — that is a sign of a bad row
+      // or a bad call, so we recompute live rather than serve something unverifiable.
       const computedPrice = Number(row.computed_current_price);
       if (!Number.isFinite(computedPrice) || computedPrice <= 0) {
         console.warn(`[forecastCache] MISS ${label}: no computed_current_price on row`);
@@ -205,9 +219,11 @@ export class ForecastCache {
         return null;
       }
 
-      const drift = Math.abs(livePrice - computedPrice) / computedPrice;
-      if (drift > driftTolerance) {
-        console.warn(`[forecastCache] MISS ${label}: drift ${drift.toFixed(2)} > ${driftTolerance} (live ${livePrice} vs cached ${computedPrice})`);
+      // Deliberately NOT a percentage: a same-route price difference of even 5x is ordinary
+      // seasonality across departure dates (TLV-KRK ran $134-$734), while 20x is a data error.
+      const ratio = livePrice / computedPrice;
+      if (ratio > sanityMultiple || ratio < 1 / sanityMultiple) {
+        console.warn(`[forecastCache] MISS ${label}: sanity ${ratio.toFixed(2)}x outside ${sanityMultiple}x (live ${livePrice} vs cached ${computedPrice})`);
         return null;
       }
 

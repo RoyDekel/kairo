@@ -68,7 +68,7 @@ describe('ForecastCache.get — freshness gate', () => {
       now: () => NOW
     });
 
-    const res = await cache.get('TLV-CDG', 'USD', 505, { staleHours: 26, driftTolerance: 0.08 });
+    const res = await cache.get('TLV-CDG', 'USD', 505, { staleHours: 26, sanityMultiple: 5 });
     expect(res).toEqual(seasonalPayload());
   });
 
@@ -78,41 +78,71 @@ describe('ForecastCache.get — freshness gate', () => {
       now: () => NOW
     });
 
-    const res = await cache.get('TLV-CDG', 'USD', 505, { staleHours: 26, driftTolerance: 0.08 });
+    const res = await cache.get('TLV-CDG', 'USD', 505, { staleHours: 26, sanityMultiple: 5 });
     expect(res).toBeNull();
   });
 });
 
-describe('ForecastCache.get — price-drift gate (the trust guardrail)', () => {
-  test('serves when the live price is within tolerance of computed_current_price (AC 10)', async () => {
-    const cache = new ForecastCache({
-      supabase: stubSupabase({ forecast_cache: { rows: [cacheRow({ computedPrice: 500 })] } }),
-      now: () => NOW
-    });
-
-    // 500 -> 535 is 7% drift, inside the 8% tolerance.
-    const res = await cache.get('TLV-CDG', 'USD', 535, { staleHours: 26, driftTolerance: 0.08 });
-    expect(res).toEqual(seasonalPayload());
-  });
-
-  test('THE GUARDRAIL: returns null when live price drifts past tolerance, even on a fresh row (AC 11)', async () => {
+/*
+  The 8% price-drift gate ("the trust guardrail", decisions.md 2026-08-09) was REMOVED by
+  KAI-004 after it rejected ~92% of production reads. Its replacement is a data-integrity
+  bound, not a decision-freshness one: the cached payload never reaches the user directly, and
+  insightsEngine recomputes every price-sensitive field from the live fare — the invariant is
+  locked by insightsEngine.test.js. What is left here catches a corrupt or mismatched row.
+*/
+describe('ForecastCache.get — price sanity gate (data integrity, not drift)', () => {
+  test('serves a price difference the retired 8% drift gate would have rejected (KAI-004)', async () => {
     const cache = new ForecastCache({
       supabase: stubSupabase({ forecast_cache: { rows: [cacheRow({ ageHours: 1, computedPrice: 500 })] } }),
       now: () => NOW
     });
 
-    // 500 -> 560 is 12% drift, past the 8% tolerance: the BUY/WAIT could have flipped.
-    const res = await cache.get('TLV-CDG', 'USD', 560, { staleHours: 26, driftTolerance: 0.08 });
+    // 500 -> 560 is 12%: a hard miss under the old tolerance, a hit now.
+    const res = await cache.get('TLV-CDG', 'USD', 560, { staleHours: 26, sanityMultiple: 5 });
+    expect(res).toEqual(seasonalPayload());
+  });
+
+  test('serves a full seasonal spread — the TLV-KRK case that broke the hit rate (KAI-004)', async () => {
+    const cache = new ForecastCache({
+      supabase: stubSupabase({ forecast_cache: { rows: [cacheRow({ computedPrice: 134 })] } }),
+      now: () => NOW
+    });
+
+    // The measured production case: cached against a $134 November row, user searching a
+    // $613 near-term date. 4.6x is ordinary seasonality across departure dates, not drift.
+    const res = await cache.get('TLV-KRK', 'USD', 613, { staleHours: 26, sanityMultiple: 5 });
+    expect(res).toEqual(seasonalPayload());
+  });
+
+  test('rejects a live price beyond sanityMultiple x the cached one (AC 2)', async () => {
+    const cache = new ForecastCache({
+      supabase: stubSupabase({ forecast_cache: { rows: [cacheRow({ ageHours: 1, computedPrice: 500 })] } }),
+      now: () => NOW
+    });
+
+    // 20x. Not a fare — a currency mismatch or a corrupt fare_observations row.
+    const res = await cache.get('TLV-CDG', 'USD', 10_000, { staleHours: 26, sanityMultiple: 5 });
     expect(res).toBeNull();
   });
 
-  test('returns null when computed_current_price is missing (cannot prove relevance)', async () => {
+  test('rejects a live price below 1/sanityMultiple of the cached one (AC 2)', async () => {
+    const cache = new ForecastCache({
+      supabase: stubSupabase({ forecast_cache: { rows: [cacheRow({ ageHours: 1, computedPrice: 500 })] } }),
+      now: () => NOW
+    });
+
+    // The bound is symmetric: a tenth is as implausible as ten times.
+    const res = await cache.get('TLV-CDG', 'USD', 50, { staleHours: 26, sanityMultiple: 5 });
+    expect(res).toBeNull();
+  });
+
+  test('returns null when computed_current_price is missing (nothing to sanity-check)', async () => {
     const cache = new ForecastCache({
       supabase: stubSupabase({ forecast_cache: { rows: [cacheRow({ computedPrice: null })] } }),
       now: () => NOW
     });
 
-    const res = await cache.get('TLV-CDG', 'USD', 500, { staleHours: 26, driftTolerance: 0.08 });
+    const res = await cache.get('TLV-CDG', 'USD', 500, { staleHours: 26, sanityMultiple: 5 });
     expect(res).toBeNull();
   });
 
@@ -122,8 +152,18 @@ describe('ForecastCache.get — price-drift gate (the trust guardrail)', () => {
       now: () => NOW
     });
 
-    const res = await cache.get('TLV-CDG', 'USD', 0, { staleHours: 26, driftTolerance: 0.08 });
+    const res = await cache.get('TLV-CDG', 'USD', 0, { staleHours: 26, sanityMultiple: 5 });
     expect(res).toBeNull();
+  });
+
+  test('defaults to a 5x bound when no sanityMultiple is passed', async () => {
+    const cache = new ForecastCache({
+      supabase: stubSupabase({ forecast_cache: { rows: [cacheRow({ computedPrice: 500 })] } }),
+      now: () => NOW
+    });
+
+    expect(await cache.get('TLV-CDG', 'USD', 2_000)).toEqual(seasonalPayload());
+    expect(await cache.get('TLV-CDG', 'USD', 3_000)).toBeNull();
   });
 });
 
@@ -171,24 +211,24 @@ describe('ForecastCache.get — miss-reason logging (P1 diagnostics)', () => {
   // Every case here also re-asserts the RETURN CONTRACT: logging must never change what get()
   // resolves to (payload on hit, null on every miss).
 
-  test('drift gate logs the reason with live/cached numbers, always (row exists)', async () => {
+  test('sanity gate logs the reason with live/cached numbers, always (row exists)', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const cache = new ForecastCache({
       supabase: stubSupabase({ forecast_cache: { rows: [cacheRow({ ageHours: 1, computedPrice: 500 })] } }),
       now: () => NOW
     });
 
-    // 500 -> 560 is 12% drift, past the 8% tolerance.
-    const res = await cache.get('TLV-CDG', 'USD', 560, { staleHours: 26, driftTolerance: 0.08 });
+    // 500 -> 5000 is 10x, past the 5x sanity bound.
+    const res = await cache.get('TLV-CDG', 'USD', 5_000, { staleHours: 26, sanityMultiple: 5 });
 
     expect(res).toBeNull();
     expect(warn).toHaveBeenCalledTimes(1);
     const line = warn.mock.calls[0][0];
     expect(line).toContain('MISS TLV-CDG/USD');
-    expect(line).toContain('drift');
-    expect(line).toContain('0.12');
-    expect(line).toContain('> 0.08');
-    expect(line).toContain('live 560');
+    expect(line).toContain('sanity');
+    expect(line).toContain('10.00x');
+    expect(line).toContain('outside 5x');
+    expect(line).toContain('live 5000');
     expect(line).toContain('cached 500');
   });
 
@@ -199,7 +239,7 @@ describe('ForecastCache.get — miss-reason logging (P1 diagnostics)', () => {
       now: () => NOW
     });
 
-    const res = await cache.get('TLV-CDG', 'USD', 505, { staleHours: 26, driftTolerance: 0.08 });
+    const res = await cache.get('TLV-CDG', 'USD', 505, { staleHours: 26, sanityMultiple: 5 });
 
     expect(res).toBeNull();
     expect(warn).toHaveBeenCalledTimes(1);
@@ -215,7 +255,7 @@ describe('ForecastCache.get — miss-reason logging (P1 diagnostics)', () => {
       now: () => NOW
     });
 
-    const res = await cache.get('TLV-CDG', 'USD', 500, { staleHours: 26, driftTolerance: 0.08 });
+    const res = await cache.get('TLV-CDG', 'USD', 500, { staleHours: 26, sanityMultiple: 5 });
 
     expect(res).toBeNull();
     expect(warn).toHaveBeenCalledTimes(1);
@@ -229,7 +269,7 @@ describe('ForecastCache.get — miss-reason logging (P1 diagnostics)', () => {
       now: () => NOW
     });
 
-    const res = await cache.get('TLV-CDG', 'USD', 500, { staleHours: 26, driftTolerance: 0.08 });
+    const res = await cache.get('TLV-CDG', 'USD', 500, { staleHours: 26, sanityMultiple: 5 });
 
     expect(res).toBeNull();
     expect(warn).toHaveBeenCalledTimes(1);
@@ -286,7 +326,7 @@ describe('ForecastCache.get — miss-reason logging (P1 diagnostics)', () => {
       now: () => NOW
     });
 
-    const res = await cache.get('TLV-CDG', 'USD', 505, { staleHours: 26, driftTolerance: 0.08 });
+    const res = await cache.get('TLV-CDG', 'USD', 505, { staleHours: 26, sanityMultiple: 5 });
 
     expect(res).toEqual(seasonalPayload());
     expect(warn).not.toHaveBeenCalled();
@@ -388,7 +428,7 @@ async function readPathForecast({ cache, forecastRoute, route, origin, destinati
   if (process.env.FORECAST_CACHE_READ_ENABLED === 'true') {
     forecast = await cache.get(route, currency, livePrice, {
       staleHours: Number(process.env.FORECAST_STALE_HOURS || 26),
-      driftTolerance: Number(process.env.FORECAST_PRICE_DRIFT_TOLERANCE || 0.08)
+      sanityMultiple: Number(process.env.FORECAST_PRICE_SANITY_MULTIPLE || 5)
     });
   }
   if (!forecast) {
