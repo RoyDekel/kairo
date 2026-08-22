@@ -23,35 +23,39 @@ preference. **The data-logging foundation is already live**: the fare collector 
 Phase 2, so every phase below builds on real history rather than a cold start.
 
 ```
-[LIVE] collector + fare_observations   →   P1 → P2 → P3 → P4
+[LIVE] collector + fare_observations   →   [SHIPPED] P1 → [SHIPPED] P2 → P3 → P4
 ```
 
 ## Now
 
-- **P1 — Nightly batch forecast + `forecast_cache`** — _in progress (KAI-002)._
-  A `node-cron` job precomputes verdicts for the featured routes off the request path and
-  writes them to a Supabase `forecast_cache` table; `/api/flights` reads the cached verdict
-  instead of computing live. Pays off immediately on the seasonal-naive engine by removing
-  forecast latency from the request, and is the **prerequisite** that makes a Chronos
-  endpoint usable (a live HF call cold-starts slower than the 4s request timeout on Render's
-  free tier). Spec: `specs/p1-nightly-batch-forecast.md`.
-
-## Next
-
-- **P2 — Stand up the Chronos-2 HF endpoint and point the batch at it.**
-  Provision the `amazon/chronos-2` Dedicated Inference Endpoint, set `HF_ENDPOINT_URL`, and
-  let the batch (which already calls it when the var is set) run it off the request path
-  where a slow cold start is harmless. **Blocked on P1** (without precompute the endpoint is
-  unusable) **and on a cost decision** — a dedicated endpoint bills for uptime, so someone
-  has to sign off the run rate before it goes on.
-
-## Later
-
 - **P3 — Events-as-covariate loop.** Turn the event overlay from decoration into signal:
   Ticketmaster events → e5 embeddings → `pgvector` similarity → an `event_impact_score` fed
   into Chronos as a covariate, so "a concert is spiking this route" becomes part of the
-  forecast rather than a badge beside it. **Depends on P2** — there is no covariate slot
-  until the model taking covariates is live.
+  forecast rather than a badge beside it. **Unblocked** — P2 is live, so there is now a
+  covariate slot to feed: `roydekel/chronos-2-kairo`'s `handler.py` calls
+  `pipeline.predict_df` and would need `future_df` wired through with the real forecast's
+  known-future covariates for this to land on the model side; `forecastService.js`'s request
+  payload (currently just `inputs` + `prediction_length`/`num_samples`) would need an
+  `event_impact_score` column added, matching `handler.py`. No spec written yet.
+
+## Shipped
+
+- **P1 — Nightly batch forecast + `forecast_cache`** — _shipped (KAI-002), PR #7, live
+  2026-08-09._ A `node-cron` job precomputes verdicts for the featured routes off the request
+  path and writes them to a Supabase `forecast_cache` table; `/api/flights` reads the cached
+  verdict instead of computing live. Confirmed serving hits in prod; remaining work is
+  measuring the real hit rate (see backlog). Spec: `specs/p1-nightly-batch-forecast.md`.
+- **P2 — Wire the live Chronos-2 endpoint into Render and verify.** _shipped (KAI-003),
+  2026-08-22, config-only (no PR — nothing changed in `main`)._ `roydekel/chronos-2-kairo`'s
+  Dedicated Inference Endpoint is wired into Render (`HF_ENDPOINT_URL`/`HF_API_KEY`), and
+  every `forecast_cache` row now carries `reason: huggingface_chronos_forecast` instead of
+  `seasonal_naive_forecast`. `FORECAST_LIVE_HF_ENABLED=false` — the endpoint is scale-to-zero,
+  so only the nightly batch calls it; live request-path misses still serve seasonal-naive
+  rather than risk a cold-start timeout (decisions.md, 2026-08-22). Spec:
+  `specs/p2-hf-endpoint-rollout.md`.
+
+## Later
+
 - **P4 — LLM verdict narrative (`gpt-oss-20b`).** A natural-language "why" beneath the
   verdict, generated from the model's own evidence. **Deliberately last**: a fluent
   explanation of a wrong verdict is more dangerous than no explanation, so the numbers have

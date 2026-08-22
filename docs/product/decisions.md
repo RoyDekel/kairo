@@ -18,6 +18,60 @@
 
 ---
 
+### 2026-08-22 — P2 cost decision resolved: pay-per-hour HF Dedicated Endpoint approved
+**Decision**: Roy has an active Hugging Face subscription with per-hour billing enabled, and
+has provisioned a Dedicated Inference Endpoint for `roydekel/chronos-2-kairo` (a duplicate of
+`amazon/chronos-2` with a custom `handler.py` matching the request/response contract
+`forecastService.js` already calls). The cost sign-off that `roadmap.md` flagged as blocking
+P2 is resolved — P2 moves from "Later" to "Now".
+**Context**: `roadmap.md`'s P2 entry (written 2026-08-08) named two blockers: P1 shipping
+(done, KAI-002) and "a cost decision — a dedicated endpoint bills for uptime, so someone has
+to sign off the run rate before it goes on." Roy confirmed the subscription and hourly
+billing are already in place and the endpoint is already running.
+**Reasoning**: a Dedicated Inference Endpoint is the only way to serve Chronos-2 — HF's
+serverless Inference Providers do not host time-series models (verified directly against the
+API; see `KAIRO_HuggingFace_Integration_Analysis.md` §0.3). That means uptime cost is
+unavoidable for this model family, not a configuration choice. What remained was an explicit
+answer to "is that acceptable" — which this decision records as yes.
+**Alternatives considered**: none re-litigated here — the model choice (`amazon/chronos-2`
+over Bolt/TimesFM/Moirai/etc.) and the "batch-only, not per-request" mitigation are already
+decided in the P1 spec and the HF analysis doc; this entry only unblocks proceeding with them.
+**What would change this**: if actual per-hour spend materially exceeds the ~$8–95/month
+estimate in the analysis doc (scale-to-zero vs. always-on) once real usage is observed, revisit
+whether the endpoint should be scale-to-zero-only, restricted to the nightly batch
+(`FORECAST_LIVE_HF_ENABLED=false`), or dropped in favour of the cheaper
+`ibm-granite/granite-timeseries-ttm-r2` fallback named in the same doc.
+
+### 2026-08-22 — `FORECAST_LIVE_HF_ENABLED=false`: the Chronos-2 endpoint is scale-to-zero
+**Decision**: `FORECAST_LIVE_HF_ENABLED` is set to `false` in Render (overriding the code
+default of `true`). The live `/api/flights` request path never calls the HF endpoint; only
+the nightly `forecastBatch.js` job does (`source === 'batch'` bypasses this flag entirely —
+`forecastService.js:309`).
+**Context**: `HF_ENDPOINT_URL`/`HF_API_KEY` for `roydekel/chronos-2-kairo` are now set in
+Render (KAI-003), and a manual smoke test confirmed the response contract works (200, 751ms,
+correct quantile shape). Checking the HF dashboard, the endpoint is configured **scale-to-zero**,
+not always-on.
+**Reasoning**: on scale-to-zero, the first request after the endpoint idles out has to cold-
+start a 120M-parameter model, which routinely exceeds the request path's 4s
+`AbortController` timeout (`forecastService.js:329`) — so a live call gains nothing on a cold
+hit (silent fallback to seasonal-naive either way) and, on a warm hit, re-arms the idle timer
+from ordinary search traffic, turning a scale-to-zero endpoint into effectively always-on
+billing driven by user volume rather than the batch's predictable once-a-day schedule. Since
+the batch already ignores this flag, disabling it costs nothing on the batch side — Tier 3
+forecasts still get real Chronos-2 output nightly — and only removes the *unpredictable* cost
+and latency path.
+**Alternatives considered**:
+- *Leave `true`* — would have been correct if the endpoint were always-on; rejected because
+  it isn't, and the mismatch between "flag assumes always-on" and "endpoint is scale-to-zero"
+  is exactly the failure mode this flag exists to prevent (see `.env.example`'s comment on it).
+- *Switch the endpoint to always-on instead* — trades a predictable ~daily cost for a fixed
+  ~$95/month floor (per the HF analysis doc's estimate) regardless of traffic; not chosen
+  without a separate cost conversation.
+**What would change this**: switching the endpoint to always-on in the HF dashboard (then
+`FORECAST_LIVE_HF_ENABLED=true` becomes safe again), or if p95 request-path latency data shows
+seasonal-naive-only Tier 3 verdicts are hurting verdict quality enough to justify the cost of
+always-on.
+
 ### 2026-08-09 — P1 batch "current price" is the latest observation, not a fresh live quote
 **Decision**: the nightly forecast batch computes each route's verdict against the most
 recent `fare_observations` row for that route+currency, not against a freshly fetched live

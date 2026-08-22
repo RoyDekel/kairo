@@ -22,6 +22,64 @@
 
 ---
 
+## [KAI-003] P2 — Wire the live Chronos-2 HF endpoint into Render + verify
+**Status**: shipped (2026-08-22, config-only — no PR, nothing merged to `main`; verified live
+in prod). All `forecast_cache` rows confirmed carrying `reason = huggingface_chronos_forecast`.
+**Spec**: full spec at `docs/product/specs/p2-hf-endpoint-rollout.md` — that file is the
+verification contract; this entry is the backlog pointer.
+**User**: every KAIRO user who gets a Tier 3 forecast on a featured route — they currently
+get `seasonal_naive_forecast`; this makes it `huggingface_chronos_forecast` with a real
+quantile-based confidence score instead of the seasonal engine's own residual estimate.
+**Problem**: the code side of P2 already shipped — `forecastService.js` calls
+`HF_ENDPOINT_URL` when set (Phase 0/1, commit `f47e26f`), the nightly batch picks it up with
+no further change (P1, KAI-002), and `FORECAST_LIVE_HF_ENABLED` gates the request-path call
+(PR #11). A Dedicated Inference Endpoint for `roydekel/chronos-2-kairo` (custom `handler.py`
+matching the exact request/response contract `forecastService.js` parses) is already running
+on the HF side. **Nothing left to build — this is wiring the two together and verifying it,
+in Render.**
+**Why now**: the cost blocker that kept P2 in "Later" is resolved (decisions.md, 2026-08-22).
+Every day this sits unwired is a day the endpoint bills per-hour with zero KAIRO traffic
+using it.
+**Solution**: set `HF_ENDPOINT_URL` + `HF_API_KEY` in Render's environment, confirm the
+nightly batch resolves routes with `reason: huggingface_chronos_forecast` instead of
+`seasonal_naive_forecast`, and make an explicit call on `FORECAST_LIVE_HF_ENABLED` now that
+per-hour cost is real money rather than a hypothetical.
+**Acceptance criteria**: see the 6 numbered criteria in the spec (§3). Headline checks:
+- [x] Manual smoke call against the endpoint (2026-08-22) returned HTTP 200 in 751ms with
+      `{ "quantiles": { "0.1": [...7], "0.5": [...7], "0.9": [...7] } }` — matches
+      `handler.py`'s contract exactly. **Open question this raised**: 751ms is fast for a
+      cold CPU start of a 120M-param model — the endpoint may already be configured
+      always-on rather than scale-to-zero. Confirm in the HF dashboard before setting
+      `FORECAST_LIVE_HF_ENABLED` (see spec §2.3).
+- [x] Render has `HF_ENDPOINT_URL` and `HF_API_KEY` set.
+- [x] Verified in Supabase (2026-08-22): **every** `forecast_cache` row carries
+      `reason = 'huggingface_chronos_forecast'` — the seasonal-naive fallback is not firing
+      on any currently-cached featured route.
+- [x] `FORECAST_LIVE_HF_ENABLED=false` set in Render, deliberately — the endpoint is
+      confirmed scale-to-zero. Reasoning recorded in decisions.md, 2026-08-22.
+**Success metric**: fraction of Tier-3 `forecast_cache` rows with
+`reason = huggingface_chronos_forecast` vs. `seasonal_naive_forecast` (target: all featured
+routes with ≥30 observations, i.e. the seasonal-naive fallback should stop firing except on
+a genuine HF call failure).
+**Cost**: the endpoint itself is external, pre-approved spend (decisions.md, 2026-08-22) — no
+new metered call added by this item. Confirms whether the live path (`FORECAST_LIVE_HF_ENABLED`)
+adds request-triggered cost on top of the nightly batch's roughly-one-call-per-route-per-day.
+**Out of scope**: the events covariate (P3), the LLM narrative (P4), any change to
+`forecastRoute`'s engine math or the HF request/response contract, fine-tuning Chronos-2 on
+KAIRO's own data.
+**Risks / open questions**:
+- **A wrong response shape silently falls back to seasonal-naive** (`forecastService.js`
+  rejects a response with no usable quantiles rather than erroring) — the failure mode is
+  quiet, not loud. The smoke-test criterion above exists specifically to catch a
+  `handler.py`/endpoint mismatch before relying on the nightly batch to surface it days later.
+- **Scale-to-zero cold start vs. request-path timeout**: the live path's `AbortController`
+  cuts an HF call off at 4s (`forecastService.js:329`). If the endpoint is configured
+  scale-to-zero rather than always-on, the *first* live request after idle will still time out
+  and fall back — confirm the endpoint's scaling config matches the cost/latency tradeoff
+  decided in decisions.md before enabling `FORECAST_LIVE_HF_ENABLED=true`.
+- **Touches HF credentials and the live forecast path — ships as config change reviewed by
+  Roy, not an agent self-merge**, per the same stop-list logic as KAI-002.
+
 ## [KAI-002] P1 — Nightly batch forecast + `forecast_cache` table
 **Status**: shipped (PR #7, live 2026-08-09; both flags enabled in prod) — **cache confirmed
 serving hits in prod**; remaining work is measuring the real hit rate, see the last open question.

@@ -19,6 +19,11 @@ dist-ssr
 .env.production.local
 !.env.example
 
+# Local checkout of the HF Hub repo backing the Chronos-2 Dedicated Inference Endpoint
+# (roydekel/chronos-2-kairo) — its own git repo/remote, not part of this one. Carries
+# ~478MB of model weights; never commit it here.
+/chronos-2-kairo/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
