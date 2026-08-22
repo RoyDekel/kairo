@@ -22,6 +22,65 @@
 
 ---
 
+## [KAI-004] Fix the `forecast_cache` price-drift gate (root cause of the ~8% hit rate)
+**Status**: proposed
+**Spec**: full spec at `docs/product/specs/kai-004-forecast-cache-drift-gate-fix.md` — that
+file is the build contract; this entry is the backlog pointer.
+**User**: every KAIRO user who searches a featured-hub route — today they pay the full
+per-request forecast-compute cost (~1,000-row read, daily-index rebuild) on ~92% of searches
+because a cache built to protect them turns out to be protecting against a risk that doesn't
+reach them.
+**Problem**: the 2026-08-22 hit-rate measurement (recorded under KAI-002 above) found 4 cache
+hits vs. 45 drift-gated misses. Tracing what the price-drift gate (`FORECAST_PRICE_DRIFT_
+TOLERANCE=0.08`, "the trust guardrail", `decisions.md` 2026-08-09) actually protects showed it
+is redundant: `server.js` never sends the raw cached `forecast` object to the client — it only
+ever feeds `computeEventDrivenInsights` (`server/services/insightsEngine.js`), which **already
+recomputes `recommendation`, `pricePercentile`, and `expectedSavings` from the live per-flight
+price** whenever `forecast.prices` is present (i.e. on every cached tier that isn't the
+early-returned insufficient-history one). The only fields that pass through the cache
+unrecomputed — `confidenceScore`, `low90Day`/`high90Day`/`avg90Day`, `sampleSize`,
+`priceHistory` — are properties of the 90-day window and the model's own uncertainty band,
+not of the specific price the cache was computed against. The gate has been rejecting reads
+to prevent a failure mode that was already prevented one layer downstream, at the cost of
+defeating P1's purpose on exactly the routes (like `TLV-KRK`, 5.5x seasonal spread) it fires
+hardest on.
+**Why now**: it's the direct, root-caused follow-up to the measurement just taken — the
+diagnosis and fix are fresh in context, and every day this sits open is more request-path
+forecast compute than P1 was built to eliminate.
+**Solution**: drop the price-point drift comparison from `ForecastCache.get()`; gate on
+`staleHours` only (the genuinely time-sensitive part). Replace it with a much looser
+data-integrity sanity check (default 5x, not 8%) that catches a genuinely corrupt/mismatched
+row rather than normal seasonal spread. Add the regression test that doesn't exist yet
+(`insightsEngine.test.js`) locking in the recompute invariant this fix's safety argument
+depends on. Full detail in the spec.
+**Acceptance criteria**: the 6 numbered criteria in the spec (§4). Headline checks:
+- [ ] `ForecastCache.get()` no longer rejects a fresh row on an 8%-scale price difference.
+- [ ] A genuinely bad row (live price 20x cached) is still rejected by the new sanity check.
+- [ ] `insightsEngine.test.js` exists, proving `recommendation`/`pricePercentile`/
+      `expectedSavings` are always derived from the live price, never the cached object's own.
+- [ ] Staleness gating (`FORECAST_STALE_HOURS`) behavior is unchanged (regression, not new).
+**Success metric**: re-measured `forecast_cache` hit rate on featured routes, same method as
+the 2026-08-22 measurement (Render logs, `Forecast cache hit` vs `forecastCache MISS`).
+Target: the KAI-002/P1 spec's original ≥80%, with remaining misses being staleness or
+genuine sanity-check rejections, not drift.
+**Cost**: net reduction — fewer live `forecastRoute` calls means fewer ~1,000-row Supabase
+reads on the request path. No new external API calls.
+**Out of scope**: `forecastBatch.js`'s "latest observation" price-selection logic (still the
+right zero-cost stand-in per the 2026-08-09 decision — this fix makes its imprecision
+harmless rather than replacing it), any change to `forecastService.js`'s tiering/engine math,
+any change to `insightsEngine.js`'s existing recompute logic (only adding test coverage for
+it, not modifying it), the events covariate (P3), the LLM narrative (P4).
+**Risks / open questions**:
+- **The 5x sanity default is a starting guess**, same as the original 8% was. Tune from
+  measured data post-ship rather than assuming it's right.
+- **This makes `insightsEngine.js`'s live-recompute behavior load-bearing** in a way nothing
+  previously enforced — which is exactly why `insightsEngine.test.js` is an acceptance
+  criterion, not optional follow-up. A future change that stops recomputing
+  `recommendation` live from the real price would silently reopen the confidently-wrong-
+  verdict risk this whole fix's safety case rests on not existing.
+- **Touches `forecastCache.js` — "any cache in `server/services/`" on the `ship-change`
+  stop-list. Ships as a PR for Roy, not an agent self-merge.**
+
 ## [KAI-003] P2 — Wire the live Chronos-2 HF endpoint into Render + verify
 **Status**: shipped (2026-08-22, config-only — no PR, nothing merged to `main`; verified live
 in prod). All `forecast_cache` rows confirmed carrying `reason = huggingface_chronos_forecast`.
