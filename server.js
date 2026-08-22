@@ -669,8 +669,8 @@ app.get('/api/flights', requireAuth, async (req, res) => {
     const currentRoundtripPrice = cheapestOutboundPrice + cheapestReturnPrice;
 
     /*
-      Serve a precomputed verdict from forecast_cache when one is fresh AND still
-      price-relevant, so this request does not pay for a ~1,000-row read, the daily-index
+      Serve a precomputed verdict from forecast_cache when one is time-fresh, so this
+      request does not pay for a ~1,000-row read, the daily-index
       rebuild, and (once HF_ENDPOINT_URL is set) a 4s Chronos call. Guarded by its OWN flag,
       independent of the batch writer, so the cache can be populated and inspected before
       reads flip on — the same independence pattern as ESTIMATES_USE_REAL_PROVIDER vs
@@ -678,8 +678,12 @@ app.get('/api/flights', requireAuth, async (req, res) => {
 
       forecastCache.get already swallows its own errors and returns null; the extra try/catch
       makes the "the response must never fail because of the cache" contract explicit even if
-      that ever changes. Any miss / staleness / drift / read error falls through to the exact
+      that ever changes. Any miss / staleness / sanity / read error falls through to the exact
       live forecastRoute call that ran here before this feature existed.
+
+      The cached payload is never sent to the client — it only feeds computeEventDrivenInsights
+      below, which recomputes recommendation/pricePercentile/expectedSavings from each flight's
+      own live price. That is why the read no longer gates on price drift (KAI-004).
     */
     let forecast = null;
     if (process.env.FORECAST_CACHE_READ_ENABLED === 'true') {
@@ -687,7 +691,7 @@ app.get('/api/flights', requireAuth, async (req, res) => {
         const route = FareHistory.routeKey(origin, destination);
         forecast = await forecastCache.get(route, FARE_CURRENCY, currentRoundtripPrice, {
           staleHours: Number(process.env.FORECAST_STALE_HOURS || 26),
-          driftTolerance: Number(process.env.FORECAST_PRICE_DRIFT_TOLERANCE || 0.08)
+          sanityMultiple: Number(process.env.FORECAST_PRICE_SANITY_MULTIPLE || 5)
         });
         if (forecast) {
           console.log(`[api/flights] Forecast cache hit for ${origin}->${destination}; skipping live forecast.`);

@@ -18,6 +18,58 @@
 
 ---
 
+### 2026-08-22 — The `forecast_cache` price-drift gate is removed; it was redundant (reverses 2026-08-09)
+**Decision**: `ForecastCache.get()` no longer compares the live fare against
+`computed_current_price` as a percentage. `FORECAST_PRICE_DRIFT_TOLERANCE` (0.08) is replaced
+by `FORECAST_PRICE_SANITY_MULTIPLE` (default 5) — a data-integrity bound that rejects a row
+only when the live price is more than 5x or under 1/5th of the cached one. Time-freshness
+(`FORECAST_STALE_HOURS`) is now the only real gate, and is unchanged. **This directly reverses
+the 2026-08-09 entry below, which called that gate "non-negotiable in the design."**
+**Context**: the 2026-08-22 hit-rate measurement (KAI-002) found 4 cache hits against 45
+misses, **all 45 the drift gate, none staleness**, 38 of them on `TLV-KRK`. The first read of
+that data blamed the batch's departure-date-blind price selection: `computed_current_price`
+can land on a $134 November observation while the user searches a $613 near-term date, and no
+percentage tolerance absorbs a 5.5x seasonal spread. Tracing what the gate actually protects
+(`server.js:684-729`, `insightsEngine.js` end to end) showed the diagnosis was one layer too
+shallow. Full trace in `specs/kai-004-forecast-cache-drift-gate-fix.md` §1.
+**Reasoning**: the cached `forecast` object is never sent to the client. It is only ever an
+input to `computeEventDrivenInsights`, once per flight card, with `comparisonPrice` set to
+that flight's own live price — and whenever `forecast.prices` is present, that function
+**recomputes `pricePercentile`, `recommendation` and `expectedSavings` from the live price**,
+discarding the cached object's own values. The confidently-wrong-verdict failure mode the
+2026-08-09 gate was written to prevent was already prevented, by code that existed
+independently one layer downstream, before that gate was ever added. The fields that do pass
+through uncomputed — `confidenceScore`, `sampleSize`, `priceHistory`,
+`low90Day`/`high90Day`/`avg90Day` — are properties of the 90-day window and the model's own
+quantile spread, not of the price the cache was computed against (`confidenceScore` is
+`95 - cv * 30` over the forecast interval; `currentPrice` is not an input to it). Those age
+with *time*, which is exactly what the staleness gate already covers. So the gate was buying
+nothing and costing ~92% of reads — defeating P1's entire purpose on the routes it fired on
+hardest. The 2026-08-09 entry's own "what would change this" named this evidence
+("if the drift gate turns out to fire on a large fraction of featured-route searches"); it
+predicted the remedy would be the split-derivation refactor, but that split **already exists**
+in `insightsEngine.js` — it was just never recognised as such.
+**Alternatives considered**:
+- *Widen the tolerance* — the obvious first move, and useless: nothing short of ~500% absorbs
+  a seasonal fare spread, and at that width the gate is no longer a drift check anyway.
+- *Fix the batch's price selection instead* (per-departure-date buckets, or keying
+  `forecast_cache` by horizon) — a real improvement to `forecastBatch.js` and worth doing on
+  its own merits, but it is a schema/engine change on the stop-list, and it would have been
+  fixing the *input* to a gate that shouldn't run at all. This decision makes that imprecision
+  harmless rather than urgent; the 2026-08-09 "latest observation" stand-in is untouched.
+- *Keep a tightened gate as belt-and-braces* — rejected because a gate that fires is not free:
+  every rejection is a full request-path forecast recompute, which is the exact cost P1 exists
+  to remove. A bound that only catches corrupt data (5x) keeps the cheap insurance without the
+  bill.
+**What would change this**: `insightsEngine.js` ceasing to recompute
+`recommendation`/`pricePercentile`/`expectedSavings` from the live price would reopen the
+original risk immediately and require restoring a price gate — which is why that invariant is
+now pinned by `src/utils/__tests__/insightsEngine.test.js` rather than left implicit. Also:
+if `confidenceScore` ever becomes price-dependent in `forecastService.js`, this safety
+argument needs re-deriving. And if the re-measured hit rate does not clear the ≥80% target
+with drift misses gone, the remaining causes (staleness, genuine sanity rejections) are the
+next thing to look at — not this gate again.
+
 ### 2026-08-22 — P2 cost decision resolved: pay-per-hour HF Dedicated Endpoint approved
 **Decision**: Roy has an active Hugging Face subscription with per-hour billing enabled, and
 has provisioned a Dedicated Inference Endpoint for `roydekel/chronos-2-kairo` (a duplicate of
@@ -97,6 +149,10 @@ featured-route searches (meaning the latest observation is routinely far from li
 stand-in is too stale and the split-derivation refactor becomes worth its risk.
 
 ### 2026-08-09 — P1 read path guards the cached verdict with a price-drift gate (default 8%)
+> **REVERSED 2026-08-22** (KAI-004, top of this file). The gate fired on ~92% of reads, and
+> the tracing that prompted this entry's own "what would change this" showed the risk it
+> guards was already handled in `insightsEngine.js`. Kept here for the record; do not
+> re-implement from it.
 **Decision**: `/api/flights` serves a cached verdict only when the user's live roundtrip price
 is within `FORECAST_PRICE_DRIFT_TOLERANCE` (default 0.08) of the `computed_current_price` the
 verdict was calculated against — in addition to a time-freshness check
