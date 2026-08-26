@@ -157,16 +157,30 @@ test.describe('KAIRO Passenger Selection E2E Tests', () => {
     const searchBtnBoxAfter = await searchBtn.boundingBox();
     expect(searchBtnBoxAfter).not.toBeNull();
 
-    // The Search Flights button should NOT have moved down (layout is NOT pushed down by absolute overlay)
-    expect(searchBtnBoxAfter.y).toBeCloseTo(searchBtnBoxBefore.y, 1);
-
     // Verify both elements are visible simultaneously
     await expect(searchBtn).toBeVisible();
     await expect(dropdown).toBeVisible();
 
-    // Verify that the dropdown container visually overlaps or is positioned above the search button vertically
     const dropdownBox = await dropdown.boundingBox();
     expect(dropdownBox).not.toBeNull();
+
+    /*
+      The Search Flights button should NOT have moved down: the popover is
+      `position: absolute` (index.css `.passenger-popover`) and must overlay the form rather
+      than reflow it.
+
+      Tolerance rather than equality, and the size of it matters. This was
+      `toBeCloseTo(y, 1)` -- agreement to within 0.05px -- which failed on a CI runner with a
+      0.3px difference, a number no browser promises anything about (sub-pixel flex layout,
+      font metrics settling). Meanwhile the regression being guarded against is not subtle:
+      if the popover ever stopped being absolutely positioned it would push this button down
+      by its own full height, asserted just below to be well clear of the tolerance. A
+      tolerance far tighter than the property under test does not make the test stricter, it
+      only makes it report noise.
+    */
+    const LAYOUT_JITTER_TOLERANCE_PX = 2;
+    expect(dropdownBox.height).toBeGreaterThan(LAYOUT_JITTER_TOLERANCE_PX * 20);
+    expect(Math.abs(searchBtnBoxAfter.y - searchBtnBoxBefore.y)).toBeLessThan(LAYOUT_JITTER_TOLERANCE_PX);
 
     // The dropdown top coordinate (y) is above the search button y
     expect(dropdownBox.y).toBeLessThan(searchBtnBoxAfter.y);
