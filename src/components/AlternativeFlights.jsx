@@ -85,14 +85,70 @@ export default function AlternativeFlights({
     return `${year}-${month}-${day}`;
   };
 
-  // Search inputs local states
-  const [tripType, setTripType] = useState(searchParams.tripType || 'round-trip');
-  const [localOrigin, setLocalOrigin] = useState(searchParams.origin);
-  const [localDestination, setLocalDestination] = useState(searchParams.destination);
-  const [localDepDate, setLocalDepDate] = useState(searchParams.departureDate);
-  const [localRetDate, setLocalRetDate] = useState(searchParams.returnDate);
-  const [localStops, setLocalStops] = useState(searchParams.stops || '0');
-  const [localTravelClass, setLocalTravelClass] = useState(searchParams.travelClass || 'ALL');
+  /*
+    The search panel is a DRAFT of the next search, not a view of the current one. Edits are
+    deliberately not committed until Search is pressed, so these fields have to be able to
+    diverge from `searchParams` -- they cannot simply be derived from it.
+
+    But the draft must not go stale either: when "When to Go" hands a destination over,
+    App.jsx passes down a new `searchParams` object and the form has to adopt it. That
+    adoption used to be an effect setting all ten fields at once, which left exactly one
+    committed frame in between still showing the superseded search.
+
+    So the draft records the `searchParams` it was started from and is abandoned once that no
+    longer matches -- the same "discard on handoff" rule the effect enforced, applied during
+    render instead of after it. Both properties survive: edits stay uncommitted, and no frame
+    ever paints the old values.
+
+    The ten fields live in one object so a handoff replaces them atomically. The wrappers
+    below keep each field's original setter signature (including the updater form the
+    passenger steppers use), so the call sites in the JSX are unchanged.
+  */
+  const hydratedDraft = {
+    tripType: searchParams.tripType || 'round-trip',
+    localOrigin: searchParams.origin || '',
+    localDestination: searchParams.destination || '',
+    localDepDate: searchParams.departureDate || '',
+    localRetDate: searchParams.returnDate || '',
+    localStops: searchParams.stops || '0',
+    localTravelClass: searchParams.travelClass || 'ALL',
+    localAdults: searchParams.passengers?.adults ?? 1,
+    localChildren: searchParams.passengers?.children ?? 0,
+    localInfants: searchParams.passengers?.infants ?? 0,
+  };
+
+  const [draftEdits, setDraftEdits] = useState(null);
+
+  const draft = draftEdits && draftEdits.forParams === searchParams
+    ? draftEdits.fields
+    : hydratedDraft;
+
+  const editDraft = (field, next) => setDraftEdits((prev) => {
+    const base = prev && prev.forParams === searchParams ? prev.fields : hydratedDraft;
+    return {
+      forParams: searchParams,
+      fields: {
+        ...base,
+        [field]: typeof next === 'function' ? next(base[field]) : next,
+      },
+    };
+  });
+
+  const {
+    tripType, localOrigin, localDestination, localDepDate, localRetDate,
+    localStops, localTravelClass, localAdults, localChildren, localInfants,
+  } = draft;
+
+  const setTripType = (v) => editDraft('tripType', v);
+  const setLocalOrigin = (v) => editDraft('localOrigin', v);
+  const setLocalDestination = (v) => editDraft('localDestination', v);
+  const setLocalDepDate = (v) => editDraft('localDepDate', v);
+  const setLocalRetDate = (v) => editDraft('localRetDate', v);
+  const setLocalStops = (v) => editDraft('localStops', v);
+  const setLocalTravelClass = (v) => editDraft('localTravelClass', v);
+  const setLocalAdults = (v) => editDraft('localAdults', v);
+  const setLocalChildren = (v) => editDraft('localChildren', v);
+  const setLocalInfants = (v) => editDraft('localInfants', v);
 
   // Multi-city legs state
   const [localLegs, setLocalLegs] = useState([
@@ -121,11 +177,8 @@ export default function AlternativeFlights({
     setLocalLegs(prev => prev.filter(leg => leg.id !== id));
   };
 
-  // Passenger dropdown states
+  // Passenger dropdown state. The three counts themselves are part of the draft above.
   const [showPassengerDropdown, setShowPassengerDropdown] = useState(false);
-  const [localAdults, setLocalAdults] = useState(searchParams.passengers.adults);
-  const [localChildren, setLocalChildren] = useState(searchParams.passengers.children);
-  const [localInfants, setLocalInfants] = useState(searchParams.passengers.infants);
 
   const passengerRef = useRef(null);
 
@@ -194,23 +247,6 @@ export default function AlternativeFlights({
   const [returnFlights, setReturnFlights] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
-
-  // Re-hydrate the search form whenever shared state changes underneath it (for example
-  // after "Whento Go" hands off a destination). The form intentionally keeps local
-  // draft state so edits aren't committed until Search is pressed — this effect is what
-  // stops that draft from going stale relative to the rest of the app.
-  useEffect(() => {
-    setTripType(searchParams.tripType || 'round-trip');
-    setLocalOrigin(searchParams.origin || '');
-    setLocalDestination(searchParams.destination || '');
-    setLocalDepDate(searchParams.departureDate || '');
-    setLocalRetDate(searchParams.returnDate || '');
-    setLocalStops(searchParams.stops || '0');
-    setLocalTravelClass(searchParams.travelClass || 'ALL');
-    setLocalAdults(searchParams.passengers?.adults ?? 1);
-    setLocalChildren(searchParams.passengers?.children ?? 0);
-    setLocalInfants(searchParams.passengers?.infants ?? 0);
-  }, [searchParams]);
 
   // Fetch flights when search parameters change
   useEffect(() => {
