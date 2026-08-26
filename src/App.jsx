@@ -45,6 +45,15 @@ const NAV_ITEMS = [
 const MOBILE_QUERY = '(max-width: 768px)';
 
 /*
+  Shown in the sign-in modal when Supabase sends the browser back with `?confirmed=true` but the
+  session check finds nobody signed in -- meaning the link had expired or had already been used.
+  A module constant rather than state: it never varies, and holding it in state was how a notice
+  from a failed confirmation could survive into a later, unrelated opening of the modal.
+*/
+const EXPIRED_LINK_NOTICE =
+  'That confirmation link has expired or was already used. Sign in below, or sign up again to get a new link.';
+
+/*
   Identity of a telemetry run: which flight, on which route, and whether it is being simulated
   at all. A live transponder fix is only valid for one of these, so it is stored tagged with
   the value this returns and ignored once the tag stops matching.
@@ -100,13 +109,7 @@ export default function App() {
   const userId = user?.id;
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalInitialMode, setAuthModalInitialMode] = useState('signin');
-  const [authModalNotice, setAuthModalNotice] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-
-  // Post-email-confirmation toast (top-right, auto-dismiss) -- see LandingPage.jsx for the
-  // sibling pattern this mirrors.
-  const [confirmationToastMsg, setConfirmationToastMsg] = useState(null);
 
   /*
     Handles the redirect Supabase sends the browser back to after the user clicks the
@@ -121,29 +124,49 @@ export default function App() {
     expired-or-already-used one does not (fall back to the sign-in modal with an
     explanation instead of leaving the user looking at a dead landing page).
   */
+  /*
+    Whether this page load came from a confirmation link. Read in a `useState` initialiser
+    rather than during render, because the effect below strips the param from the URL once
+    auth resolves -- the initialiser captures it before that, and only once per mount. (A
+    module-level constant would be read once per *import*, which is wrong for a query string
+    and breaks under a test suite that mounts repeatedly.)
+  */
+  const [openedFromConfirmationLink] = useState(
+    () => new URLSearchParams(window.location.search).get('confirmed') === 'true'
+  );
+  const [confirmationDismissed, setConfirmationDismissed] = useState(false);
+
+  /*
+    The outcome of the link is a pure function of how the page was opened and what Supabase
+    made of it, so it is derived rather than written into state from an effect. That effect
+    used to leave one committed frame showing neither the toast nor the fallback -- on the
+    expired path, a landing page that looked like the link had simply done nothing.
+  */
+  const confirmationOutcome =
+    openedFromConfirmationLink && !authLoading && !confirmationDismissed
+      ? (isAuthenticated ? 'welcome' : 'expired')
+      : null;
+
+  // Strip the param so a refresh or back-navigation can't replay this. Waits for authLoading
+  // for the same reason the outcome does: until the session check resolves, the link has not
+  // been judged yet and the param still has a job to do. Touches only the URL, never state.
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !openedFromConfirmationLink) return;
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get('confirmed') !== 'true') return;
-
-    // Strip the param immediately so a refresh or back-navigation doesn't replay this.
     params.delete('confirmed');
     const newSearch = params.toString();
     const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash;
     window.history.replaceState({}, '', newUrl);
+  }, [authLoading, openedFromConfirmationLink]);
 
-    if (isAuthenticated) {
-      setConfirmationToastMsg('Email confirmed! Welcome to KAIRO.');
-      setTimeout(() => setConfirmationToastMsg(null), 5000);
-    } else {
-      setAuthModalInitialMode('signin');
-      setAuthModalNotice(
-        'That confirmation link has expired or was already used. Sign in below, or sign up again to get a new link.'
-      );
-      setIsAuthModalOpen(true);
-    }
-  }, [authLoading, isAuthenticated]);
+  // Auto-dismiss the welcome toast. setState here is in a timer callback, not the effect body,
+  // so it is a scheduled event rather than a cascading render.
+  useEffect(() => {
+    if (confirmationOutcome !== 'welcome') return undefined;
+    const timeoutId = setTimeout(() => setConfirmationDismissed(true), 5000);
+    return () => clearTimeout(timeoutId);
+  }, [confirmationOutcome]);
 
   // Mobile chrome: which navigation to render, the contextual bottom CTA, and
   // keeping the active nav pill inside the horizontally scrolling rail.
@@ -1176,20 +1199,22 @@ export default function App() {
 
       {/* AUTH MODAL */}
       <AuthModal
-        isOpen={isAuthModalOpen}
+        isOpen={isAuthModalOpen || confirmationOutcome === 'expired'}
         onClose={() => {
           setIsAuthModalOpen(false);
-          setAuthModalNotice('');
+          // Also retires the expired-link outcome, which is the other thing that can be
+          // holding the modal open.
+          setConfirmationDismissed(true);
         }}
-        initialMode={authModalInitialMode}
-        notice={authModalNotice}
+        initialMode="signin"
+        notice={confirmationOutcome === 'expired' ? EXPIRED_LINK_NOTICE : ''}
       />
 
       {/*
         EMAIL-CONFIRMATION TOAST — fixed top-right, auto-dismiss. Mirrors the toast pattern
         in LandingPage.jsx (this app has no shared toast component to reuse yet).
       */}
-      {confirmationToastMsg && (
+      {confirmationOutcome === 'welcome' && (
         <div className="animate-fade-in" style={{
           position: 'fixed',
           top: '80px',
@@ -1205,7 +1230,7 @@ export default function App() {
           gap: '8px'
         }}>
           <CheckCircle size={18} color="var(--success)" />
-          <span>{confirmationToastMsg}</span>
+          <span>Email confirmed! Welcome to KAIRO.</span>
         </div>
       )}
 

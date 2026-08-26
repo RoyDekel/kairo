@@ -21,14 +21,21 @@ const EMAIL_CONFIRMATION_REDIRECT_URL = 'https://roydekel.github.io/kairo/?confi
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+  /*
+    `loading` means "a session check is in flight". With no Supabase client there is no check
+    to run, so the provider is already in its final state and must say so on its first render.
+
+    This used to start at `true` unconditionally and be corrected by the effect below, which
+    mounted the entire application behind a loading gate and immediately re-rendered it out --
+    every component in the app sits under this provider, so it was the widest cascading render
+    of the eleven KAI-001 found. `supabase` is a module import and cannot change at runtime, so
+    reading it here is safe.
+  */
+  const [loading, setLoading] = useState(!!supabase);
 
   useEffect(() => {
-    // If Supabase is not configured, skip auth entirely
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
+    // If Supabase is not configured, skip auth entirely. `loading` is already false above.
+    if (!supabase) return;
 
     // Get the initial session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
