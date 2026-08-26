@@ -211,10 +211,26 @@ export default function App() {
     : activeRoundtrip.returnDate;
 
   // 4. Simulation State
-  const [isSimulating, setIsSimulating] = useState(false);
+  /*
+    A run is in progress while it has been asked for AND the aircraft has not yet arrived.
+    The second half is derived rather than written: an effect used to watch the progress bar
+    and flip the flag off at 1, which committed an extra render at the exact moment the map is
+    drawing the final frame of the flight path, and left one frame on screen showing "100%
+    Complete" next to a "Pause" button -- a flight that had landed but was still running.
+
+    What the controls actually toggle is the request, so `setRunRequested` is what gets passed
+    to SimulatorPanel as its `setIsSimulating` prop -- from the panel's side, stopping a run
+    means withdrawing the request. It is passed raw rather than through a wrapper so it stays
+    a stable useState setter, which effects can leave out of their dependency lists.
+
+    Replaying an arrived flight works because SimulatorPanel rewinds the progress bar in the
+    same click (see handlePlayToggle), so the rewind and the request land in one batch.
+  */
+  const [runRequested, setRunRequested] = useState(false);
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState(0); // 0.0 to 1.0
   const [simulationSpeed, setSimulationSpeed] = useState(5); // 1x, 5x, 20x
+  const isSimulating = runRequested && simulationProgress < 1;
   const [liveTelemetry, setLiveTelemetry] = useState(null);
   const [telemetrySource, setTelemetrySource] = useState('simulated');
 
@@ -493,7 +509,7 @@ export default function App() {
 
   // Reset the simulation only when the actual route (or tracked leg) changes.
   useEffect(() => {
-    setIsSimulating(false);
+    setRunRequested(false);
     setSimulationProgress(0);
     prevStatusRef.current = 'Scheduled';
     setTelemetrySource('simulated');
@@ -559,13 +575,6 @@ export default function App() {
 
     return () => clearInterval(intervalId);
   }, [isSimulating, simulationSpeed]);
-
-  // Halt the run once the aircraft has arrived.
-  useEffect(() => {
-    if (isSimulating && simulationProgress >= 1) {
-      setIsSimulating(false);
-    }
-  }, [isSimulating, simulationProgress]);
 
   // Monitor flight status updates to trigger notifications
   useEffect(() => {
@@ -1045,7 +1054,7 @@ export default function App() {
                     onToggleOpen={() => setIsSimulatorOpen((prev) => !prev)}
                     activeFlight={activeFlight}
                     isSimulating={isSimulating}
-                    setIsSimulating={setIsSimulating}
+                    setIsSimulating={setRunRequested}
                     simulationProgress={simulationProgress}
                     setSimulationProgress={setSimulationProgress}
                     simulationSpeed={simulationSpeed}
