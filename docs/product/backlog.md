@@ -23,7 +23,10 @@
 ---
 
 ## [KAI-004] Fix the `forecast_cache` price-drift gate (root cause of the ~8% hit rate)
-**Status**: proposed
+**Status**: shipped (PR #15, merged 2026-08-22) — drift gate dropped, replaced with a 5x
+data-integrity sanity bound; `insightsEngine.test.js` added pinning the live-recompute
+invariant the fix's safety case depends on. Remaining open item: re-measure the featured-route
+cache-hit rate against the ≥80% target (see Success metric below) — not yet done.
 **Spec**: full spec at `docs/product/specs/kai-004-forecast-cache-drift-gate-fix.md` — that
 file is the build contract; this entry is the backlog pointer.
 **User**: every KAIRO user who searches a featured-hub route — today they pay the full
@@ -54,11 +57,11 @@ row rather than normal seasonal spread. Add the regression test that doesn't exi
 (`insightsEngine.test.js`) locking in the recompute invariant this fix's safety argument
 depends on. Full detail in the spec.
 **Acceptance criteria**: the 6 numbered criteria in the spec (§4). Headline checks:
-- [ ] `ForecastCache.get()` no longer rejects a fresh row on an 8%-scale price difference.
-- [ ] A genuinely bad row (live price 20x cached) is still rejected by the new sanity check.
-- [ ] `insightsEngine.test.js` exists, proving `recommendation`/`pricePercentile`/
+- [x] `ForecastCache.get()` no longer rejects a fresh row on an 8%-scale price difference.
+- [x] A genuinely bad row (live price 20x cached) is still rejected by the new sanity check.
+- [x] `insightsEngine.test.js` exists, proving `recommendation`/`pricePercentile`/
       `expectedSavings` are always derived from the live price, never the cached object's own.
-- [ ] Staleness gating (`FORECAST_STALE_HOURS`) behavior is unchanged (regression, not new).
+- [x] Staleness gating (`FORECAST_STALE_HOURS`) behavior is unchanged (regression, not new).
 **Success metric**: re-measured `forecast_cache` hit rate on featured routes, same method as
 the 2026-08-22 measurement (Render logs, `Forecast cache hit` vs `forecastCache MISS`).
 Target: the KAI-002/P1 spec's original ≥80%, with remaining misses being staleness or
@@ -216,7 +219,15 @@ narrative (P4), discovery verdict chips, an automated purge cron.
   rather than arbitrary.
 
 ## [KAI-001] Remove the 11 setState-in-effect cascading renders
-**Status**: proposed
+**Status**: in progress — all 13 sites fixed and merged (turned out to be 13, not 11; two
+more had landed since this entry was written — see note below). Ten sites shipped as PRs
+#16–#23, the auth cluster as PR #24, the last two as PRs #25–#26. Final step — flipping
+`react-hooks/set-state-in-effect` back to `error` in `eslint.config.js` — is open as PR #27,
+CI green, **awaiting Roy's manual-verification pass and merge** (stop-list row 4: the gate
+can't validate a change to itself). Not marked `shipped` until #27 merges.
+**Note**: two extra sites appeared after this entry was written — `App.jsx:124` and
+`AuthModal.jsx:22` — from the auth-confirmation-toast commit (`83bfe57`), landed after KAI-001
+was scoped. Exactly the decay this item's "Why now" predicted from leaving the rule at `warn`.
 **User**: every KAIRO user, on the two screens they spend the most time on — the search
 results list and the "Should I Book?" dashboard. Also the next engineer to touch App.jsx.
 **Problem**: 11 call sites call `setState` synchronously inside a `useEffect` body. Each one
@@ -254,13 +265,16 @@ pass there is a visible frame drop on a mid-range phone, which is most of the tr
 - Compute the initial value in the `useState` initialiser (the Supabase `loading` flag).
 
 **Acceptance criteria**:
-- [ ] `npx eslint .` reports 0 `react-hooks/set-state-in-effect` warnings.
+- [x] `npx eslint .` reports 0 `react-hooks/set-state-in-effect` warnings.
 - [ ] `react-hooks/set-state-in-effect` is back to `error` in `eslint.config.js`, and the
-      downgrade comment is deleted rather than edited.
-- [ ] `npm test` passes with no test modified to accommodate a render-count change.
+      downgrade comment is deleted rather than edited. **PR #27, open, not yet merged.**
+- [x] `npm test` passes with no test modified to accommodate a render-count change (656 tests,
+      +62 new across the item, zero modified).
 - [ ] Manually verified unchanged: outbound/return toggle, simulator run to completion,
       alert firing into the notification tray, and the "When to Go" → "Search & Compare"
-      handoff that re-hydrates the search form.
+      handoff that re-hydrates the search form. **Not done — no browser access in the
+      implementing session, and the e2e suite that would normally cover this is broken
+      (see [KAI-005]). Roy needs to do this pass before merging #27.**
 
 **Success metric**: renders per interaction on the search results list, measured with the
 React DevTools profiler. Target: no interaction triggers two committed renders where one
@@ -285,3 +299,35 @@ question and bundling them would make a regression untraceable.
   that property, which rules out simply deriving the fields from `searchParams`.
 - `AuthProvider.jsx:22` is auth code and sits on the `ship-change` stop-list. That one site
   needs Roy's review even if the other ten are agent-merged.
+
+## [KAI-005] Playwright e2e suite has been broken since 2026-07-29, silently
+**Status**: proposed
+**User**: whoever needs the e2e suite as evidence a change didn't break a real user flow —
+currently nobody gets that, because nothing runs it and nothing tells them it's stale.
+**Problem**: found incidentally while doing the manual-verification pass for [KAI-001]. All
+three specs in `tests/passengerSelection.spec.js` fail on their first line, waiting for
+`text=Find Flights` — that nav label was renamed to "Search & Compare" in commit `4050aa7`
+(2026-07-29), four weeks before this was noticed. `ci.yml` runs `npm test` (unit/vitest) on
+every PR but never `npm run test:e2e` — so there is no gate that would have caught the rename
+breaking e2e, and none that catches the next one either.
+**Why now**: not urgent on its own, but it's the reason KAI-001's "manually verified unchanged"
+criterion couldn't be discharged by test suite and had to fall to a human pass instead — an e2e
+suite nothing runs provides exactly zero regression protection while looking, from the file
+tree, like it provides some.
+**Solution**: (a) update the stale selector(s) — likely just the one, but worth auditing the
+rest of `tests/` for other UI-copy drift since nothing has exercised them in a month; (b) make
+an explicit, recorded decision on whether `test:e2e` joins `ci.yml` (tradeoff: e2e is slower
+and more flake-prone than unit tests, but the alternative demonstrated here is silent, unbounded
+drift) — even a decision to *not* gate on it should be a decision, not a default.
+**Acceptance criteria**:
+- [ ] `npm run test:e2e` passes locally against current `main`.
+- [ ] A decision on e2e-in-CI is made and recorded in `docs/product/decisions.md`, whichever
+      way it goes.
+**Success metric**: e2e suite reflects the current UI and passes on demand; no more silent
+multi-week drift between what e2e asserts and what the app actually shows.
+**Cost**: none — test-only change, no new external calls, no cache behaviour change.
+**Out of scope**: writing new e2e coverage beyond fixing what's currently broken.
+**Risks / open questions**:
+- Only one broken selector is confirmed. Since nothing has run this suite in a month, other
+  specs may have drifted the same way without yet being noticed — worth a full pass, not just
+  patching the one known failure.
