@@ -18,6 +18,71 @@
 
 ---
 
+### 2026-08-26 — `npm run test:e2e` becomes a blocking check on every pull request
+**Decision**: `ci.yml` gains an `e2e` job that installs chromium and runs the Playwright
+suite on every PR, in parallel with `verify` and blocking on failure. Not a nightly, not
+`continue-on-error`. `playwright.config.js`'s `webServer` is made portable at the same time
+(`npm run dev` rather than `npm.cmd run dev`, and a CI-sized startup timeout), because the
+suite could not have run on a Linux runner as written.
+**Context**: [KAI-005]. All three specs in `tests/passengerSelection.spec.js` had been failing
+in `beforeEach` since `4050aa7` (2026-07-29), waiting for a nav label renamed in that same
+commit. It was found four weeks later, by hand, during KAI-001's manual-verification pass —
+not by any gate. `ci.yml` has run `npm test`, `npm run lint` and `npm run build` on every PR
+since 2026-08-08 and has never run `test:e2e`. The backlog entry's own framing is the reason
+this entry exists at all: e2e-in-CI had never been decided either way, and "no decision" is
+what let the drift run for a month.
+**Reasoning**: the interesting part is not that the suite broke — it is *how much* it broke
+before anyone looked. Fixing the renamed label was not enough. Two further changes had landed
+on top of the first break and were equally invisible: the landing page and auth gate now make
+every workspace tab unreachable while signed out (so no signed-out spec can reach the search
+form at all), and the passenger counters became `-`/`+` steppers, so the spec that called
+`.fill()` on three number inputs was addressing elements that no longer exist. A one-line fix
+at the PR that caused it became a rewrite of the whole file. That compounding is the cost this
+gate is buying off, and it grows superlinearly with how long the suite goes unrun.
+Against that, the standard objections to e2e-in-CI do not describe what is actually in this
+repo. Cost, measured rather than assumed: the job was run on an ubuntu runner before this
+entry was written — 42s end to end, of which the tests themselves are 8.6s and most of the
+rest is the chromium download. It runs in parallel with `verify`, which already takes longer
+than that, so the marginal wall-clock cost of having the gate at all is currently zero.
+Flake: these specs make no network assertions and
+perform one deterministic UI interaction; the config already sets `retries: 2` and
+`workers: 1` under CI; nine consecutive local runs under `--repeat-each=3` passed with no
+flake. If a *future* spec is flaky, that is a fact about that spec, and the remedy is to fix
+or delete it rather than to ungate the suite that would have reported it.
+There is also direct precedent. The 2026-08-08 entry rejected dropping `lint` from `ci.yml`
+on the grounds that "removing the thing that found the bugs because it found bugs is how the
+repo got here." A suite that is never run is the same outcome reached by omission rather than
+by argument — and it is worse than having no suite, because the file tree advertises coverage
+that does not exist. KAI-001's acceptance criteria had to fall back to a human pass for
+exactly that reason.
+**Alternatives considered**:
+- *Nightly schedule (`on: schedule`) plus `workflow_dispatch`* — the obvious middle ground,
+  and the one this decision came closest to taking. Rejected on three counts. (1) The drift is
+  always *caused by a PR*, and in this repo a merge is a production deploy — so a nightly can
+  only ever report a break that is already live, with the causing diff no longer in anyone's
+  head. (2) A scheduled red that blocks nothing is precisely the signal this repo has already
+  demonstrated it will let sit: the 100 pre-existing lint errors accumulated the same way,
+  under a rule that was "enforced" by a command nobody ran. (3) GitHub disables scheduled
+  workflows in repositories with no activity for 60 days, so the mode that most needs to
+  survive neglect is the one that quietly switches itself off — the failure mode of KAI-005,
+  reintroduced at the workflow level.
+- *Non-blocking step on PRs (`continue-on-error: true`)* — same information, no enforcement.
+  A red X that nobody is required to act on trains everyone to stop reading the X.
+- *Leave it out and rely on running it by hand* — the status quo, and the direct cause of
+  KAI-005. Recorded here as rejected rather than left as a default, which is the whole point.
+- *Grow e2e coverage first, gate later* — backwards. Gating three tests is cheap and can be
+  reversed in one commit; growing an ungated suite just manufactures more stale assertions
+  that look like coverage. Gate what exists, then add.
+**What would change this**: demote to nightly if either number moves — spurious failures on
+unrelated PRs exceeding roughly one in twenty runs *after* retries, or e2e wall-clock passing
+~5 minutes and becoming the thing PR authors wait on. A check that is habitually re-run until
+green is worse than no check, so the trigger for revisiting is flake rate, not absolute
+runtime. Separately, this must be revisited if any spec ever needs real credentials: the
+suite currently seeds a fake Supabase session into `localStorage`, and if a spec instead had
+to sign in for real, it could not stay on `pull_request` at all — secrets are not exposed to
+fork PRs (the same constraint `ci.yml`'s build step already documents), so it would move to a
+post-merge or scheduled job.
+
 ### 2026-08-22 — The `forecast_cache` price-drift gate is removed; it was redundant (reverses 2026-08-09)
 **Decision**: `ForecastCache.get()` no longer compares the live fare against
 `computed_current_price` as a percentage. `FORECAST_PRICE_DRIFT_TOLERANCE` (0.08) is replaced
