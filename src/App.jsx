@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, Sun, Moon, LogIn, LogOut, Zap, Sparkles, ArrowRight, CheckCircle } from 'lucide-react';
 import {
   AIRPORTS,
   generateFlightsForRoute,
   calculatePassengerCost,
-  getFlightTelemetry
+  getFlightTelemetry,
+  getFlightStatus
 } from './utils/flightSimulator';
 import FlightMap from './components/FlightMap';
 import PriceChart from './components/PriceChart';
@@ -423,6 +424,58 @@ export default function App() {
   const liveTelemetry = liveFix && liveFix.scope === telemetryScope ? liveFix.fix : null;
   const telemetrySource = liveTelemetry ? 'live' : 'simulated';
 
+  /*
+    Status-change notifications.
+
+    A flight's status is produced by exactly two things: the 50ms simulation ticker advancing
+    the progress bar, and the 15s transponder poll returning a live fix. Both are already
+    callbacks, so both can report a status change at the moment they cause one.
+
+    This used to be an effect comparing the rendered status against a ref. That put the
+    notification a commit behind the status it was announcing -- the HUD read "Takeoff" while
+    the bell was still silent -- and meant the trigger was *rendering*, which is why it needed
+    the ref as a guard against re-firing on unrelated re-renders.
+
+    Everything is read from refs so this stays referentially stable with an empty dependency
+    list, which is what lets the two effects below call it without restarting their timers.
+  */
+  const alertsRef = useRef(alerts);
+  const trackedFlightNumberRef = useRef(activeFlight?.flightNumber);
+  const simulationProgressRef = useRef(simulationProgress);
+  const hasLiveFixRef = useRef(false);
+
+  useEffect(() => { alertsRef.current = alerts; }, [alerts]);
+  useEffect(() => {
+    trackedFlightNumberRef.current = activeFlight?.flightNumber;
+  }, [activeFlight?.flightNumber]);
+  useEffect(() => { simulationProgressRef.current = simulationProgress; }, [simulationProgress]);
+  useEffect(() => { hasLiveFixRef.current = !!liveTelemetry; }, [liveTelemetry]);
+
+  const notifyStatusChange = useCallback((nextStatus) => {
+    if (!nextStatus || nextStatus === prevStatusRef.current) return;
+    // Recorded before the alert lookup, so a flight with no matching rule still advances the
+    // baseline. Otherwise adding a rule mid-flight would fire for a transition already past.
+    prevStatusRef.current = nextStatus;
+
+    const flightNumber = trackedFlightNumberRef.current;
+    const statusRules = alertsRef.current.filter(
+      (a) => a.flightNumber === flightNumber && a.type === 'status-change'
+    );
+    if (statusRules.length === 0) return;
+
+    setNotifications((prev) => [{
+      id: `status-shift-${Date.now()}`,
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      flightNumber,
+      type: 'status-alert',
+      message: `Flight status updated to: ${nextStatus.toUpperCase()}`
+    }, ...prev]);
+    setShowNotifBadge(true);
+    // Both are useState setters, so this stays referentially stable across renders. They are
+    // listed rather than omitted because the React Compiler infers them and refuses to keep a
+    // manual memo whose declared dependencies do not match what it worked out.
+  }, [setNotifications, setShowNotifBadge]);
+
   // Retrieve GPS Coordinates for active telemetry
   const originAirport = AIRPORTS[activeFlight?.origin] || AIRPORTS.TLV;
   const destinationAirport = AIRPORTS[activeFlight?.destination] || AIRPORTS.KRK;
@@ -629,6 +682,8 @@ export default function App() {
               ),
               fix: data.telemetry
             });
+            // The transponder is now what the HUD shows, so its status is the one to report.
+            notifyStatusChange(data.telemetry.status);
             return;
           }
         }
@@ -637,6 +692,15 @@ export default function App() {
       }
 
       setLiveFix(null);
+      /*
+        Only report if a fix was actually on screen. Dropping one hands the display back to the
+        simulator, so the phase the user sees really does change. With no fix to drop, the
+        ticker already owns the status, and reporting here announced a phase read from a
+        progress ref the ticker had already moved past -- which is how a flight that had just
+        reached BOARDING was announced as going back to SCHEDULED.
+      */
+      if (!hasLiveFixRef.current) return;
+      notifyStatusChange(getFlightStatus(simulationProgressRef.current));
     };
 
     fetchLiveCoords();
@@ -645,7 +709,13 @@ export default function App() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [isSimulating, activeFlight?.flightNumber, activeFlight?.origin, activeFlight?.destination]);
+  }, [
+    isSimulating,
+    activeFlight?.flightNumber,
+    activeFlight?.origin,
+    activeFlight?.destination,
+    notifyStatusChange
+  ]);
 
   // Telemetry simulation loop. The updater stays pure — stopping at the end is handled
   // by the effect below, because calling setState inside another setState's updater is
@@ -654,45 +724,36 @@ export default function App() {
     if (!isSimulating) return undefined;
 
     const intervalId = setInterval(() => {
+      /*
+        The ticker advances its own accumulator rather than reading progress back from state.
+        React batches these 50ms updates, so a ref synced from a render can sit several ticks
+        behind -- and a status change the aircraft passed through in between would simply never
+        be announced. The ref is still re-synced from state on every render, so a scrub, reset
+        or replay from the panel still redirects the run.
+      */
+      const nextProgress = Math.min(1, simulationProgressRef.current + 0.001 * simulationSpeed);
+      simulationProgressRef.current = nextProgress;
+
       // Calls the raw `setRun` rather than the setSimulationProgress wrapper above: the
       // wrapper is rebuilt every render, so depending on it here would drag a new identity
       // into this dependency list and restart the timer on every tick.
       setRun((prev) => (
-        prev.scope !== routeSignature
-          ? prev
-          : { ...prev, progress: Math.min(1, prev.progress + 0.001 * simulationSpeed) }
+        prev.scope !== routeSignature ? prev : { ...prev, progress: nextProgress }
       ));
+
+      /*
+        Reported outside the updater, never inside it: React may invoke an updater more than
+        once, so it is not a safe place to decide whether to fire a notification.
+
+        Skipped while a live fix is on screen -- the displayed status is then the transponder's,
+        and announcing the simulator's would report a phase the user cannot see.
+      */
+      if (hasLiveFixRef.current) return;
+      notifyStatusChange(getFlightStatus(nextProgress));
     }, 50);
 
     return () => clearInterval(intervalId);
-  }, [isSimulating, simulationSpeed, routeSignature]);
-
-  // Monitor flight status updates to trigger notifications
-  useEffect(() => {
-    const currentStatus = telemetry.status;
-    const prevStatus = prevStatusRef.current;
-
-    if (currentStatus !== prevStatus) {
-      const statusRules = alerts.filter(
-        (a) => a.flightNumber === activeFlight.flightNumber && a.type === 'status-change'
-      );
-
-      if (statusRules.length > 0) {
-        const newNotif = {
-          id: `status-shift-${Date.now()}`,
-          time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          flightNumber: activeFlight.flightNumber,
-          type: 'status-alert',
-          message: `Flight status updated to: ${currentStatus.toUpperCase()}`
-        };
-
-        setNotifications((prev) => [newNotif, ...prev]);
-        setShowNotifBadge(true);
-      }
-
-      prevStatusRef.current = currentStatus;
-    }
-  }, [telemetry.status, alerts, activeFlight.flightNumber]);
+  }, [isSimulating, simulationSpeed, routeSignature, notifyStatusChange]);
 
   /*
     Market Engine: fluctuate active bundle prices periodically.
@@ -701,16 +762,13 @@ export default function App() {
     and recreated on every price tick, alert edit, or leg switch. The old dependency list
     ([activeRoundtrip, activeFlight.id, alerts]) restarted the 8s timer constantly.
   */
+  // `alertsRef` is shared with the status-notification code above, which needs the same
+  // always-current view of the alert list for the same reason.
   const activeRoundtripRef = useRef(activeRoundtrip);
-  const alertsRef = useRef(alerts);
 
   useEffect(() => {
     activeRoundtripRef.current = activeRoundtrip;
   }, [activeRoundtrip]);
-
-  useEffect(() => {
-    alertsRef.current = alerts;
-  }, [alerts]);
 
   useEffect(() => {
     const priceInterval = setInterval(() => {
