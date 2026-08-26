@@ -219,12 +219,11 @@ narrative (P4), discovery verdict chips, an automated purge cron.
   rather than arbitrary.
 
 ## [KAI-001] Remove the 11 setState-in-effect cascading renders
-**Status**: in progress — all 13 sites fixed and merged (turned out to be 13, not 11; two
-more had landed since this entry was written — see note below). Ten sites shipped as PRs
-#16–#23, the auth cluster as PR #24, the last two as PRs #25–#26. Final step — flipping
-`react-hooks/set-state-in-effect` back to `error` in `eslint.config.js` — is open as PR #27,
-CI green, **awaiting Roy's manual-verification pass and merge** (stop-list row 4: the gate
-can't validate a change to itself). Not marked `shipped` until #27 merges.
+**Status**: shipped (2026-08-26) — all 13 sites fixed and merged (turned out to be 13, not 11;
+two more had landed since this entry was written — see note below). Ten sites shipped as PRs
+#16–#23, the auth cluster as PR #24, the last two as PRs #25–#26, the `eslint.config.js` flip
+back to `error` as PR #27 — Roy did the manual-verification pass on all four journeys himself
+before merging #27, since it's stop-list row 4. Live in prod.
 **Note**: two extra sites appeared after this entry was written — `App.jsx:124` and
 `AuthModal.jsx:22` — from the auth-confirmation-toast commit (`83bfe57`), landed after KAI-001
 was scoped. Exactly the decay this item's "Why now" predicted from leaving the rule at `warn`.
@@ -266,15 +265,13 @@ pass there is a visible frame drop on a mid-range phone, which is most of the tr
 
 **Acceptance criteria**:
 - [x] `npx eslint .` reports 0 `react-hooks/set-state-in-effect` warnings.
-- [ ] `react-hooks/set-state-in-effect` is back to `error` in `eslint.config.js`, and the
-      downgrade comment is deleted rather than edited. **PR #27, open, not yet merged.**
+- [x] `react-hooks/set-state-in-effect` is back to `error` in `eslint.config.js`, and the
+      downgrade comment is deleted rather than edited. Shipped in PR #27.
 - [x] `npm test` passes with no test modified to accommodate a render-count change (656 tests,
       +62 new across the item, zero modified).
-- [ ] Manually verified unchanged: outbound/return toggle, simulator run to completion,
+- [x] Manually verified unchanged: outbound/return toggle, simulator run to completion,
       alert firing into the notification tray, and the "When to Go" → "Search & Compare"
-      handoff that re-hydrates the search form. **Not done — no browser access in the
-      implementing session, and the e2e suite that would normally cover this is broken
-      (see [KAI-005]). Roy needs to do this pass before merging #27.**
+      handoff that re-hydrates the search form. Done by Roy before merging PR #27.
 
 **Success metric**: renders per interaction on the search results list, measured with the
 React DevTools profiler. Target: no interaction triggers two committed renders where one
