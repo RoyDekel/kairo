@@ -15,7 +15,16 @@ export default function AlertsManager({
   const [notifChannel, setNotifChannel] = useState('telegram'); // 'telegram' | 'email'
   const [telegramChatId, setTelegramChatId] = useState(() => localStorage.getItem('kairo_telegram_chat_id') || '');
   const [emailAddress, setEmailAddress] = useState(() => localStorage.getItem('kairo_email_address') || '');
-  const [channelTarget, setChannelTarget] = useState('');
+  /*
+    The delivery address is not independent state: it is whichever of the two saved
+    credentials the chosen channel points at. It used to be a fourth useState kept in step
+    with the other three by an effect, which cost a second committed render on every channel
+    switch and on every mount that found a saved chat ID in localStorage -- invisible work in
+    that second case, since the "Connected to Telegram" card reads the credential directly.
+
+    Deriving it also removes the chance of the mirror going stale: there is now exactly one
+    place each address is stored, so the form and the submitted alert cannot disagree.
+  */
   const [connectCode] = useState(() => Math.random().toString(36).substring(2, 7).toUpperCase());
   const [isPolling, setIsPolling] = useState(false);
   const [manualSetup, setManualSetup] = useState(false);
@@ -80,18 +89,10 @@ export default function AlertsManager({
     fetchServerAlerts();
   }, [accessToken]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync channel target state with channel choices and stored credentials
-  useEffect(() => {
-    if (notifChannel === 'telegram') {
-      setChannelTarget(telegramChatId);
-    } else {
-      setChannelTarget(emailAddress);
-    }
-  }, [notifChannel, telegramChatId, emailAddress]);
+  const channelTarget = notifChannel === 'telegram' ? telegramChatId : emailAddress;
 
   // Helper change handler to persist variables to storage
   const handleChannelTargetChange = (val) => {
-    setChannelTarget(val);
     setErrorMsg('');
     if (notifChannel === 'telegram') {
       setTelegramChatId(val);
