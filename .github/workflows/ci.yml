@@ -13,6 +13,17 @@
 #
 # It deliberately does NOT deploy. Publishing stays in deploy.yml, triggered by the merge.
 # One workflow that ships, one that judges.
+#
+# -------------------------------------------------------------------------------------
+# WHY E2E IS HERE TOO
+#
+# It wasn't, and the Playwright suite spent four weeks failing on its first line against a
+# nav label renamed in 4050aa7. Nobody knew, because `npm run test:e2e` was something a
+# human had to remember to type. By the time it was found by hand, three separate drifts
+# had stacked up and the whole file had to be rewritten instead of one string edited.
+#
+# The reasoning for gating on it rather than scheduling it — and the conditions under which
+# that should be revisited — is recorded in docs/product/decisions.md (2026-08-26).
 # -------------------------------------------------------------------------------------
 
 name: CI
@@ -69,3 +80,48 @@ jobs:
       # one would make this check permanently unpassable for outside contributions.
       - name: Production build
         run: npm run build
+
+  # A separate job, not a fourth step in `verify`. It answers a different question and
+  # costs a browser download to ask, so it should not be queued behind a lint failure, and
+  # its red X should not be confusable with one. Running in parallel also means the extra
+  # wall-clock cost of having it at all is close to zero.
+  e2e:
+    name: e2e (playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # chromium only — playwright.config.js defines exactly one project. `--with-deps`
+      # installs the system libraries a headless browser needs on a bare runner.
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # playwright.config.js starts `npm run dev` itself and waits for the URL. No secrets
+      # are passed: the Express half degrades to its simulated providers (CLAUDE.md hard
+      # rule 3), so a CI run costs nothing at any metered API, and no spec asserts on data
+      # that came off the network.
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+      # Traces, screenshots and video, so a failure that only happens on the runner can be
+      # opened with `npx playwright show-trace` instead of guessed at.
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-test-results
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7

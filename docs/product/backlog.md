@@ -298,7 +298,10 @@ question and bundling them would make a regression untraceable.
   needs Roy's review even if the other ten are agent-merged.
 
 ## [KAI-005] Playwright e2e suite has been broken since 2026-07-29, silently
-**Status**: proposed
+**Status**: in progress — part (a) shipped (PR #30, merged 2026-08-26): all three specs pass
+against current `main`. Part (b), the e2e-in-CI decision, is recorded in `decisions.md`
+(2026-08-26, gate on every PR) and implemented in a second PR that touches
+`.github/workflows/ci.yml` and therefore waits on Roy per the `ship-change` stop-list.
 **User**: whoever needs the e2e suite as evidence a change didn't break a real user flow —
 currently nobody gets that, because nothing runs it and nothing tells them it's stale.
 **Problem**: found incidentally while doing the manual-verification pass for [KAI-001]. All
@@ -317,9 +320,14 @@ an explicit, recorded decision on whether `test:e2e` joins `ci.yml` (tradeoff: e
 and more flake-prone than unit tests, but the alternative demonstrated here is silent, unbounded
 drift) — even a decision to *not* gate on it should be a decision, not a default.
 **Acceptance criteria**:
-- [ ] `npm run test:e2e` passes locally against current `main`.
-- [ ] A decision on e2e-in-CI is made and recorded in `docs/product/decisions.md`, whichever
-      way it goes.
+- [x] `npm run test:e2e` passes locally against current `main`. (3 passed; 9/9 under
+      `--repeat-each=3`. `tests/` holds one spec file, so the audit for further UI-copy drift
+      was that file — which had drifted three separate ways, not one: the nav label, the auth
+      gate that now makes every workspace tab unreachable while signed out, and the passenger
+      counters becoming `-`/`+` steppers rather than number inputs.)
+- [x] A decision on e2e-in-CI is made and recorded in `docs/product/decisions.md`, whichever
+      way it goes. (2026-08-26 — gate on every PR, blocking; nightly-schedule and
+      non-blocking middle grounds considered and rejected in the entry.)
 **Success metric**: e2e suite reflects the current UI and passes on demand; no more silent
 multi-week drift between what e2e asserts and what the app actually shows.
 **Cost**: none — test-only change, no new external calls, no cache behaviour change.
