@@ -56,8 +56,6 @@ function formatDateDMY(dateStr) {
 }
 
 export default function AlternativeFlights({
-  setSelectedDate,
-  setActiveFlight,
   // New props for dynamic search
   searchParams,
   setSearchParams,
@@ -476,11 +474,11 @@ export default function AlternativeFlights({
       returnDate: searchParams.returnDate
     };
 
+    // The tracked leg and its date are read from the bundle in App.jsx, so setting the
+    // bundle is all that is needed here. This used to also call setActiveFlight/
+    // setSelectedDate with `selectedOutbound` and `searchParams.departureDate` -- the same
+    // two values the bundle above already carries.
     setActiveRoundtrip(roundtripBundle);
-
-    // Set active flight to outbound to display on map first
-    setActiveFlight(selectedOutbound);
-    setSelectedDate(searchParams.departureDate);
 
     // Navigate to Dashboard HUD
     setActiveTab('dashboard');
