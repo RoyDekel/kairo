@@ -246,25 +246,62 @@ export default function App() {
     ? activeRoundtrip.departureDate
     : activeRoundtrip.returnDate;
 
+  /*
+    Identity of the route being tracked.
+
+    Deliberately derived from the flight IDs and dates rather than the activeRoundtrip
+    object: the market engine replaces that object every 8 seconds to tick a price, but
+    the route itself is unchanged. Resetting the simulation on the object reference meant
+    a run at the default 5x speed (10s to complete) was always destroyed at ~80%, and a
+    1x run never got past ~16%.
+  */
+  const routeSignature = [
+    activeRoundtrip?.outbound?.id,
+    activeRoundtrip?.return?.id,
+    activeRoundtrip?.departureDate,
+    activeRoundtrip?.returnDate,
+    direction
+  ].join('|');
+
   // 4. Simulation State
   /*
-    A run is in progress while it has been asked for AND the aircraft has not yet arrived.
-    The second half is derived rather than written: an effect used to watch the progress bar
-    and flip the flag off at 1, which committed an extra render at the exact moment the map is
-    drawing the final frame of the flight path, and left one frame on screen showing "100%
-    Complete" next to a "Pause" button -- a flight that had landed but was still running.
+    A run belongs to one route. Switching the tracked route abandons it -- an aircraft cannot
+    be 40% of the way along a flight path it is no longer flying -- so the run records the
+    route it was started on and reads as "not started" once that no longer matches.
 
-    What the controls actually toggle is the request, so `setRunRequested` is what gets passed
-    to SimulatorPanel as its `setIsSimulating` prop -- from the panel's side, stopping a run
-    means withdrawing the request. It is passed raw rather than through a wrapper so it stays
-    a stable useState setter, which effects can leave out of their dependency lists.
+    That abandonment used to be an effect zeroing both fields after the new route had already
+    been committed, which left one frame showing the new route carrying the old route's
+    progress. Holding the request and the progress in one object also makes the abandonment
+    atomic; as two slots it was two updates that had to agree.
+
+    A run is then in progress while it has been asked for AND the aircraft has not yet
+    arrived. Deriving that second half is what removed the effect that used to flip the flag
+    off at progress 1, which committed a render at the exact moment the map draws the final
+    frame and briefly showed "100% Complete" beside a "Pause" button.
 
     Replaying an arrived flight works because SimulatorPanel rewinds the progress bar in the
     same click (see handlePlayToggle), so the rewind and the request land in one batch.
   */
-  const [runRequested, setRunRequested] = useState(false);
+  const [run, setRun] = useState({ scope: routeSignature, requested: false, progress: 0 });
+
+  const runIsForCurrentRoute = run.scope === routeSignature;
+  const runRequested = runIsForCurrentRoute && run.requested;
+  const simulationProgress = runIsForCurrentRoute ? run.progress : 0; // 0.0 to 1.0
+
+  // Both accept a value or an updater, matching the useState setters they replaced.
+  const updateRun = (field, next) => setRun((prev) => {
+    const base = prev.scope === routeSignature ? prev : { requested: false, progress: 0 };
+    return {
+      scope: routeSignature,
+      requested: base.requested,
+      progress: base.progress,
+      [field]: typeof next === 'function' ? next(base[field]) : next,
+    };
+  });
+  const setRunRequested = (next) => updateRun('requested', next);
+  const setSimulationProgress = (next) => updateRun('progress', next);
+
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
-  const [simulationProgress, setSimulationProgress] = useState(0); // 0.0 to 1.0
   const [simulationSpeed, setSimulationSpeed] = useState(5); // 1x, 5x, 20x
   const isSimulating = runRequested && simulationProgress < 1;
   /*
@@ -549,28 +586,12 @@ export default function App() {
   */
 
   /*
-    Identity of the route being tracked.
-
-    Deliberately derived from the flight IDs and dates rather than the activeRoundtrip
-    object: the market engine replaces that object every 8 seconds to tick a price, but
-    the route itself is unchanged. Resetting the simulation on the object reference meant
-    a run at the default 5x speed (10s to complete) was always destroyed at ~80%, and a
-    1x run never got past ~16%.
+    The last flight status the user was notified about. Reset when the route changes, because a
+    status carried over from a different flight would suppress the first notification on the new
+    one. A ref, not state -- nothing renders from it, so there is no second render to save here,
+    which is why this stays an effect.
   */
-  const routeSignature = [
-    activeRoundtrip?.outbound?.id,
-    activeRoundtrip?.return?.id,
-    activeRoundtrip?.departureDate,
-    activeRoundtrip?.returnDate,
-    direction
-  ].join('|');
-
-  // Reset the simulation only when the actual route (or tracked leg) changes.
   useEffect(() => {
-    // Withdrawing the run request is also what invalidates any live transponder fix: the fix
-    // is scoped to `isSimulating`, so it stops matching in this same batch.
-    setRunRequested(false);
-    setSimulationProgress(0);
     prevStatusRef.current = 'Scheduled';
   }, [routeSignature]);
 
@@ -633,11 +654,18 @@ export default function App() {
     if (!isSimulating) return undefined;
 
     const intervalId = setInterval(() => {
-      setSimulationProgress((prev) => Math.min(1, prev + 0.001 * simulationSpeed));
+      // Calls the raw `setRun` rather than the setSimulationProgress wrapper above: the
+      // wrapper is rebuilt every render, so depending on it here would drag a new identity
+      // into this dependency list and restart the timer on every tick.
+      setRun((prev) => (
+        prev.scope !== routeSignature
+          ? prev
+          : { ...prev, progress: Math.min(1, prev.progress + 0.001 * simulationSpeed) }
+      ));
     }, 50);
 
     return () => clearInterval(intervalId);
-  }, [isSimulating, simulationSpeed]);
+  }, [isSimulating, simulationSpeed, routeSignature]);
 
   // Monitor flight status updates to trigger notifications
   useEffect(() => {
