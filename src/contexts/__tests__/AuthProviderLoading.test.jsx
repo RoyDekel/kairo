@@ -1,4 +1,4 @@
-import { Profiler } from 'react';
+import { Profiler, useEffect } from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, test, expect } from 'vitest';
 import { AuthProvider } from '../AuthProvider';
@@ -34,6 +34,17 @@ const readProbe = () => {
   const el = document.querySelector('[data-testid="probe"]');
   return el ? { ...el.dataset } : null;
 };
+
+// Hands the live context back through an effect rather than a render-time assignment, which
+// would be an impure side effect during render. Same pattern, and same reason, as the Consumer
+// in AuthProvider.test.jsx.
+function Consumer({ onReady }) {
+  const auth = useAuth();
+  useEffect(() => {
+    onReady(auth);
+  }, [onReady, auth]);
+  return null;
+}
 
 describe('AuthProvider loading gate with Supabase unconfigured', () => {
   test('is not loading on the first committed render', () => {
@@ -82,18 +93,14 @@ describe('AuthProvider loading gate with Supabase unconfigured', () => {
   });
 
   test('still refuses to sign in when Supabase is unconfigured', async () => {
-    let auth;
-    function Reader() {
-      auth = useAuth();
-      return null;
-    }
+    let signIn;
     render(
       <AuthProvider>
-        <Reader />
+        <Consumer onReady={(auth) => { signIn = auth.signIn; }} />
       </AuthProvider>
     );
 
-    await expect(auth.signIn('a@b.com', 'pw')).rejects.toThrow(/not configured/i);
+    await expect(signIn('a@b.com', 'pw')).rejects.toThrow(/not configured/i);
     expect(screen.queryByTestId('probe')).not.toBeInTheDocument();
   });
 });
