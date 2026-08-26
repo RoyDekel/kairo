@@ -37,21 +37,32 @@ export default function CustomDatePicker({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Initial view year and month based on value or today
-  const initialDate = value ? new Date(value + 'T00:00:00') : new Date();
-  const [viewYear, setViewYear] = useState(initialDate.getFullYear());
-  const [viewMonth, setViewMonth] = useState(initialDate.getMonth()); // 0 - 11
+  /*
+    The visible month is the month `value` falls in, unless the user has paged away from it
+    with the arrows or the dropdowns. That paging is genuine state, but it is only meaningful
+    for the date it was started from: the moment `value` changes underneath it the calendar
+    has to snap back to the new date's month.
 
-  // Synchronize view year/month when value changes externally
-  useEffect(() => {
-    if (value) {
-      const parts = value.split('-');
-      if (parts.length === 3) {
-        setViewYear(Number(parts[0]));
-        setViewMonth(Number(parts[1]) - 1);
-      }
-    }
-  }, [value]);
+    Recording the `value` the browse position was taken from, and ignoring the position when
+    it no longer matches, gets that for free during render. It used to be an effect calling
+    setViewYear/setViewMonth on every `value` change, which committed a second render each
+    time -- twice per interaction on the trip-dates row, which moves both dates at once.
+    Storing year and month in one object also keeps a December -> January step atomic; as two
+    separate state slots it was two updates that had to agree.
+  */
+  const initialDate = value ? new Date(value + 'T00:00:00') : new Date();
+  const [browse, setBrowse] = useState(null);
+
+  const valueParts = value ? value.split('-') : [];
+  const baseView = valueParts.length === 3
+    ? { year: Number(valueParts[0]), month: Number(valueParts[1]) - 1 }
+    : { year: initialDate.getFullYear(), month: initialDate.getMonth() };
+
+  const activeView = browse && browse.forValue === value ? browse : baseView;
+  const viewYear = activeView.year;
+  const viewMonth = activeView.month; // 0 - 11
+
+  const setView = (year, month) => setBrowse({ forValue: value, year, month });
 
   // Close popover when clicking outside or pressing Escape
   useEffect(() => {
@@ -86,20 +97,18 @@ export default function CustomDatePicker({
   const handlePrevMonth = (e) => {
     e.stopPropagation();
     if (viewMonth === 0) {
-      setViewMonth(11);
-      setViewYear((prev) => prev - 1);
+      setView(viewYear - 1, 11);
     } else {
-      setViewMonth((prev) => prev - 1);
+      setView(viewYear, viewMonth - 1);
     }
   };
 
   const handleNextMonth = (e) => {
     e.stopPropagation();
     if (viewMonth === 11) {
-      setViewMonth(0);
-      setViewYear((prev) => prev + 1);
+      setView(viewYear + 1, 0);
     } else {
-      setViewMonth((prev) => prev + 1);
+      setView(viewYear, viewMonth + 1);
     }
   };
 
@@ -211,7 +220,7 @@ export default function CustomDatePicker({
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               <select
                 value={viewMonth}
-                onChange={(e) => setViewMonth(Number(e.target.value))}
+                onChange={(e) => setView(viewYear, Number(e.target.value))}
                 style={{
                   background: 'var(--bg-tertiary)',
                   border: '1px solid var(--border-glass)',
@@ -232,7 +241,7 @@ export default function CustomDatePicker({
 
               <select
                 value={viewYear}
-                onChange={(e) => setViewYear(Number(e.target.value))}
+                onChange={(e) => setView(Number(e.target.value), viewMonth)}
                 style={{
                   background: 'var(--bg-tertiary)',
                   border: '1px solid var(--border-glass)',
