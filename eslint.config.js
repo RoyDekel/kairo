@@ -40,21 +40,7 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
     rules: {
-      /*
-        TRACKED DEBT — NOT AN ACCEPTED PATTERN. See [KAI-001] in docs/product/backlog.md.
-
-        There are 11 call sites that setState synchronously inside an effect body, across
-        App.jsx, AuthProvider.jsx, AlternativeFlights.jsx, AlertsManager.jsx,
-        AirportAutocomplete.jsx and CustomDatePicker.jsx. Each is a genuine cascading-render
-        risk and each needs its own fix — derived state here, a key prop there, an event
-        handler somewhere else. There is no single mechanical transform that covers them.
-
-        Downgraded to 'warn' so the rule keeps reporting every site, including new ones,
-        while the CI lint gate stays meaningful for everything else. Restore this to 'error'
-        as soon as KAI-001 lands. Do not add per-line eslint-disable comments in the
-        meantime — that would hide the sites instead of counting them.
-      */
-      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/set-state-in-effect': 'error',
     },
   },
 
