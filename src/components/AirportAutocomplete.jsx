@@ -7,13 +7,19 @@ export default function AirportAutocomplete({ label, value, onChange, placeholde
   const [showSuggestions, setShowSuggestions] = useState(false);
   const containerRef = useRef(null);
 
-  // Sync with prop value on change or when focus changes
-  useEffect(() => {
-    if (!isFocused && value && AIRPORTS[value]) {
-      const airport = AIRPORTS[value];
-      setQuery(`${airport.city} (${value})`);
-    }
-  }, [value, isFocused]);
+  /*
+    The field shows one of exactly two things, and it needs no state to decide which: while
+    the user has it focused it shows what they typed, and otherwise it shows the label for
+    whatever `value` the parent currently holds. Deriving that here is what keeps a mount or
+    a `value` change to a single committed render -- this used to be an effect that wrote the
+    label into `query`, so React painted the stale text first and corrected it on a second
+    pass. `query` still exists, but only as the user's in-progress typing.
+
+    `displayValue` (not `query`) is also what filters the suggestion list, because that is
+    what the effect version effectively did once it had overwritten `query` with the label.
+  */
+  const selectedLabel = value && AIRPORTS[value] ? `${AIRPORTS[value].city} (${value})` : null;
+  const displayValue = !isFocused && selectedLabel ? selectedLabel : query;
 
   // Handle click outside to close suggestions
   useEffect(() => {
@@ -28,7 +34,7 @@ export default function AirportAutocomplete({ label, value, onChange, placeholde
 
   // Filter and sort suggestions
   const getSuggestions = () => {
-    const trimmedQuery = query.trim().toLowerCase();
+    const trimmedQuery = displayValue.trim().toLowerCase();
 
     // If query is too short or empty and input is focused, show featured hubs
     if (trimmedQuery.length < 2) {
@@ -117,7 +123,7 @@ export default function AirportAutocomplete({ label, value, onChange, placeholde
         <input
           id={id}
           type="text"
-          value={query}
+          value={displayValue}
           placeholder={placeholder || 'Enter destination...'}
           onFocus={handleFocus}
           onBlur={handleBlur}
@@ -168,7 +174,7 @@ export default function AirportAutocomplete({ label, value, onChange, placeholde
             borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
             marginBottom: '4px'
           }}>
-            {query.trim().length < 2 ? 'Popular Destinations' : 'Search Results'}
+            {displayValue.trim().length < 2 ? 'Popular Destinations' : 'Search Results'}
           </div>
 
           {suggestions.map((airport) => (
