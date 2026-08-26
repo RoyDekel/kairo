@@ -45,6 +45,19 @@ const NAV_ITEMS = [
 const MOBILE_QUERY = '(max-width: 768px)';
 
 /*
+  Identity of a telemetry run: which flight, on which route, and whether it is being simulated
+  at all. A live transponder fix is only valid for one of these, so it is stored tagged with
+  the value this returns and ignored once the tag stops matching.
+
+  Deliberately a module-level function taking primitives rather than a value computed in the
+  component body. The polling effect needs it too, and this way there is one definition that
+  both the render path and the effect call, without the effect gaining a dependency on a value
+  that changes identity every render.
+*/
+const telemetryScopeOf = (isSimulating, flightNumber, origin, destination) =>
+  [isSimulating, flightNumber, origin, destination].join('|');
+
+/*
   Reports whether the viewport is phone-sized, and keeps reporting as it changes.
 
   The mobile chrome is gated on this in JavaScript rather than hidden with CSS,
@@ -231,8 +244,21 @@ export default function App() {
   const [simulationProgress, setSimulationProgress] = useState(0); // 0.0 to 1.0
   const [simulationSpeed, setSimulationSpeed] = useState(5); // 1x, 5x, 20x
   const isSimulating = runRequested && simulationProgress < 1;
-  const [liveTelemetry, setLiveTelemetry] = useState(null);
-  const [telemetrySource, setTelemetrySource] = useState('simulated');
+  /*
+    A live transponder fix belongs to one particular run: this flight, being simulated, on this
+    route. Rather than clearing it from two different effects whenever any of those changed,
+    the fix records the run it was fetched for and is ignored once that no longer matches. The
+    scope is exactly the polling effect's own dependency list, because those are precisely the
+    inputs that produced the fix.
+
+    A route change is covered too: the reset effect below withdraws the run request, so
+    `isSimulating` goes false in the same batch and the scope stops matching.
+
+    `telemetrySource` is not stored at all. It was only ever 'live' when a fix was present and
+    'simulated' otherwise -- every writer set the two together -- so it is one derivation, not
+    a second piece of state that could disagree with the first.
+  */
+  const [liveFix, setLiveFix] = useState(null);
 
   // 5. Watchlist, Alerts & Notifications
   const [watchlist, setWatchlist] = useState(() => {
@@ -327,6 +353,15 @@ export default function App() {
   const showMobileCta = isMobile && activeTab === 'landing' && scrolledPastHero;
 
   const prevStatusRef = useRef('Scheduled');
+
+  const telemetryScope = telemetryScopeOf(
+    isSimulating,
+    activeFlight?.flightNumber,
+    activeFlight?.origin,
+    activeFlight?.destination
+  );
+  const liveTelemetry = liveFix && liveFix.scope === telemetryScope ? liveFix.fix : null;
+  const telemetrySource = liveTelemetry ? 'live' : 'simulated';
 
   // Retrieve GPS Coordinates for active telemetry
   const originAirport = AIRPORTS[activeFlight?.origin] || AIRPORTS.TLV;
@@ -509,20 +544,17 @@ export default function App() {
 
   // Reset the simulation only when the actual route (or tracked leg) changes.
   useEffect(() => {
+    // Withdrawing the run request is also what invalidates any live transponder fix: the fix
+    // is scoped to `isSimulating`, so it stops matching in this same batch.
     setRunRequested(false);
     setSimulationProgress(0);
     prevStatusRef.current = 'Scheduled';
-    setTelemetrySource('simulated');
-    setLiveTelemetry(null);
   }, [routeSignature]);
 
   // Live flight telemetry polling loop from OpenSky Network
   useEffect(() => {
-    if (!isSimulating || !activeFlight?.flightNumber) {
-      setTelemetrySource('simulated');
-      setLiveTelemetry(null);
-      return undefined;
-    }
+    // Nothing to clear on the way out: any fix from a previous run is already out of scope.
+    if (!isSimulating || !activeFlight?.flightNumber) return undefined;
 
     const apiBase = getApiBase();
     
@@ -542,17 +574,25 @@ export default function App() {
         if (resp.ok) {
           const data = await resp.json();
           if (data && data.telemetry) {
-            setLiveTelemetry(data.telemetry);
-            setTelemetrySource('live');
+            // Tagged with the scope captured when this effect ran, so a fix that arrives
+            // after the user has paused or switched flights is ignored rather than shown.
+            setLiveFix({
+              scope: telemetryScopeOf(
+                isSimulating,
+                activeFlight.flightNumber,
+                activeFlight.origin,
+                activeFlight.destination
+              ),
+              fix: data.telemetry
+            });
             return;
           }
         }
       } catch {
         // Silently fall back to simulated telemetry
       }
-      
-      setTelemetrySource('simulated');
-      setLiveTelemetry(null);
+
+      setLiveFix(null);
     };
 
     fetchLiveCoords();
