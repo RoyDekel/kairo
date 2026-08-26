@@ -191,9 +191,24 @@ export default function App() {
   });
 
   // 3. Active Tracked Leg (Defaults to Outbound)
-  const [activeFlight, setActiveFlight] = useState(() => activeRoundtrip.outbound);
-  const [selectedDate, setSelectedDate] = useState(DEFAULT_DEPARTURE_DATE);
   const [direction, setDirection] = useState('outbound'); // 'outbound' or 'return'
+
+  /*
+    The tracked leg and the date shown with it are the part of the bundle that the
+    outbound/return toggle points at, so they are read from the bundle rather than stored.
+
+    They used to be two state slots kept in step by an effect on [activeRoundtrip, direction].
+    That effect did not fire once per leg switch -- the market engine replaces the bundle
+    object every 8 seconds to tick a price, so it fired on a timer for the whole session,
+    each time committing a second render that re-set the leg to the leg it already was. The
+    Leaflet map and the Chart.js canvas re-render underneath it.
+  */
+  const activeFlight = direction === 'outbound'
+    ? activeRoundtrip.outbound
+    : activeRoundtrip.return;
+  const selectedDate = direction === 'outbound'
+    ? activeRoundtrip.departureDate
+    : activeRoundtrip.returnDate;
 
   // 4. Simulation State
   const [isSimulating, setIsSimulating] = useState(false);
@@ -456,20 +471,8 @@ export default function App() {
   /*
     NOTE: `direction` currently only ever holds 'outbound' — nothing in the UI calls
     setDirection, so the return leg cannot be viewed on this page. The state and the
-    sync effect below are already wired for it; only a leg toggle in the UI is missing.
+    derivation above are already wired for it; only a leg toggle in the UI is missing.
   */
-
-  // Keep the tracked leg in sync with the bundle. This must keep running on every
-  // activeRoundtrip change so live price ticks from the market engine reach the UI.
-  useEffect(() => {
-    if (direction === 'outbound') {
-      setActiveFlight(activeRoundtrip.outbound);
-      setSelectedDate(activeRoundtrip.departureDate);
-    } else {
-      setActiveFlight(activeRoundtrip.return);
-      setSelectedDate(activeRoundtrip.returnDate);
-    }
-  }, [activeRoundtrip, direction]);
 
   /*
     Identity of the route being tracked.
@@ -1075,9 +1078,7 @@ export default function App() {
         {activeTab === 'alternative' && (
           <AlternativeFlights
             selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
             activeFlight={activeFlight}
-            setActiveFlight={setActiveFlight}
             onToggleWatchlist={handleToggleWatchlist}
             watchlist={watchlist || []}
             searchParams={searchParams}
