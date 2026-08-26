@@ -298,10 +298,12 @@ question and bundling them would make a regression untraceable.
   needs Roy's review even if the other ten are agent-merged.
 
 ## [KAI-005] Playwright e2e suite has been broken since 2026-07-29, silently
-**Status**: in progress — part (a) shipped (PR #30, merged 2026-08-26): all three specs pass
-against current `main`. Part (b), the e2e-in-CI decision, is recorded in `decisions.md`
-(2026-08-26, gate on every PR) and implemented in a second PR that touches
-`.github/workflows/ci.yml` and therefore waits on Roy per the `ship-change` stop-list.
+**Status**: shipped (2026-08-26). Part (a), PR #30: all three specs pass against current
+`main`. Part (b), the e2e-in-CI decision: recorded in `decisions.md` (gate on every PR,
+blocking) and implemented in PR #31 (`ci.yml` + `playwright.config.js`) — held for Roy per
+the `ship-change` stop-list, reviewed and merged. A flake the new gate caught on its second
+run (a layout-stability assertion checking sub-pixel precision the runner couldn't hold) was
+fixed in PR #32. `ci.yml` now blocks every PR on `test:e2e`, live in prod.
 **User**: whoever needs the e2e suite as evidence a change didn't break a real user flow —
 currently nobody gets that, because nothing runs it and nothing tells them it's stale.
 **Problem**: found incidentally while doing the manual-verification pass for [KAI-001]. All
@@ -333,6 +335,10 @@ multi-week drift between what e2e asserts and what the app actually shows.
 **Cost**: none — test-only change, no new external calls, no cache behaviour change.
 **Out of scope**: writing new e2e coverage beyond fixing what's currently broken.
 **Risks / open questions**:
-- Only one broken selector is confirmed. Since nothing has run this suite in a month, other
-  specs may have drifted the same way without yet being noticed — worth a full pass, not just
-  patching the one known failure.
+- Resolved: the drift audit found and fixed all three (nav label, auth gate, passenger
+  steppers) — `tests/` held only the one spec file, so the audit was complete, not partial.
+- **Noted during rollout, not a KAI-005 blocker**: GitHub webhook delivery to this repo ran
+  30–45 minutes behind while PRs #30/#31/#32 were shipping (`gh pr checks` showed no checks at
+  merge time even though they'd passed). Each merge was verified against the correct commit
+  SHA via `workflow_dispatch` rather than merged blind. Appears to have cleared on its own;
+  worth a glance if a future PR's checks look stuck as "no checks reported."
