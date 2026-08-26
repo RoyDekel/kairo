@@ -1,8 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../contexts/authContext';
 import { Mail, Lock, Eye, EyeOff, X, Loader2, UserPlus, LogIn, KeyRound } from 'lucide-react';
 
+/*
+  The modal's body is a separate component so that closing the modal unmounts it and opening it
+  mounts a fresh one. That is what makes `useState(initialMode)` correct: an initialiser only
+  runs on mount, and with this split every open IS a mount.
+
+  It used to be one component that returned null while closed but stayed mounted, so the mode
+  had to be re-synced by an effect on open -- which painted the previous mode's form for one
+  committed frame before correcting it. Keying this from App.jsx would have worked too, but it
+  would have moved the "opens in the mode the caller asked for" contract out of the component
+  and onto every caller, where forgetting it fails silently.
+
+  Consequence worth knowing: a half-typed email/password no longer survives a close and reopen.
+*/
 export default function AuthModal({ isOpen, onClose, initialMode = 'signin', notice = '' }) {
+  if (!isOpen) return null;
+  return <AuthModalContent onClose={onClose} initialMode={initialMode} notice={notice} />;
+}
+
+function AuthModalContent({ onClose, initialMode, notice }) {
   const { signIn, signUp, resetPassword, supabaseAvailable } = useAuth();
 
   const [mode, setMode] = useState(initialMode); // 'signin' | 'signup' | 'forgot'
@@ -13,16 +31,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin', not
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  // Re-sync when the caller re-opens the modal in a different mode (e.g. App.jsx forcing
-  // 'signin' after an expired/reused email-confirmation link) -- `useState(initialMode)`
-  // only reads its argument on first mount, so without this the modal would stay stuck in
-  // whatever mode it opened with the very first time.
-  useEffect(() => {
-    if (isOpen) setMode(initialMode);
-  }, [isOpen, initialMode]);
-
-  if (!isOpen) return null;
 
   const resetForm = () => {
     setEmail('');
