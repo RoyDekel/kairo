@@ -175,6 +175,28 @@ export const generatePriceHistory = (flightNumber, basePrice) => {
 };
 
 // Interpolate coordinates along the Great Circle (geodesic path) between any two coordinate sets
+/*
+  Which phase of the flight a given progress value falls in.
+
+  Exported on its own because the phase depends on progress alone -- the coordinates only move
+  the aircraft, they never change what it is doing. App.jsx needs the phase without the rest of
+  the telemetry, to decide whether a status-change alert should fire, and having it restate
+  these boundaries would be two sets of thresholds that had to agree.
+
+  The previous inline chain carried two redundant lower bounds (`progress >= 0.08` on the
+  In Flight branch and `progress >= 0.88` on Descending). Both were already implied by the
+  branches above them; they are dropped here rather than preserved, which is why the ordering
+  of these checks is load-bearing.
+*/
+export const getFlightStatus = (progress) => {
+  if (progress <= 0) return 'Scheduled';
+  if (progress < 0.05) return 'Boarding';
+  if (progress < 0.10) return 'Takeoff';
+  if (progress < 0.88) return 'In Flight';
+  if (progress < 0.99) return 'Descending';
+  return 'Landed';
+};
+
 export const getFlightTelemetry = (progress, originCoords, destinationCoords) => {
   const [lat1, lon1] = originCoords || [32.0114, 34.8867];
   const [lat2, lon2] = destinationCoords || [50.0777, 19.7848];
@@ -215,35 +237,27 @@ export const getFlightTelemetry = (progress, originCoords, destinationCoords) =>
   let heading = (Math.atan2(yBearing, xBearing) * 180) / Math.PI;
   heading = (heading + 360) % 360;
 
+  const status = getFlightStatus(progress);
+
   // Declared without initialisers: the branch chain below ends in an unconditional `else`,
-  // so every path assigns all three. Seeding them here only produced values nothing read.
+  // so every path assigns both. Seeding them here only produced values nothing read.
   let altitude;
   let speed;
-  let status;
 
-  if (progress <= 0) {
-    status = 'Scheduled';
+  if (status === 'Scheduled' || status === 'Boarding') {
     altitude = 0;
     speed = 0;
-  } else if (progress < 0.05) {
-    status = 'Boarding';
-    altitude = 0;
-    speed = 0;
-  } else if (progress < 0.10) {
-    status = 'Takeoff';
+  } else if (status === 'Takeoff') {
     altitude = Math.round(progress * 10 * 36000);
     speed = Math.round(250 + progress * 10 * 550);
-  } else if (progress >= 0.08 && progress < 0.88) {
-    status = 'In Flight';
+  } else if (status === 'In Flight') {
     altitude = 36000 + Math.round(Math.sin(progress * Math.PI * 10) * 400);
     speed = 820 + Math.round(Math.sin(progress * Math.PI * 5) * 15);
-  } else if (progress >= 0.88 && progress < 0.99) {
-    status = 'Descending';
+  } else if (status === 'Descending') {
     const descentProg = (0.99 - progress) / (0.99 - 0.88);
     altitude = Math.round(descentProg * 36000);
     speed = Math.round(200 + descentProg * 620);
   } else {
-    status = 'Landed';
     altitude = 120; // Default airport height (ft)
     speed = 0;
   }
