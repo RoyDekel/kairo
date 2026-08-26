@@ -153,18 +153,47 @@ export default function AlternativeFlights({
   // Error validation states
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
+  /*
+    Pagination state.
+
+    A page number only means anything for one particular result set, so rather than an effect
+    resetting it to 1 whenever that set changes, the chosen page records the set it belongs to
+    and is ignored once that no longer matches. Same reset semantics, minus a second committed
+    render on every sort, filter, booking-step and new search -- on the longest list the app
+    renders.
+
+    `searchParams` is compared by identity on purpose: that is exactly what the effect's
+    dependency array did, and App.jsx hands down a fresh object per committed search.
+  */
+  const [pageState, setPageState] = useState(null);
+
+  const pageBelongsToCurrentResults = (p) => (
+    !!p
+    && p.bookingStep === bookingStep
+    && p.searchParams === searchParams
+    && p.filterCarrier === filterCarrier
+    && p.sortKey === sortKey
+  );
+
+  const currentPage = pageBelongsToCurrentResults(pageState) ? pageState.n : 1;
+
+  // Accepts a number or an updater, matching the useState setter it replaced.
+  const setCurrentPage = (next) => setPageState((prev) => {
+    const from = pageBelongsToCurrentResults(prev) ? prev.n : 1;
+    return {
+      bookingStep,
+      searchParams,
+      filterCarrier,
+      sortKey,
+      n: typeof next === 'function' ? next(from) : next,
+    };
+  });
 
   // State for flights retrieved from server
   const [outboundFlights, setOutboundFlights] = useState([]);
   const [returnFlights, setReturnFlights] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [bookingStep, searchParams, filterCarrier, sortKey]);
 
   // Re-hydrate the search form whenever shared state changes underneath it (for example
   // after "Whento Go" hands off a destination). The form intentionally keeps local
