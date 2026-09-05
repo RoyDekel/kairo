@@ -148,6 +148,119 @@ describe('computeEventDrivenInsights — cacheable fields pass through unchanged
   });
 });
 
+describe('computeEventDrivenInsights — the event impact score cannot move the verdict (KAI-006)', () => {
+  /*
+    eventImpactScore is not a measurement.
+
+    ticketmasterProvider.format computes it as `isSoldOut ? 96 : 75 + (idx % 20)` — a
+    hardcoded constant or the event's ORDINAL POSITION in the response array. Nothing in it
+    observes demand, price movement or sell-through rate. insightsEngine used to force
+    `recommendation = 'BUY_NOW'` whenever that number reached 90, so a single sold-out
+    listing anywhere in the destination city — a comedy night in a 200-seat club — outranked
+    the Chronos-2 forecast and produced a confidently wrong BUY.
+
+    The BUY/WAIT verdict now comes from the forecast engine and the price, and from nothing
+    else. The event survives as CONTEXT: topEvent, isHighImpactEvent and the rationale
+    pillars are still returned for verdictEvidence to render, and a sold-out event is still
+    named in the summary — but as a fact, never as a fare prediction.
+
+    These tests are the guardrail. If someone reintroduces an event term into the
+    recommendation chain, they fail.
+  */
+  const soldOut = {
+    id: 'tm-1',
+    title: 'Stadium Show',
+    venue: 'Accor Arena',
+    categoryLabel: 'Music 🎵',
+    eventImpactScore: 96,
+    isSoldOut: true
+  };
+
+  test('a 96-impact sold-out event does NOT flip a WAIT forecast to BUY_NOW', () => {
+    const forecast = cachedForecast();
+
+    // comparisonPrice 900 is above forecastMedian 600 and at the 100th percentile: the
+    // model says WAIT, unambiguously.
+    const res = computeEventDrivenInsights(flight, {}, [soldOut], { forecast, comparisonPrice: 900 });
+
+    expect(res.recommendation).toBe('WAIT');
+    expect(res.actionHeadline).toMatch(/^WAIT /);
+  });
+
+  test('a 96-impact sold-out event does NOT flip WAIT to BUY_NOW without a forecast either', () => {
+    // No forecast: the simulated path. 45 days out at the 43rd percentile is a WAIT.
+    const res = computeEventDrivenInsights(flight, {}, [soldOut]);
+
+    expect(res.recommendation).toBe('WAIT');
+
+    // The simulated path computed confidence as `85 + (isHighImpactEvent ? 8 : 0) - ...`,
+    // so the invented score also inflated the star rating. It no longer contributes.
+    const quiet = computeEventDrivenInsights(flight, {}, [{ ...soldOut, eventImpactScore: 60 }]);
+    expect(res.confidenceScore).toBe(quiet.confidenceScore);
+    expect(res.confidenceStars).toBe(quiet.confidenceStars);
+  });
+
+  test('the verdict and every price-derived field are INVARIANT to the impact score', () => {
+    // The property, stated directly: hold everything real constant, vary only the invented
+    // number. Nothing a user acts on may change.
+    const forecast = cachedForecast();
+    const high = computeEventDrivenInsights(flight, {}, [soldOut], { forecast, comparisonPrice: 900 });
+    const low = computeEventDrivenInsights(
+      flight, {}, [{ ...soldOut, eventImpactScore: 60 }], { forecast, comparisonPrice: 900 }
+    );
+
+    expect(high.recommendation).toBe(low.recommendation);
+    expect(high.actionHeadline).toBe(low.actionHeadline);
+    expect(high.summary).toBe(low.summary);
+    expect(high.riskLevel).toBe(low.riskLevel);
+    expect(high.expectedSavings).toBe(low.expectedSavings);
+    expect(high.pricePercentile).toBe(low.pricePercentile);
+    expect(high.confidenceScore).toBe(low.confidenceScore);
+  });
+
+  test('the event is still surfaced as context on a WAIT', () => {
+    const forecast = cachedForecast();
+    const res = computeEventDrivenInsights(flight, {}, [soldOut], { forecast, comparisonPrice: 900 });
+
+    // verdictEvidence.js reads these to render the event-surge evidence item.
+    expect(res.topEvent).toBe(soldOut);
+    expect(res.eventImpactScore).toBe(96);
+    expect(res.isHighImpactEvent).toBe(true);
+    expect(res.rationalePillars[0]).toContain('Stadium Show');
+
+    // Sold-out is a real API field, so the summary may state it...
+    expect(res.summary).toContain('Stadium Show');
+    // ...but the old summary asserted the opposite of the truth on this exact path.
+    expect(res.summary).not.toContain('No major Sold-Out event conflict');
+  });
+
+  test('no fare effect is ever attributed to an event', () => {
+    const forecast = cachedForecast();
+    const buy = computeEventDrivenInsights(flight, {}, [soldOut], { forecast, comparisonPrice: 300 });
+
+    expect(buy.recommendation).toBe('BUY_NOW');
+    // `expectedSavings * 1.2` presented as an event-caused price rise: an estimate with no
+    // estimator behind it. The BUY is explained by the percentile that produced it.
+    expect(buy.summary).not.toContain('due to event ticket pressure');
+    expect(buy.summary).not.toContain('Fares are predicted to rise');
+    expect(buy.actionHeadline).toBe('BUY NOW (BEST FARE)');
+    expect(buy.summary).toContain('lowest 0%');
+  });
+
+  test('an event score of 96 cannot outrank the days-to-departure heuristic either way', () => {
+    // Guards the one surviving non-price override. <= 14 days still forces BUY_NOW, on its
+    // own justification, with or without an event — bundling its removal here would make a
+    // regression untraceable (P3 spec §5.1).
+    const soon = { departureDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0] };
+    const withEvent = computeEventDrivenInsights(flight, soon, [soldOut]);
+    const without = computeEventDrivenInsights(flight, soon, noEvents);
+
+    expect(withEvent.recommendation).toBe('BUY_NOW');
+    expect(without.recommendation).toBe('BUY_NOW');
+    expect(withEvent.riskLevel).toBe(without.riskLevel);
+  });
+});
+
 describe('computeEventDrivenInsights — insufficient history short-circuits first', () => {
   test('verdict === null returns the empty-state shape before any recompute runs', () => {
     // `prices` and a stale recommendation are present ON PURPOSE: if the early return ever

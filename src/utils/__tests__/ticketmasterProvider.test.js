@@ -118,7 +118,18 @@ describe('TicketmasterProvider', () => {
     expect(events[0].priceEstimate).toBe('$85 - $240');
   });
 
-  test('computes Event-Driven Insights with high impact event surge', () => {
+  /*
+    Renamed from "high impact event surge".
+
+    It used to assert that a 96-impact sold-out event produced BUY_NOW, which was the
+    fabricated-score override removed in KAI-006 — see the guardrail block in
+    insightsEngine.test.js. The event is now context: it is carried through to topEvent and
+    named in the summary, while the verdict comes from the fare and the departure window.
+    The departure date below is deliberately inside two weeks, so the BUY_NOW asserted here
+    is the days-to-departure heuristic's doing, not the event's.
+  */
+  test('carries a live event through to the insight without letting it set the verdict', () => {
+    const soon = new Date(Date.now() + 6 * 86400000).toISOString().split('T')[0];
     const mockFlight = { id: 'FL-BCN-101', price: 520, destination: 'BCN' };
     const mockEvents = [
       {
@@ -132,13 +143,15 @@ describe('TicketmasterProvider', () => {
       }
     ];
 
-    const insights = computeEventDrivenInsights(mockFlight, { departureDate: '2026-08-15' }, mockEvents);
+    const insights = computeEventDrivenInsights(mockFlight, { departureDate: soon }, mockEvents);
 
     expect(insights).toBeDefined();
     expect(insights.recommendation).toBe('BUY_NOW');
+    expect(insights.riskLevel).toBe('High (Last Minute Spikes)');
     expect(insights.isHighImpactEvent).toBe(true);
     expect(insights.eventImpactScore).toBe(96);
     expect(insights.summary).toContain('El Clásico Match');
+    expect(insights.summary).not.toContain('due to event ticket pressure');
   });
 
   test('recommends WAIT when no event conflict and price is above low 90-day benchmark', () => {
