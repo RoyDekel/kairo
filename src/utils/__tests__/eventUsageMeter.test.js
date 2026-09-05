@@ -133,7 +133,17 @@ describe('EventUsageMeter', () => {
   confident-looking percentage.
 */
 describe('EventSearchService attribution', () => {
-  const window = { start: '2026-10-01', end: '2026-10-05' }; // far tier
+  /*
+    Offset from the real clock, not a fixed calendar date: `EventSearchService.fetchEvents`
+    classifies the tier via `ttlTierFor(startDate)` using the real `Date.now()` (it has no
+    injectable clock, unlike the meter below), so a hardcoded date drifts across tier
+    boundaries as real time passes and the test breaks on a lag, not on a code change. 60
+    days out is comfortably past the `far` tier's >=30-day threshold for as long as this
+    suite exists.
+  */
+  const daysFromNow = (offsetDays) =>
+    new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const window = { start: daysFromNow(60), end: daysFromNow(64) }; // far tier
   let meter;
 
   const makeService = (cache) => new EventSearchService({
