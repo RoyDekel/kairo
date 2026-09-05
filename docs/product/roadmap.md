@@ -36,7 +36,20 @@ Phase 2, so every phase below builds on real history rather than a cold start.
   `pipeline.predict_df` and would need `future_df` wired through with the real forecast's
   known-future covariates for this to land on the model side; `forecastService.js`'s request
   payload (currently just `inputs` + `prediction_length`/`num_samples`) would need an
-  `event_impact_score` column added, matching `handler.py`. No spec written yet.
+  `event_impact_score` column added, matching `handler.py`.
+  **Spec written 2026-09-05 (KAI-006): `specs/p3-events-covariate-loop.md` — and it revises this
+  entry.** Reading the code found that the event score is not decoration beside the prediction;
+  it is already inside it and already fabricated (`isSoldOut ? 96 : 75 + (idx % 20)`, forcing
+  BUY_NOW at ≥90). It also found two blockers this entry does not name: the forecast series is
+  indexed on `observed_at` rather than departure date, and Chronos-2's `predict_df` conditions a
+  covariate on its **past** values, which KAIRO has no event history to supply. So P3 resequences
+  into P3a (fix the score, stop it overriding the verdict — buildable now, zero cost), P3b (start
+  the event archive — buildable now), P3c (the covariate — blocked). The e5/`pgvector`/reranker
+  chain named above is **rejected**; see `decisions.md`, 2026-09-05.
+  **Half of P3a already shipped, same day**: [PR #36](https://github.com/RoyDekel/kairo/pull/36)
+  stopped the score overriding the verdict and deleted the fabricated narrative. Still open:
+  `eventImpactScore.js` (a real scorer to replace the still-fabricated number in
+  `ticketmasterProvider.js`) and P3b/P3c in full.
 
 ## Shipped
 
