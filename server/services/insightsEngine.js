@@ -23,8 +23,29 @@ export function computeEventDrivenInsights(flight, searchRequest = {}, events = 
     ? events.reduce((prev, curr) => (curr.eventImpactScore > prev.eventImpactScore ? curr : prev), events[0])
     : null;
 
+  /*
+    eventImpactScore is NOT an input to the recommendation. Do not make it one again.
+
+    The number is not a measurement: ticketmasterProvider.format computes it as
+    `isSoldOut ? 96 : 75 + (idx % 20)` — a hardcoded constant, or the event's ordinal
+    position in the response array. This function used to force BUY_NOW whenever it reached
+    90, so one sold-out listing anywhere in the destination city overrode the Chronos-2
+    forecast, and a raise of Ticketmaster's `size` param would have let ordinal position
+    alone do the same. That is the confidently-wrong-BUY failure mode the whole verdict path
+    is built to avoid.
+
+    Both fields are kept because they are honest as CONTEXT — verdictEvidence.js renders the
+    event as one weighted reason among several, and the discovery UI lists it. A real,
+    signal-derived scorer is specced (P3a, docs/product/specs/p3-events-covariate-loop.md);
+    until it exists and can be weighed against measured history, the BUY/WAIT verdict comes
+    from the forecast engine and the price, and from nothing else.
+  */
   const eventImpactScore = topEvent ? topEvent.eventImpactScore : 70;
   const isHighImpactEvent = eventImpactScore >= 90;
+
+  // isSoldOut, unlike the score, is a real field the ticketing API reports. It is the only
+  // event signal allowed to reach the user-facing narrative, and even then only as a fact.
+  const hasSoldOutEvent = Boolean(topEvent?.isSoldOut);
 
   // Handle Insufficient History empty state early
   if (forecast && forecast.verdict === null) {
@@ -72,9 +93,13 @@ export function computeEventDrivenInsights(flight, searchRequest = {}, events = 
     recommendation = (pricePercentile <= 25 || isCheaperThanForecast) ? 'BUY_NOW' : 'WAIT';
   }
 
-  if (recommendation === 'BUY_NOW' || daysToDeparture <= 14 || isHighImpactEvent) {
+  // The days-to-departure override stays: weaker than the forecast, but it is a real
+  // property of airline revenue management, not an invented score. Removing it is a
+  // separate decision (P3 spec §5.1) and bundling it here would make either regression
+  // untraceable.
+  if (recommendation === 'BUY_NOW' || daysToDeparture <= 14) {
     recommendation = 'BUY_NOW';
-    riskLevel = isHighImpactEvent ? 'High (Event Demand Surge)' : daysToDeparture <= 14 ? 'High (Last Minute Spikes)' : 'Low';
+    riskLevel = daysToDeparture <= 14 ? 'High (Last Minute Spikes)' : 'Low';
   } else if (daysToDeparture > 40 && pricePercentile > 40) {
     recommendation = 'WAIT';
     riskLevel = 'Low (Stable Pre-booking Window)';
@@ -84,9 +109,11 @@ export function computeEventDrivenInsights(flight, searchRequest = {}, events = 
   }
 
   // 5. Confidence Score and Stars
-  const confidenceScore = forecast 
-    ? forecast.confidenceScore 
-    : Math.min(97, Math.max(82, 85 + (isHighImpactEvent ? 8 : 0) - Math.round(pricePercentile / 10)));
+  // The event term is gone from here too: an invented score must not inflate the confidence
+  // the user reads off the stars either.
+  const confidenceScore = forecast
+    ? forecast.confidenceScore
+    : Math.min(97, Math.max(82, 85 - Math.round(pricePercentile / 10)));
 
   let stars = null;
   if (confidenceScore !== null) {
@@ -100,20 +127,34 @@ export function computeEventDrivenInsights(flight, searchRequest = {}, events = 
     : Math.max(35, Math.round(currentPrice - low90Day));
   const dropDaysNum = Math.min(10, Math.max(3, Math.round(daysToDeparture * 0.15)));
 
+  // No "(EVENT SURGE)" variant. The verdict is never the event's doing, so the headline may
+  // not credit it.
   const actionHeadline = recommendation === 'BUY_NOW'
-    ? isHighImpactEvent ? `BUY NOW (EVENT SURGE)` : `BUY NOW (BEST FARE)`
+    ? `BUY NOW (BEST FARE)`
     : `WAIT ${dropDaysNum} MORE DAYS`;
 
-  // Humanized Summary & Rationale
+  /*
+    Humanized summary. Both branches explain the verdict with the numbers that produced it.
+
+    What was here before: BUY_NOW with a high-impact event read "Fares are predicted to rise
+    by ~$X due to event ticket pressure", where X was `expectedSavings * 1.2` — a statement
+    about the 90-day price range, multiplied by a constant and attributed to a concert. No
+    estimator produces that figure. WAIT asserted the mirror image, "No major Sold-Out event
+    conflict detected", which was previously unreachable-but-true (a sold-out event forced
+    BUY_NOW) and is now reachable and sometimes false. Both are deleted rather than
+    reworded.
+  */
   let summary;
   if (recommendation === 'BUY_NOW') {
-    if (isHighImpactEvent && topEvent) {
-      summary = `High travel demand expected for "${topEvent.title}" at ${topEvent.venue} (${topEvent.categoryLabel}). Fares are predicted to rise by ~$${Math.round(expectedSavings * 1.2)} due to event ticket pressure.`;
-    } else {
-      summary = `Current fare ($${currentPrice}) is in the lowest ${pricePercentile}% of 90-day historical prices ($${low90Day} low). Airline pricing algorithms indicate an imminent price increase.`;
-    }
+    summary = `Current fare ($${currentPrice}) is in the lowest ${pricePercentile}% of 90-day historical prices ($${low90Day} low). Airline pricing algorithms indicate an imminent price increase.`;
   } else {
-    summary = `Fare ($${currentPrice}) is ${pricePercentile}% above the 90-day low ($${low90Day}). No major Sold-Out event conflict detected in ${flight?.destination || 'destination'}. Fares expected to drop by ~$${expectedSavings} within ${dropDaysNum} days.`;
+    summary = `Fare ($${currentPrice}) is ${pricePercentile}% above the 90-day low ($${low90Day}). Fares expected to drop by ~$${expectedSavings} within ${dropDaysNum} days.`;
+  }
+
+  // The event is named as context when the ticketing API actually reported it sold out —
+  // a fact the user can weigh themselves, with no fare effect claimed on their behalf.
+  if (hasSoldOutEvent && topEvent) {
+    summary += ` Note: "${topEvent.title}" at ${topEvent.venue} is sold out during your dates.`;
   }
 
   const priceHistory = forecast ? forecast.priceHistory : [
