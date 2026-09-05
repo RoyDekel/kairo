@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { forecastService as defaultForecastService } from '../services/forecastService.js';
-import { forecastCache as defaultForecastCache } from '../services/forecastCache.js';
+import { forecastCache as defaultForecastCache, DEFAULT_REPRESENTATIVE_HORIZON_DAYS } from '../services/forecastCache.js';
 import { FareHistory } from '../services/fareHistory.js';
 import { AIRPORTS } from '../../shared/catalog.js';
 
@@ -78,6 +78,12 @@ export class ForecastBatch {
     return (process.env.FARE_CURRENCY || 'USD').toUpperCase();
   }
 
+  /** Days out the stand-in price targets (KAI-002). A starting guess — tune from measured data. */
+  get representativeHorizonDays() {
+    const days = Number(process.env.FORECAST_BATCH_REPRESENTATIVE_HORIZON_DAYS);
+    return Number.isFinite(days) && days > 0 ? days : DEFAULT_REPRESENTATIVE_HORIZON_DAYS;
+  }
+
   /**
    * Forecasts one route and upserts the result, unless there is nothing honest to cache.
    *
@@ -91,7 +97,9 @@ export class ForecastBatch {
     // currentPrice (forecastBatch §3.2). A route with no history can only tier to
     // insufficient_history — there is nothing to serve, so skip and let the read path's live
     // fallback say so.
-    const latest = await this.forecastCache.latestObservedPrice(route, currency);
+    const latest = await this.forecastCache.latestObservedPrice(route, currency, {
+      horizonDays: this.representativeHorizonDays
+    });
     if (!latest) {
       console.log(`[forecastBatch] Skipped ${route}: no observation on record.`);
       return { ok: false, reason: 'no_observation', route };
