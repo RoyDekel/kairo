@@ -22,6 +22,98 @@
 
 ---
 
+## [KAI-006] P3 — Events-as-covariate loop
+**Status**: proposed — approval is Roy's call, not the PM agent's. **Read the spec's §1 before
+approving: the roadmap's version of P3 does not survive contact with the code, and this entry
+proposes a different shape and a different order. UPDATE 2026-09-05: half of P3a already shipped
+as PR #36, ahead of this backlog entry going in — see the spec's update banner and the Problem/
+Solution sections below, which describe the pre-PR-#36 state on purpose (to explain what was
+fixed), not the current state of `main`.**
+**Spec**: full spec at `docs/product/specs/p3-events-covariate-loop.md` — that file is the build
+contract; this entry is the backlog pointer. Ships as **three separate PRs** (P3a, P3b, P3c),
+not one.
+**User**: for P3a, every KAIRO user who searches a destination with a sold-out event listed on
+their dates — today the model's verdict is overridden and they are told to BUY. For P3b, nobody
+this quarter; it is data collection whose payoff is 60–90 days out. For P3c, the same user, once
+there is enough history for the claim to be true.
+**Problem**: `event_impact_score` is not missing — it exists, it is fabricated, and it already
+moves the verdict. `ticketmasterProvider.js:194` computes it as
+`isSoldOut ? 96 : 75 + (idx % 20)` — a boolean or the event's **position in the response array**
+— and `insightsEngine.js:75` forces `recommendation = 'BUY_NOW'` whenever it clears 90. So any
+single sold-out or off-sale Ticketmaster listing anywhere in the destination city during the
+travel window overrides the live Chronos-2 verdict. A sold-out comedy night in a 200-seat club
+outranks the model. The narrative then asserts a causal magnitude for it
+(`Fares are predicted to rise by ~$${expectedSavings * 1.2} due to event ticket pressure`) which
+is the 90-day price range multiplied by 1.2 and attributed to a concert. The index path is
+currently capped harmlessly at 84 by `size: '10'`, but raising the page size — an obviously
+reasonable change — starts flipping verdicts on ordinal position alone.
+**Why now**: it is the only unshipped item in this backlog, and P3a specifically is the highest-
+value thing available: it is zero-cost, touches no external API, and removes a live instance of
+the one failure mode the product cannot recover from. P3b has to start now for a different
+reason — Ticketmaster only answers about the future, so every day without an event archive is a
+day of joint (fare, event) history lost permanently, and the covariate cannot be fed without it.
+**Solution**: three stages, deliberately not the roadmap's order.
+- **P3a (buildable now, zero API cost)** — a real, deterministic `eventImpactScore` service over
+  signals already in the payload (sell-through status, published price band, category, event
+  count, multi-day span, coverage mode), and the event score **stops changing the verdict**. It
+  becomes evidence and context; the BUY/WAIT answer comes from the forecast engine and nothing
+  else. The fabricated causal sentence is deleted, not rephrased.
+- **P3b (buildable now, ~zero API cost)** — an `event_observations` archive keyed by the
+  **event's** date, written from what `eventCache` has already fetched, so there is a past for a
+  covariate to condition on. Plus the `DailyBudget` ceiling Ticketmaster does not currently have.
+- **P3c (blocked)** — the Chronos covariate itself. Four entry criteria in the spec §5.3.
+**Acceptance criteria**: the 24 numbered criteria in the spec (§8), grouped by stage. Headline
+checks:
+- [ ] No score is a function of an event's position in a list (AC 2).
+- [x] **Shipped PR #36, 2026-09-05, ahead of this entry.** Given a `WAIT` forecast and a
+      top-of-scale event, `computeEventDrivenInsights` returns `WAIT` — the criterion the whole
+      stage exists for (AC 6).
+- [x] **Shipped for `insightsEngine.js`, PR #36. Still open for `priceConfidenceEngine.js`**
+      (its copy is unreachable dead code today — §11, §2.2 — deliberately left for the separate
+      `prices`-array bug). `due to event ticket pressure` and `expectedSavings * 1.2` are gone
+      from `insightsEngine.js`'s live path (AC 7).
+- [ ] `event_observations` exists, a cache hit writes nothing, and an archive write failure never
+      fails a search (AC 10, 12, 13).
+- [ ] Ticketmaster calls consume a `DailyBudget`; a suppressed lookup reports `unavailable`, not
+      `empty` (AC 16).
+**Success metric**: one per stage (spec §13). P3a's is the primary: **fraction of `/api/flights`
+responses where `insights.recommendation` differs from the forecast engine's own `verdict`.**
+Baseline (pre-PR-#36) unmeasured and non-zero; **target 0% — already structurally true**, since
+PR #36 removed the code path that could produce a difference. P3b: 60+ days of joint fare/event
+coverage on ≥5 featured routes. P3c: 7-day-ahead q50 MAE with the covariate vs without — **if it
+is not better, P3c does not ship** and the negative result is recorded.
+**Cost**: P3a — **zero** new external calls, pure logic over a payload already fetched. P3b —
+zero steady-state (writes what `eventCache` already paid for; a cache hit writes nothing), plus
+a one-off backfill of ~30–90 Ticketmaster calls against a 5,000/day quota, newly ceilinged at
+1,000. P3c — zero new event calls; HF call count unchanged (same one batch call per route per
+day, larger body). The real cost of P3 is calendar time, not API spend: P3b's value lands in
+60–90 days.
+**Out of scope**: **the embeddings / `pgvector` / reranker layer, rejected outright** (spec §4,
+and `decisions.md` 2026-09-05) — it solves a retrieval problem KAIRO does not have, since
+Ticketmaster is already queried by city and date window, and it cannot produce the magnitude
+estimate the feature actually needs. Also out: the `daysToDeparture <= 14` heuristic in the same
+branch, the `priceConfidenceEngine.js` client-side 12% recompute bug (goes to `bug-fixer`,
+more urgent than this), departure-date-indexed forecasting (KAI-002's open option (b)),
+re-enabling API-Sports, new event providers, and P4.
+**Risks / open questions**:
+- **P3a will make some verdicts less decisive, and that is correct.** Expect the BUY rate on
+  event-heavy destinations to fall. It was not earned on that path.
+- **P3c may not work at KAIRO's data scale.** Ten featured routes, a 90-day context window and
+  a handful of event days per route is thin for in-context learning of a covariate effect. The
+  spec permits — and pre-commits to — a negative result.
+- **Two blockers the roadmap entry does not name** (spec §3): the forecast series is indexed on
+  `observed_at`, not departure date, so an event covariate is misaligned with the mechanism; and
+  Chronos-2's `predict_df` conditions a covariate on its **past** values, which KAIRO does not
+  have. P2 being live was necessary but not sufficient.
+- **Touches `insightsEngine.js` (P3a) and the budget/cache layer (P3b) — both on the
+  `ship-change` stop-list. Every stage ships as a PR for Roy, not an agent self-merge**, same as
+  KAI-002/003/004.
+- **Adjacent bug found during this spec, not fixed by it**: `computeEventDrivenInsights` returns
+  no `prices` array, so `priceConfidenceEngine.js:31`'s branch never fires when `BuyVerdict`
+  passes a price override — the client falls through to a `priceDiffPct <= 12` rule of its own
+  while still rendering the server's summary. A user can see a WAIT-styled panel carrying an
+  event-surge BUY sentence.
+
 ## [KAI-004] Fix the `forecast_cache` price-drift gate (root cause of the ~8% hit rate)
 **Status**: shipped (PR #15, merged 2026-08-22) — drift gate dropped, replaced with a 5x
 data-integrity sanity bound; `insightsEngine.test.js` added pinning the live-recompute

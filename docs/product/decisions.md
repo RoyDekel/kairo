@@ -18,6 +18,108 @@
 
 ---
 
+### 2026-09-05 — P3 is resequenced: the event score is fixed before the covariate is fed
+> **PARTIALLY SHIPPED SAME DAY, ahead of this entry going in**: [PR #36](https://github.com/RoyDekel/kairo/pull/36)
+> removed `isHighImpactEvent` from `insightsEngine.js`'s recommendation chain and deleted the
+> fabricated narrative, before this decision and its spec were committed. The "Context" and
+> "Reasoning" below describe the state that motivated the decision, which is the pre-PR-#36
+> state — kept as written, not edited, per this file's own convention (see the 2026-08-09
+> drift-gate entry's REVERSED note). What's still open: `eventImpactScore.js` itself (the real
+> scorer to replace `ticketmasterProvider.js`'s still-fabricated number) and P3b/P3c in full.
+**Decision**: P3 splits into three stages that ship separately — **P3a** replace the fabricated
+`event_impact_score` and stop it overriding the verdict (buildable now, zero API cost); **P3b**
+start an `event_observations` archive keyed by the event's own date (buildable now, ~zero API
+cost); **P3c** feed the covariate to Chronos-2 (**blocked**, four entry criteria). This reverses
+the roadmap's order, which leads with the covariate. Full reasoning in
+`specs/p3-events-covariate-loop.md`; backlog pointer is KAI-006.
+**Context**: `roadmap.md` calls P3 "unblocked" on the grounds that P2 is live and there is now a
+covariate slot to feed. Reading the code for the spec, that is necessary but not sufficient, and
+the more urgent finding was somewhere else entirely: the event overlay is **not** decoration
+sitting beside the prediction. It is already inside it, and the number it carries is invented.
+`ticketmasterProvider.js:194` computes `impactScore = isSoldOut ? 96 : 75 + (idx % 20)` — a
+boolean or the event's position in the response array — and `insightsEngine.js:75` forces
+`recommendation = 'BUY_NOW'` at ≥90. One sold-out Ticketmaster listing anywhere in the
+destination city during the travel window overrides the live Chronos-2 verdict.
+**Reasoning**: the product's stated unrecoverable failure is a confidently wrong BUY the user
+acts on with their own money. There is a live path to one, reached through a hardcoded `96`, and
+it is currently *above* the model in precedence. Fixing that is zero-cost, touches no external
+API, and is worth more than the covariate it precedes. Feeding a covariate first would have laid
+a measured signal on top of an unmeasured override and made the result impossible to attribute.
+Two further blockers make P3c genuinely un-startable rather than merely lower priority. (1)
+`buildDailyIndex` indexes the series on `observed_at` and deliberately normalises across
+departure-date horizon buckets, but an event's demand effect is a property of the **departure
+date** — so a covariate laid on the existing axis answers a question that is not the mechanism.
+(2) Chronos-2's `predict_df` requires every covariate column in the context frame to also appear
+in `future_df`: the model conditions on the covariate's **past**. KAIRO has no event history at
+all — `event_cache` is a cache keyed by lookup window with an `expires_at`, and Ticketmaster only
+answers about the future — so the context column would be all zeros and the forecast column
+non-zero, which is not a covariate but an unconstrained shock. Hence P3b, and hence starting it
+now: the analysis doc's own "every day without logging is a day of data lost forever" argument
+was made for fares and never applied to events.
+**Alternatives considered**:
+- *Build P3 as the roadmap describes it, covariate first* — would have shipped a measured signal
+  into a model on top of an unmeasured heuristic override, with no event history to condition on
+  and no way to tell which layer produced any change.
+- *Fix the score but keep the override, tuned* — rejected. The override's problem is not that
+  its threshold is wrong, it is that nothing entitles an event count to outrank a fare model. A
+  better-tuned override is the same claim with more decimal places.
+- *Ship P3a and P3b as one PR* — rejected on the repo's own precedent (KAI-001's "do these one at
+  a time"): one changes the verdict path, the other adds a table and a provider budget. A
+  regression in a combined diff has no safe bisect.
+- *Wait for more fare history before starting any of it* — P3a needs no history, and P3b is the
+  thing that makes waiting productive rather than merely slow.
+**What would change this**: if measurement after P3a shows event-driven BUYs were in fact
+well-calibrated — i.e. fares on those searches really did rise — that is an argument for putting
+the signal back, but as a covariate the model weighs, never as an override. And if P3b's archive
+after 90 days shows fewer than ~10 event days per featured route, P3c should be reconsidered
+outright rather than built on a sample that cannot support it.
+
+### 2026-09-05 — Rejected: e5 embeddings + `pgvector` + reranker for event matching
+**Decision**: KAIRO does **not** build the embedding / vector-search / reranking layer described
+in `KAIRO_HuggingFace_Integration_Analysis.md` §3 and carried into `roadmap.md`'s P3 entry. No
+`pgvector` extension, no `intfloat/multilingual-e5-base` calls, no `BAAI/bge-reranker-large`
+pass. `event_impact_score` is computed by a deterministic scorer over signals the event providers
+already return (`specs/p3-events-covariate-loop.md` §5.1).
+**Context**: the analysis doc (2026-08-06) proposed Ticketmaster → e5 embeddings → Supabase
+`pgvector` → cosine similarity keyed on `(destination city, date window)` → optional reranker →
+`event_impact_score`, and called it "the differentiating feature." That doc predates P1/P2
+shipping and assumed no event provider was wired at all. Both assumptions are stale: Ticketmaster
+has been live in production for weeks, API-Sports is wired and deliberately switched off
+(`APISPORTS_DISABLED=1`, the free plan only answers for roughly today ±1 day), and `eventMerge.js`
+already cross-references sources.
+**Reasoning**: it solves a retrieval problem this product does not have.
+`ticketmasterProvider.js:62–71` queries with `countryCode` + `city` + `startDateTime`/
+`endDateTime`, so every event in hand is *already* known to be in the right city on the right
+dates. There is no free-text corpus, no city ambiguity, and no ranking task — the list is at most
+ten items and `eventMerge.js` already deduplicates it. Cosine similarity over ten already-correct
+rows returns the same ten rows. Worse, it cannot produce the quantity the feature actually needs,
+which is **magnitude**: an embedding knows "Coldplay" is near "Radiohead" and has no view at all
+of whether either fills a stadium or of how a fixture relates to a fare. Substituting semantic
+similarity for demand elasticity is the same category error this repo has already written two
+comments about (`apiSportsProvider.js:444`, `forecastService.js:368`) — a plausible-looking number
+with nothing behind it, arriving dressed in a confidence score. Against the cost lens: it adds a
+Postgres extension enabled nowhere in this project, a migration, a new billed HF dependency, and
+~310 embedding calls plus a reranker pass per cold discovery window (~10 events × ~31
+destinations) on the app's highest-fan-out path — all of it stop-list territory — to re-rank a
+list that was already correct.
+**Alternatives considered**:
+- *Embeddings for artist/team prominence rather than matching* — the honest version of the idea,
+  and still wrong tool: draw size is a popularity fact, not a similarity fact, and an embedding
+  carries no popularity signal. If prominence is wanted, buy it (PredictHQ sells an event-impact
+  score directly) or derive it from venue capacity — a buy-vs-build conversation, not this.
+- *`pgvector` now, cheap, to have the capability ready* — infrastructure built ahead of a use
+  case that has not been named. The extension can be enabled in one migration on the day a real
+  retrieval problem exists.
+- *The deterministic scorer we chose* — every input inspectable, every weight written down and
+  unit-testable without a network, zero marginal cost.
+**What would change this**: a concrete retrieval problem the current keys cannot answer —
+realistically, adding a provider whose events are **not** pre-filtered by city (a free-text or
+national feed), or de-duplicating the same event across three or more sources with inconsistent
+naming where `eventMerge.js`'s string matching demonstrably fails on measured examples.
+"It would be more sophisticated" is not that problem. Separately, embeddings remain a reasonable
+tool for a *different* feature — semantic destination discovery ("somewhere warm with live music
+in October") — and that is where to revisit them, on their own merits, not here.
+
 ### 2026-08-26 — `npm run test:e2e` becomes a blocking check on every pull request
 **Decision**: `ci.yml` gains an `e2e` job that installs chromium and runs the Playwright
 suite on every PR, in parallel with `verify` and blocking on failure. Not a nightly, not
