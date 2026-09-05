@@ -25,8 +25,9 @@
 ## [KAI-004] Fix the `forecast_cache` price-drift gate (root cause of the ~8% hit rate)
 **Status**: shipped (PR #15, merged 2026-08-22) — drift gate dropped, replaced with a 5x
 data-integrity sanity bound; `insightsEngine.test.js` added pinning the live-recompute
-invariant the fix's safety case depends on. Remaining open item: re-measure the featured-route
-cache-hit rate against the ≥80% target (see Success metric below) — not yet done.
+invariant the fix's safety case depends on. Re-measured 2026-09-05 (see Risks / open
+questions): 78.6% hit rate, just under the ≥80% target — fix confirmed working, target not
+formally hit yet on the available sample.
 **Spec**: full spec at `docs/product/specs/kai-004-forecast-cache-drift-gate-fix.md` — that
 file is the build contract; this entry is the backlog pointer.
 **User**: every KAIRO user who searches a featured-hub route — today they pay the full
@@ -83,6 +84,27 @@ it, not modifying it), the events covariate (P3), the LLM narrative (P4).
   verdict risk this whole fix's safety case rests on not existing.
 - **Touches `forecastCache.js` — "any cache in `server/services/`" on the `ship-change`
   stop-list. Ships as a PR for Roy, not an agent self-merge.**
+- **MEASURED (2026-09-05) — 78.6% hit rate (11 hits / 3 misses = 14 reads), Render logs
+  2026-08-23 through 2026-09-05 (`flight-tracker-backend`, via the Render MCP connector),
+  `[api/flights] Forecast cache hit` vs `[forecastCache] MISS`.** Up from the pre-fix 8%
+  (4/49) measured 2026-08-22 — the fix is working — but just under the ≥80% target, and every
+  one of the 14 events, hits and misses alike, is on `TLV-KRK`; no other featured route shows
+  any traffic in the window, so this is a one-route sample, not a featured-route-wide
+  measurement. 0 misses were `stale`, 0 were `no cached row`, 0 read errors — **all 3 misses
+  are `sanity`** (the new 5x data-integrity bound working as designed), e.g.
+  `MISS TLV-KRK/USD: sanity 11.43x outside 5x (live 2229 vs cached 195)`.
+  **This is the same root cause KAI-002's open question already named, still unfixed**: the
+  nightly batch's "latest observation" price-selection (`forecastBatch.js`) has no
+  departure-date awareness, so it can cache a far-future cheap fare against a near-term
+  expensive search. KAI-004 widened the tolerance so normal seasonality stops false-
+  positiving, but a genuine departure-date mismatch this large (11.4x) still trips the sanity
+  bound correctly — it's supposed to. Fixing *that* means one of the three options logged
+  under KAI-002 below (per-departure-date-bucket selection, keying the cache by
+  `(route, currency, horizon_bucket)`, or the closest-to-a-canonical-horizon stopgap), not
+  another tolerance tweak.
+  **Before calling the ≥80% target formally met or missed, get traffic on more than one
+  featured route** — the current sample can't distinguish "the fix works, target basically
+  met" from "the fix works on the one route we happened to observe."
 
 ## [KAI-003] P2 — Wire the live Chronos-2 HF endpoint into Render + verify
 **Status**: shipped (2026-08-22, config-only — no PR, nothing merged to `main`; verified live
@@ -217,6 +239,9 @@ narrative (P4), discovery verdict chips, an automated purge cron.
   `departure_date` is closest to "today + a representative horizon" (e.g. 30 days out) rather
   than most-recently-written, which would at least make the mismatch bounded and typical
   rather than arbitrary.
+  **Still not fixed as of the 2026-09-05 re-measurement (see KAI-004 above)**: the drift gate
+  is gone, but a mismatch large enough (11.4x, TLV-KRK again) still trips KAI-004's 5x sanity
+  bound and misses. Options (a)/(b)/(c) above are still the fix.
 
 ## [KAI-001] Remove the 11 setState-in-effect cascading renders
 **Status**: shipped (2026-08-26) — all 13 sites fixed and merged (turned out to be 13, not 11;
