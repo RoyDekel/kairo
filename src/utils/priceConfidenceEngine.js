@@ -3,12 +3,43 @@
  * Presenter that reads genuine statistical trends and forecasts computed by the server.
  */
 
-function percentileOf(price, prices = []) {
-  if (!prices.length) return null;
-  const cheaper = prices.reduce((n, p) => (p < price ? n + 1 : n), 0);
-  return Math.round((cheaper / prices.length) * 100);
-}
-
+/**
+ * Presents the server's buy/wait analysis for one flight.
+ *
+ * `basePriceOverride` is the price the CLIENT currently shows. It can differ from the price
+ * the server priced: App.jsx's market engine moves the tracked fare by ±$5 every 8 seconds
+ * and never refetches `insights`. So the override is honoured for `currentPrice` — the fare
+ * the user is looking at, which the stat rows and verdictEvidence read — and for nothing
+ * else.
+ *
+ * ---------------------------------------------------------------------------------------
+ * WHY NOTHING ELSE IS RECOMPUTED HERE
+ *
+ * `recommendation`, `pricePercentile`, `expectedSavings`, `actionHeadline` and `summary` are
+ * one answer, produced together by one rule in server/services/insightsEngine.js. That rule
+ * consumes the 90-day fare sample and the Chronos forecast median. Neither is in the
+ * payload — `computeEventDrivenInsights` returns `priceHistory` (7 display points) and no
+ * `prices` array, and it does not pass `forecastMedian` through — so the client cannot re-run
+ * it, only guess at it.
+ *
+ * It used to guess. Two branches ran here:
+ *
+ *   - one gated on `insights.prices`, which the server has never sent, so it was dead. It
+ *     also still carried the "BUY NOW (EVENT SURGE)" headline and the "fares predicted to
+ *     rise by ~$X due to event ticket pressure" narrative that PR #36 deleted server-side
+ *     for asserting a fare effect no estimator produces. Both are gone with the branch.
+ *
+ *   - the `else`, which therefore ran on EVERY render of the verdict panel, overwrote
+ *     `recommendation` from `priceDiffPct <= 12` — is this fare within 12% of the 90-day
+ *     low — and left `summary`, `actionHeadline` and `pricePercentile` describing the
+ *     server's verdict. The two rules disagree at the same price, so the panel could show a
+ *     green "Book now — this is the price" above a paragraph explaining why fares were
+ *     about to fall, on the first render, with nothing stale involved.
+ *
+ * A presenter may restate the server's verdict. It may not reach a different one. If the
+ * verdict genuinely needs to move with a client-side price change, the price has to go back
+ * to the server, because that is where the model lives.
+ */
 export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
   if (!flight?.insights) {
     return {
@@ -23,37 +54,8 @@ export function getPriceConfidenceInsight(flight, basePriceOverride = null) {
   // Clone backend insights to avoid mutations
   const insights = { ...flight.insights };
 
-  // If client-side override is provided (e.g. cabin toggle), update the metrics
   if (basePriceOverride !== null && basePriceOverride !== undefined) {
-    const currentPrice = basePriceOverride;
-    insights.currentPrice = currentPrice;
-
-    if (insights.prices && insights.prices.length > 0) {
-      insights.pricePercentile = percentileOf(currentPrice, insights.prices);
-      const isCheaperThanForecast = currentPrice <= (insights.forecastMedian || insights.avg90Day);
-      insights.recommendation = (insights.pricePercentile <= 25 || isCheaperThanForecast) ? 'BUY_NOW' : 'WAIT';
-      insights.expectedSavings = Math.max(15, Math.round(currentPrice - Math.min(insights.forecastMedian || insights.avg90Day, insights.low90Day)));
-      
-      const dropDaysNum = Math.min(10, Math.max(3, Math.round((insights.daysToDeparture || 45) * 0.15)));
-      insights.actionHeadline = insights.recommendation === 'BUY_NOW'
-        ? insights.isHighImpactEvent ? `BUY NOW (EVENT SURGE)` : `BUY NOW (BEST FARE)`
-        : `WAIT ${dropDaysNum} MORE DAYS`;
-
-      if (insights.recommendation === 'BUY_NOW') {
-        if (insights.isHighImpactEvent && insights.topEvent) {
-          insights.summary = `High travel demand expected for "${insights.topEvent.title}" at ${insights.topEvent.venue} (${insights.topEvent.categoryLabel}). Fares are predicted to rise by ~$${Math.round(insights.expectedSavings * 1.2)} due to event ticket pressure.`;
-        } else {
-          insights.summary = `Current fare ($${currentPrice}) is in the lowest ${insights.pricePercentile}% of 90-day historical prices ($${insights.low90Day} low). Airline pricing algorithms indicate an imminent price increase.`;
-        }
-      } else {
-        insights.summary = `Fare ($${currentPrice}) is ${insights.pricePercentile}% above the 90-day low ($${insights.low90Day}). No major Sold-Out event conflict detected in ${flight?.destination || 'destination'}. Fares expected to drop by ~$${insights.expectedSavings} within ${dropDaysNum} days.`;
-      }
-    } else {
-      // Basic fallback recalculation if prices are not available
-      const priceDiffPct = Math.round(((currentPrice - insights.low90Day) / (insights.low90Day || 1)) * 100);
-      insights.recommendation = priceDiffPct <= 12 ? 'BUY_NOW' : 'WAIT';
-      insights.expectedSavings = Math.max(35, currentPrice - insights.low90Day);
-    }
+    insights.currentPrice = basePriceOverride;
   }
 
   return insights;
