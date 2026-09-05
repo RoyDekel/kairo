@@ -42,6 +42,22 @@ export const DEFAULT_STALE_HOURS = 26;
 /** Default price sanity multiple. 5x catches a corrupt row, not a seasonal spread. See .env. */
 export const DEFAULT_SANITY_MULTIPLE = 5;
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How many days out from "today" latestObservedPrice targets. Matches one of the collector's
+ * own horizons (fareCollector.js DEFAULT_HORIZONS), so a fresh sweep usually has an exact
+ * match. A starting guess like the sanity multiple was — tune from measured data. See .env.
+ */
+export const DEFAULT_REPRESENTATIVE_HORIZON_DAYS = 30;
+
+/**
+ * How many of a route's most recent observations to scan for the closest departure date.
+ * Bounds query cost while covering several days of a stalled or partial collector sweep — the
+ * collector writes up to one row per horizon per day, so this is roughly a two-week margin.
+ */
+const OBSERVATION_LOOKBACK = 40;
+
 export class ForecastCache {
   constructor({
     supabase = null,
@@ -101,21 +117,38 @@ export class ForecastCache {
   }
 
   /**
-   * The most recent observed fare for a route+currency, honouring the same provider lock
-   * forecastRoute applies. This is the batch's zero-cost stand-in for a live quote (see
-   * forecastBatch §3.2): re-querying a metered provider per route would multiply the exact
-   * calls this feature exists to avoid.
+   * The observed fare closest to a representative horizon out from today, honouring the same
+   * provider lock forecastRoute applies. This is the batch's zero-cost stand-in for a live
+   * quote (see forecastBatch §3.2): re-querying a metered provider per route would multiply
+   * the exact calls this feature exists to avoid.
+   *
+   * -------------------------------------------------------------------------------------
+   * WHY "CLOSEST TO A HORIZON" AND NOT "MOST RECENT" (KAI-002 root cause, fixed here)
+   *
+   * The collector writes one row per (route, horizon) on every sweep, so "most recently
+   * written" was picking whichever horizon happened to be written last — arbitrary with
+   * respect to departure date, not the nearest-in-time date a searching user is likely to see.
+   * On TLV-KRK that put a $134 November fare against a user searching a $613 near-term date —
+   * 4.6x, ordinary seasonality, but large enough that KAI-004's sanity check has to treat it as
+   * suspicious even though it isn't (measured 2026-09-05, backlog.md KAI-002/KAI-004).
+   *
+   * Anchoring on a fixed horizon (matching one of the collector's own, so a fresh sweep
+   * usually has an exact match) makes computed_current_price comparable to what users actually
+   * search, regardless of write order. Falls back to the plain most-recent-with-a-price
+   * observation (the old behaviour) when nothing in the window has a usable departure_date at
+   * all, rather than skipping the route outright.
+   * -------------------------------------------------------------------------------------
    *
    * @returns {Promise<{price: number, provider: string|null}|null>} null when nothing usable.
    */
-  async latestObservedPrice(route, currency) {
+  async latestObservedPrice(route, currency, { horizonDays = DEFAULT_REPRESENTATIVE_HORIZON_DAYS } = {}) {
     if (!this.supabase) return null;
     const validCurrency = String(currency || 'USD').toUpperCase().trim();
 
     try {
       let query = this.supabase
         .from(this.observationsTable)
-        .select('roundtrip_price, provider')
+        .select('roundtrip_price, provider, departure_date')
         .eq('route', route)
         .eq('currency', validCurrency);
 
@@ -129,20 +162,38 @@ export class ForecastCache {
 
       const { data, error } = await query
         .order('observed_at', { ascending: false })
-        .limit(1);
+        .limit(OBSERVATION_LOOKBACK);
 
       if (error) {
         console.warn(`[forecastCache] Observation read failed for ${route}: ${error.message}`);
         return null;
       }
 
-      const observation = Array.isArray(data) ? data[0] : null;
-      if (!observation) return null;
+      if (!Array.isArray(data) || data.length === 0) return null;
 
-      const price = Number(observation.roundtrip_price);
-      if (!Number.isFinite(price) || price <= 0) return null;
+      const targetMs = this.now() + horizonDays * DAY_MS;
+      let closest = null;
+      let closestDelta = Infinity;
+      let mostRecentValid = null;
 
-      return { price, provider: observation.provider || null };
+      for (const obs of data) {
+        const price = Number(obs.roundtrip_price);
+        if (!Number.isFinite(price) || price <= 0) continue;
+
+        const candidate = { price, provider: obs.provider || null };
+        if (!mostRecentValid) mostRecentValid = candidate; // data is ordered newest-first
+
+        const depMs = Date.parse(`${obs.departure_date}T00:00:00Z`);
+        if (!Number.isFinite(depMs)) continue;
+
+        const delta = Math.abs(depMs - targetMs);
+        if (delta < closestDelta) {
+          closestDelta = delta;
+          closest = candidate;
+        }
+      }
+
+      return closest ?? mostRecentValid;
     } catch (err) {
       console.warn(`[forecastCache] Observation read unreachable for ${route}: ${err.message}`);
       return null;

@@ -27,7 +27,9 @@
 data-integrity sanity bound; `insightsEngine.test.js` added pinning the live-recompute
 invariant the fix's safety case depends on. Re-measured 2026-09-05 (see Risks / open
 questions): 78.6% hit rate, just under the ≥80% target — fix confirmed working, target not
-formally hit yet on the available sample.
+formally hit yet on the available sample. Same day, the departure-date mismatch behind the
+3 remaining sanity misses was fixed (see KAI-002's risks) — the 78.6% figure predates that fix
+and should be re-measured again once it has had time to run.
 **Spec**: full spec at `docs/product/specs/kai-004-forecast-cache-drift-gate-fix.md` — that
 file is the build contract; this entry is the backlog pointer.
 **User**: every KAIRO user who searches a featured-hub route — today they pay the full
@@ -242,6 +244,18 @@ narrative (P4), discovery verdict chips, an automated purge cron.
   **Still not fixed as of the 2026-09-05 re-measurement (see KAI-004 above)**: the drift gate
   is gone, but a mismatch large enough (11.4x, TLV-KRK again) still trips KAI-004's 5x sanity
   bound and misses. Options (a)/(b)/(c) above are still the fix.
+  **FIXED (2026-09-05)** — option (c), the cheap stopgap: `ForecastCache.latestObservedPrice`
+  (`server/services/forecastCache.js`) now picks the observation whose `departure_date` is
+  closest to a representative horizon out from today (default 30 days, matching one of the
+  collector's own horizons — `FORECAST_BATCH_REPRESENTATIVE_HORIZON_DAYS`), scanning the most
+  recent 40 observations rather than taking whichever the collector wrote last. Falls back to
+  the old most-recent-with-a-price behaviour when nothing in that window has a usable
+  `departure_date` at all. `forecastBatch.js` wires the new option through; no schema change
+  (`forecast_cache` stays keyed on `(route, currency)`, not `(route, currency, horizon_bucket)`
+  — option (b), the bigger fix, is still open if this stopgap turns out insufficient). Tests:
+  `forecastCache.test.js` reproduces the exact TLV-KRK case ($195/Nov-20 written most recently
+  vs $2229/Sep-08 at the representative horizon — old code picks $195, new code picks $2229).
+  Not yet re-measured in production; the KAI-004 hit-rate figure (78.6%) predates this fix.
 
 ## [KAI-001] Remove the 11 setState-in-effect cascading renders
 **Status**: shipped (2026-08-26) — all 13 sites fixed and merged (turned out to be 13, not 11;

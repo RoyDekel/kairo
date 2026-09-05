@@ -388,7 +388,7 @@ describe('ForecastCache.latestObservedPrice', () => {
     process.env = { ...originalEnv };
   });
 
-  test('returns the most recent observed price and its provider', async () => {
+  test('returns the most recent observed price and its provider when it has no departure_date', async () => {
     const cache = new ForecastCache({
       supabase: stubSupabase({ fare_observations: { rows: [{ roundtrip_price: 512, provider: 'fli' }] } }),
       now: () => NOW
@@ -413,6 +413,80 @@ describe('ForecastCache.latestObservedPrice', () => {
     });
 
     await expect(cache.latestObservedPrice('TLV-CDG', 'USD')).resolves.toBeNull();
+  });
+
+  /*
+    KAI-002 root cause, fixed here: the batch used to take whichever row the collector wrote
+    LAST, regardless of departure date. The collector writes one row per horizon per sweep, so
+    that pick was arbitrary — production measured it landing on a $134 November fare
+    (departure_date far from "today") while a user searched a $613 near-term date, a mismatch
+    KAI-004's sanity check then had to treat as suspicious even though it was ordinary
+    seasonality. This reproduces that exact TLV-KRK case.
+  */
+  test('picks the observation closest to the representative horizon, not the most recently written (KAI-002)', async () => {
+    const cache = new ForecastCache({
+      supabase: stubSupabase({
+        fare_observations: {
+          rows: [
+            // Written most recently (first, per observed_at desc) — but 73 days out.
+            { roundtrip_price: 195, provider: 'fli', departure_date: '2026-11-20' },
+            // Written earlier — but its departure date is exactly the 30-day default horizon
+            // out from NOW (2026-08-09), so it is the representative price.
+            { roundtrip_price: 2229, provider: 'fli', departure_date: '2026-09-08' }
+          ]
+        }
+      }),
+      now: () => NOW
+    });
+
+    expect(await cache.latestObservedPrice('TLV-KRK', 'USD')).toEqual({ price: 2229, provider: 'fli' });
+  });
+
+  test('respects a custom horizonDays option', async () => {
+    const rows = [
+      { roundtrip_price: 300, provider: 'fli', departure_date: '2026-08-23' }, // +14d
+      { roundtrip_price: 900, provider: 'fli', departure_date: '2026-10-08' }  // +60d
+    ];
+
+    const near = new ForecastCache({ supabase: stubSupabase({ fare_observations: { rows } }), now: () => NOW });
+    expect(await near.latestObservedPrice('TLV-KRK', 'USD', { horizonDays: 14 }))
+      .toEqual({ price: 300, provider: 'fli' });
+
+    const far = new ForecastCache({ supabase: stubSupabase({ fare_observations: { rows } }), now: () => NOW });
+    expect(await far.latestObservedPrice('TLV-KRK', 'USD', { horizonDays: 60 }))
+      .toEqual({ price: 900, provider: 'fli' });
+  });
+
+  test('falls back to the most recent valid price when nothing in the window has a usable departure_date', async () => {
+    const cache = new ForecastCache({
+      supabase: stubSupabase({
+        fare_observations: {
+          rows: [
+            { roundtrip_price: 500, provider: 'fli', departure_date: null },
+            { roundtrip_price: 600, provider: 'kiwi', departure_date: 'not-a-date' }
+          ]
+        }
+      }),
+      now: () => NOW
+    });
+
+    expect(await cache.latestObservedPrice('TLV-CDG', 'USD')).toEqual({ price: 500, provider: 'fli' });
+  });
+
+  test('ignores a row with a non-finite or non-positive price when picking the closest departure date', async () => {
+    const cache = new ForecastCache({
+      supabase: stubSupabase({
+        fare_observations: {
+          rows: [
+            { roundtrip_price: 0, provider: 'fli', departure_date: '2026-09-08' }, // closest date, bad price
+            { roundtrip_price: 450, provider: 'kiwi', departure_date: '2026-11-20' }
+          ]
+        }
+      }),
+      now: () => NOW
+    });
+
+    expect(await cache.latestObservedPrice('TLV-CDG', 'USD')).toEqual({ price: 450, provider: 'kiwi' });
   });
 });
 

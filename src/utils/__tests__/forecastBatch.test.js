@@ -9,7 +9,9 @@ function fakeCache({ observations = {} } = {}) {
   return {
     puts: [],
     store: new Map(),
-    async latestObservedPrice(route) {
+    observationCalls: [],
+    async latestObservedPrice(route, currency, options) {
+      this.observationCalls.push({ route, currency, options });
       return observations[route] ?? null;
     },
     async put(route, currency, forecast, meta) {
@@ -46,6 +48,7 @@ beforeEach(() => {
   delete process.env.FORECAST_PROVIDER;
   delete process.env.FLIGHT_PROVIDER;
   delete process.env.FARE_CURRENCY;
+  delete process.env.FORECAST_BATCH_REPRESENTATIVE_HORIZON_DAYS;
 });
 
 afterEach(() => {
@@ -143,6 +146,47 @@ describe('ForecastBatch.run — route iteration & current-price selection (AC 4,
 
     await batch.run();
     expect(cache.puts[0].meta.provider).toBe('serpapi');
+  });
+
+  // KAI-002 fix: the stand-in price is picked by departure-date proximity to a horizon, not
+  // by write order — see forecastCache.latestObservedPrice. This just proves the batch wires
+  // its horizon knob through to that call.
+  test('passes the default representative horizon (30 days) to latestObservedPrice', async () => {
+    process.env.FORECAST_BATCH_HOME_AIRPORTS = 'TLV';
+    process.env.FORECAST_BATCH_DESTINATIONS = 'CDG';
+
+    const service = fakeService();
+    const cache = fakeCache({ observations: { 'TLV-CDG': { price: 500, provider: 'fli' } } });
+    const batch = new ForecastBatch({ forecastService: service, forecastCache: cache, airports: AIRPORTS });
+
+    await batch.run();
+    expect(cache.observationCalls[0].options).toEqual({ horizonDays: 30 });
+  });
+
+  test('respects FORECAST_BATCH_REPRESENTATIVE_HORIZON_DAYS when set', async () => {
+    process.env.FORECAST_BATCH_HOME_AIRPORTS = 'TLV';
+    process.env.FORECAST_BATCH_DESTINATIONS = 'CDG';
+    process.env.FORECAST_BATCH_REPRESENTATIVE_HORIZON_DAYS = '45';
+
+    const service = fakeService();
+    const cache = fakeCache({ observations: { 'TLV-CDG': { price: 500, provider: 'fli' } } });
+    const batch = new ForecastBatch({ forecastService: service, forecastCache: cache, airports: AIRPORTS });
+
+    await batch.run();
+    expect(cache.observationCalls[0].options).toEqual({ horizonDays: 45 });
+  });
+
+  test('ignores a nonsense FORECAST_BATCH_REPRESENTATIVE_HORIZON_DAYS and falls back to the default', async () => {
+    process.env.FORECAST_BATCH_HOME_AIRPORTS = 'TLV';
+    process.env.FORECAST_BATCH_DESTINATIONS = 'CDG';
+    process.env.FORECAST_BATCH_REPRESENTATIVE_HORIZON_DAYS = '-5';
+
+    const service = fakeService();
+    const cache = fakeCache({ observations: { 'TLV-CDG': { price: 500, provider: 'fli' } } });
+    const batch = new ForecastBatch({ forecastService: service, forecastCache: cache, airports: AIRPORTS });
+
+    await batch.run();
+    expect(cache.observationCalls[0].options).toEqual({ horizonDays: 30 });
   });
 });
 
