@@ -35,11 +35,15 @@ const outbound = () => [
   makeFlight('3', 'ZZ', 'Unlisted Air', 100),
 ];
 
+// Relative to today, as in fliProvider.test.js, so the search never sits in the past once a
+// hardcoded date passes.
+const daysFromNow = (n) => new Date(Date.now() + n * 86400000).toISOString().split('T')[0];
+
 const makeSearchParams = () => ({
   origin: 'TLV',
   destination: 'KRK',
-  departureDate: '2026-10-11',
-  returnDate: '2026-10-18',
+  departureDate: daysFromNow(60),
+  returnDate: daysFromNow(67),
   tripType: 'round-trip',
   stops: '0',
   travelClass: 'ALL',
