@@ -55,6 +55,7 @@ docs/product/          roadmap, backlog, decisions — product source of truth
 | Server only | `npm run dev:server` (Express, port 3001) |
 | Unit tests | `npm test` (vitest --run) |
 | Watch tests | `npm run test:watch` |
+| Unit tests with the clock shifted (+400d; `CLOCK_SHIFT_DAYS=30` to change) | `npm run test:clock-shift` |
 | E2E | `npm run test:e2e` |
 | Lint | `npm run lint` |
 | Prod build | `npm run build` |
@@ -88,6 +89,9 @@ merge and the deploy.
 - Mock Leaflet (`L.map`, `L.marker`, `L.polyline`, `L.divIcon`, `fitBounds`) and
   `react-chartjs-2` — jsdom has no canvas.
 - `src/setupTests.js` is the global setup. Playwright specs live in `tests/`.
+- Never hardcode a date that code compares with today (departure dates, date-picker years):
+  build it from `Date.now()`. CI's `clock shift` job runs the suite at +30 and +400 days and
+  fails any test that would expire.
 - Deeper guidance: `.claude/skills/testing-planner/SKILL.md` and its sibling skills.
 
 ## Git — `main` is protected

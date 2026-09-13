@@ -81,6 +81,52 @@ jobs:
       - name: Production build
         run: npm run build
 
+  # -----------------------------------------------------------------------------------
+  # The unit suite again, as if today were N days later.
+  #
+  # ticketmasterProvider.test.js hardcoded a departure of 2026-09-20. It passed on every PR
+  # until that date came within the insights engine's 14-day window, then failed on main and
+  # every branch at once — blocking PRs that had nothing to do with it (fixed in #41). The
+  # same sweep found two more due to go off: every fliProvider test on 2026-10-16, and two
+  # CustomDatePicker assertions on 2027-01-01 (fixed in #42).
+  #
+  # Shifting the clock turns "fails on some future date" into "fails now, on the PR that
+  # added the date", which is where the fix is cheapest and the cause is obvious.
+  #   +30   anything that expires within the month — a month's notice before main breaks.
+  #   +400  year rollover, and anything else within ~13 months.
+  #
+  # The fix is almost always to build the date from Date.now(), not to touch this job. The
+  # shim is src/setupClockShift.js; clockShift.test.js fails if it ever stops taking effect,
+  # so this job cannot go quietly green while checking nothing.
+  # -----------------------------------------------------------------------------------
+  clock-shift:
+    name: clock shift (+${{ matrix.days }}d)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      # Both offsets report even when one fails; which one failed says how soon it breaks.
+      fail-fast: false
+      matrix:
+        days: [30, 400]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests at +${{ matrix.days }} days
+        run: npm run test:clock-shift
+        env:
+          CLOCK_SHIFT_DAYS: ${{ matrix.days }}
+
   # A separate job, not a fourth step in `verify`. It answers a different question and
   # costs a browser download to ask, so it should not be queued behind a lint failure, and
   # its red X should not be confusable with one. Running in parallel also means the extra
