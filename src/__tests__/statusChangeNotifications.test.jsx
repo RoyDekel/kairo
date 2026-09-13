@@ -7,7 +7,7 @@ import { generateFlightsForRoute } from '../utils/flightSimulator';
 import {
   DEFAULT_ORIGIN,
   DEFAULT_DESTINATION,
-  DEFAULT_DEPARTURE_DATE,
+  getDefaultDepartureDate,
 } from '../utils/searchDefaults';
 
 vi.mock('../contexts/authContext', () => ({
@@ -28,7 +28,7 @@ vi.mock('../contexts/AuthProvider', () => ({
   which flight number an alert has to name.
 */
 const TRACKED_FLIGHT = generateFlightsForRoute(
-  DEFAULT_ORIGIN, DEFAULT_DESTINATION, DEFAULT_DEPARTURE_DATE, 'outbound', { adults: 1 }
+  DEFAULT_ORIGIN, DEFAULT_DESTINATION, getDefaultDepartureDate(), 'outbound', { adults: 1 }
 )[0];
 
 const statusAlert = {

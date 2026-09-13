@@ -6,8 +6,8 @@ import CustomDatePicker from './CustomDatePicker';
 import { useAuth } from '../contexts/authContext';
 import {
   DEFAULT_ORIGIN,
-  DEFAULT_DEPARTURE_DATE,
-  DEFAULT_RETURN_DATE,
+  getDefaultDepartureDate,
+  getDefaultReturnDate,
   getTodayDateString,
   createDefaultPassengers
 } from '../utils/searchDefaults';
@@ -36,8 +36,8 @@ export default function AIDestinationExplorer({
 
   // Origin and dates live in the app-wide `searchParams` rather than in local state.
   const origin = searchParams.origin || DEFAULT_ORIGIN;
-  const departureDate = searchParams.departureDate || DEFAULT_DEPARTURE_DATE;
-  const returnDate = searchParams.returnDate || DEFAULT_RETURN_DATE;
+  const departureDate = searchParams.departureDate || getDefaultDepartureDate();
+  const returnDate = searchParams.returnDate || getDefaultReturnDate();
 
   const [validationError, setValidationError] = useState('');
 
