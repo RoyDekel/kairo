@@ -8,6 +8,7 @@ import { eventUsageMeter } from './server/services/eventUsageMeter.js';
 import { computeEventDrivenInsights, missingRoundtripDirection } from './server/services/insightsEngine.js';
 import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
 import { flightSearchCache } from './server/services/flightSearchCache.js';
+import { departureDateError } from './server/services/searchDateValidation.js';
 import { fareHistory, FareHistory } from './server/services/fareHistory.js';
 import { forecastService } from './server/services/forecastService.js';
 import { forecastCache } from './server/services/forecastCache.js';
@@ -624,6 +625,13 @@ app.get('/api/flights', requireAuth, async (req, res) => {
 
   if (!origin || !destination || !departureDate) {
     return res.status(400).json({ error: "Missing required query parameters: origin, destination, departureDate" });
+  }
+
+  // Before the cache and the provider: a past departure is not worth a search, and its
+  // empty result must not be cached as if it were an answer.
+  const dateError = departureDateError(departureDate);
+  if (dateError) {
+    return res.status(400).json({ error: dateError });
   }
 
   const request = {
