@@ -21,15 +21,21 @@
  *             'fare'  it depends on the fare family, and the lowest one (Light / Basic /
  *                     Lite) usually excludes it — estimated as extra, flagged as such
  *
- *   fee:          [min, max] USD, one way, per passenger, bought online at booking
- *   longHaulFee:  the same for flights at or over LONG_HAUL_KM, where carriers charge more
+ *   fee:          [min, max] USD, one way, per passenger, bought online at booking.
+ *                 A carrier that publishes one flat price gets [price, price].
+ *   longHaulFee:  the same for flights at or over LONG_HAUL_KM, where carriers charge more.
+ *                 `null` means the published price only covers shorter routes, so a
+ *                 long-haul flight renders "fee unknown" rather than borrowing it.
  *
  * Carriers are left out rather than guessed at. A missing row renders "bag fee unknown"
  * and adds nothing to the total — a wrong number presented as a policy is worse than a
  * gap the user can see.
  *
- * Compiled 2026-09 from general knowledge of published fee structures. NOT checked
- * against each carrier's live fee page — review before treating any row as current.
+ * Provenance differs by row, and each row says which it is:
+ *   - VERIFIED rows were read off the carrier's own fee page on the date given.
+ *   - Every other row was compiled 2026-09 from general knowledge of published fee
+ *     structures and has NOT been checked against the carrier's live fee page — review
+ *     before treating it as current.
  * -------------------------------------------------------------------------------------
  */
 
@@ -66,6 +72,26 @@ export const AIRLINE_BAGGAGE = {
   VY: LOW_COST([10, 40], [20, 60]), // Vueling
   HV: LOW_COST([15, 45], [25, 65]), // Transavia
   EW: LOW_COST([15, 40], [25, 60]), // Eurowings
+
+  // Israir. VERIFIED 2026-09-13 at israir.co.il/Passengers_Info/Baggage_Policy: personal
+  // item 40x30x20 included; online, per direction: trolley (10kg) $30, first 23kg bag $65.
+  // The page covers all international flights. Prices have risen repeatedly ($20/$45 →
+  // $25/$50 → $30/$65), so re-check this row first when the table is reviewed.
+  '6H': LOW_COST([30, 30], [65, 65]),
+
+  // Arkia. VERIFIED 2026-09-13 at ssr.arkia.co.il/en/luggage-information: personal item
+  // 20x30x40 included; online in advance, per direction: trolley (8kg) $25, first 20kg bag
+  // $50. The page is for EUROPE flights only, so long-haul routes stay unknown.
+  IZ: {
+    carryOn: { included: false, fee: [25, 25], longHaulFee: null },
+    checked: { included: false, fee: [50, 50], longHaulFee: null }
+  },
+
+  // Pegasus. Basic / Light international fares carry a 3kg under-seat item only (per
+  // flypgs.com general rules). Pegasus prices add-ons dynamically by route and publishes
+  // no fixed tariff, so these bands are traveller-reported 2025–26 online prices
+  // (8kg cabin bag, 20kg checked) — moderate confidence, NOT verified.
+  PC: LOW_COST([7, 22], [16, 44]),
 
   // Full-service, Light / Basic / Lite fares.
   LY: LIGHT_FARE_CARRIER, // EL AL

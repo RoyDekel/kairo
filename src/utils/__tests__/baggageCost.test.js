@@ -86,6 +86,28 @@ describe('estimateBagFee', () => {
   it('ignores an unrecognised bag option', () => {
     expect(estimateBagFee(flight(), 'trunk')).toEqual({ status: 'none', fee: 0, range: null });
   });
+
+  it('charges a flat published price exactly (Israir)', () => {
+    expect(estimateBagFee(flight({ airlineCode: '6H' }), 'carryon')).toEqual({ status: 'extra', fee: 30, range: [30, 30] });
+    expect(estimateBagFee(flight({ airlineCode: '6H' }), 'checked').fee).toBe(65);
+  });
+
+  it('prices Arkia on Europe-length routes', () => {
+    expect(estimateBagFee(flight({ airlineCode: 'IZ', distance: 2280 }), 'carryon').fee).toBe(25);
+    expect(estimateBagFee(flight({ airlineCode: 'IZ', distance: 2280 }), 'checked').fee).toBe(50);
+  });
+
+  it('reports unknown on long-haul where the published price only covers shorter routes', () => {
+    // Arkia's fee page covers Europe; TLV->BKK is ~7000 km.
+    expect(estimateBagFee(flight({ airlineCode: 'IZ', distance: 7000 }), 'checked'))
+      .toEqual({ status: 'unknown', fee: 0, range: null });
+  });
+
+  it('prices Pegasus from its traveller-reported band', () => {
+    const est = estimateBagFee(flight({ airlineCode: 'PC' }), 'checked');
+    expect(est.status).toBe('extra');
+    expect(est.fee).toBe(midpoint(AIRLINE_BAGGAGE.PC.checked.fee));
+  });
 });
 
 describe('bagPayingPassengers', () => {
@@ -162,6 +184,13 @@ describe('describeBagEstimate', () => {
   it('labels every added fee as an estimate', () => {
     const est = estimateBagFee(flight({ airlineCode: 'W6' }), 'checked');
     expect(describeBagEstimate(est, 'checked').text).toBe(`+~$${est.fee} checked bag (est.)`);
+  });
+
+  it('shows a flat published price as one figure, not a range', () => {
+    const est = estimateBagFee(flight({ airlineCode: '6H' }), 'carryon');
+    const { detail } = describeBagEstimate(est, 'carryon');
+    expect(detail).toContain('$30 one way');
+    expect(detail).not.toContain('$30–$30');
   });
 
   it('explains a fare-dependent bag in the detail', () => {
