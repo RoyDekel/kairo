@@ -14,6 +14,8 @@ function stubSupabase(rows) {
     select: () => builder,
     eq: () => builder,
     gte: () => builder,
+    not: () => builder,
+    is: () => builder,
     order: () => builder,
     limit: async () => ({ data: rows, error: null })
   };

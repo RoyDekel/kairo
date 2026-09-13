@@ -12,17 +12,20 @@ import { ForecastCache } from '../../../server/services/forecastCache.js';
 function stubSupabase(tables = {}) {
   const state = {};
   for (const [name, cfg] of Object.entries(tables)) {
-    state[name] = { rows: [], error: null, throw: false, captured: [], ...cfg };
+    state[name] = { rows: [], error: null, throw: false, captured: [], filters: [], ...cfg };
   }
 
   return {
     _state: state,
     from(table) {
-      const t = state[table] || (state[table] = { rows: [], error: null, throw: false, captured: [] });
+      const t = state[table] || (state[table] = { rows: [], error: null, throw: false, captured: [], filters: [] });
       const builder = {
         select: () => builder,
         eq: () => builder,
         gte: () => builder,
+        // Trip-type filters (fareHistory.forTripType) are recorded so a test can assert them.
+        not: (...args) => { t.filters.push(['not', ...args]); return builder; },
+        is: (...args) => { t.filters.push(['is', ...args]); return builder; },
         order: () => builder,
         limit: () => {
           if (t.throw) return Promise.reject(new Error('connection reset'));
@@ -562,5 +565,17 @@ describe('read-path wiring', () => {
     });
 
     expect(forecastRoute).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ForecastCache.latestObservedPrice trip type', () => {
+  // The stand-in price feeds a round-trip forecast, so a one-way row must never be it.
+  test('reads round-trip observations only', async () => {
+    const supabase = stubSupabase({ fare_observations: { rows: [{ roundtrip_price: 512, provider: 'fli' }] } });
+    const cache = new ForecastCache({ supabase, now: () => NOW });
+
+    await cache.latestObservedPrice('TLV-CDG', 'USD');
+
+    expect(supabase._state.fare_observations.filters).toEqual([['not', 'return_date', 'is', null]]);
   });
 });

@@ -30,6 +30,7 @@
 import cron from 'node-cron';
 import { getServerSupabase } from '../services/supabaseServer.js';
 import { notify } from '../services/notifier.js';
+import { forTripType, ROUND_TRIP } from '../services/fareHistory.js';
 
 const RATE_LIMIT_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -99,10 +100,15 @@ export async function evaluateAlerts(supabase = getServerSupabase()) {
   // 3. Fetch the latest fare observation per route (last 24 hours)
   const latestFares = new Map();
   for (const route of routes) {
-    const { data: fares } = await supabase
-      .from('fare_observations')
-      .select('roundtrip_price, observed_at')
-      .eq('route', route)
+    // Round trips only. Alert targets are round-trip prices, and the newest row being a
+    // one-way fare — roughly half a trip — would read as a drop below almost any target.
+    const { data: fares } = await forTripType(
+      supabase
+        .from('fare_observations')
+        .select('roundtrip_price, observed_at')
+        .eq('route', route),
+      ROUND_TRIP
+    )
       .order('observed_at', { ascending: false })
       .limit(1);
 

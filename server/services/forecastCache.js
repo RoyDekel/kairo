@@ -1,4 +1,5 @@
 import { getServerSupabase } from './supabaseServer.js';
+import { forTripType, ROUND_TRIP } from './fareHistory.js';
 
 /**
  * The precomputed-verdict cache that lets /api/flights avoid running forecastService on the
@@ -146,11 +147,16 @@ export class ForecastCache {
     const validCurrency = String(currency || 'USD').toUpperCase().trim();
 
     try {
-      let query = this.supabase
-        .from(this.observationsTable)
-        .select('roundtrip_price, provider, departure_date')
-        .eq('route', route)
-        .eq('currency', validCurrency);
+      // Round trips only: this price stands in for the one the forecast is computed against,
+      // and forecast_cache holds round-trip forecasts.
+      let query = forTripType(
+        this.supabase
+          .from(this.observationsTable)
+          .select('roundtrip_price, provider, departure_date')
+          .eq('route', route)
+          .eq('currency', validCurrency),
+        ROUND_TRIP
+      );
 
       // Same lock as forecastRoute: 'simulated' is skipped because those rows are never
       // written, and 'all'/unset disables the lock. Locking to a real provider keeps the

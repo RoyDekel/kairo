@@ -369,3 +369,24 @@ describe('computeEventDrivenInsights — a one-sided round trip gets no verdict'
     expect(res.recommendation).toBeNull();
   });
 });
+
+describe('computeEventDrivenInsights — one-way searches', () => {
+  const insufficient = { verdict: null, reason: 'insufficient_history', sampleSize: 0 };
+
+  // One-way fares have their own history now, which is empty on a route with plenty of
+  // round trips. "We have only observed this route 0 times" would be false.
+  test('says it is one-way history that is thin, and carries the trip type', () => {
+    const res = computeEventDrivenInsights(flight, {}, noEvents, { forecast: insufficient, tripType: 'oneway' });
+
+    expect(res.recommendation).toBeNull();
+    expect(res.tripType).toBe('oneway');
+    expect(res.summary).toContain('only observed one-way fares on this route 0 times');
+  });
+
+  test('round trips keep the existing wording', () => {
+    const res = computeEventDrivenInsights(flight, {}, noEvents, { forecast: insufficient });
+
+    expect(res.tripType).toBe('roundtrip');
+    expect(res.summary).toContain('only observed this route 0 times');
+  });
+});

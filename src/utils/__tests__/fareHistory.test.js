@@ -1,5 +1,14 @@
 import { describe, test, expect, vi } from 'vitest';
-import { FareHistory, percentileOf, medianOf, MIN_OBSERVATIONS } from '../../../server/services/fareHistory.js';
+import {
+  FareHistory,
+  percentileOf,
+  medianOf,
+  MIN_OBSERVATIONS,
+  tripTypeOf,
+  forTripType,
+  ROUND_TRIP,
+  ONE_WAY
+} from '../../../server/services/fareHistory.js';
 
 /**
  * The record of fares actually observed.
@@ -13,7 +22,7 @@ import { FareHistory, percentileOf, medianOf, MIN_OBSERVATIONS } from '../../../
 
 function fakeSupabase({ rows = [], failReads = false, failWrites = false } = {}) {
   const inserted = [];
-  const calls = { select: 0, insert: 0 };
+  const calls = { select: 0, insert: 0, filters: [] };
 
   return {
     inserted,
@@ -39,6 +48,14 @@ function fakeSupabase({ rows = [], failReads = false, failWrites = false } = {})
               return chain;
             },
             gte() {
+              return chain;
+            },
+            not(...args) {
+              calls.filters.push(['not', ...args]);
+              return chain;
+            },
+            is(...args) {
+              calls.filters.push(['is', ...args]);
               return chain;
             },
             async limit() {
@@ -214,5 +231,63 @@ describe('FareHistory.statsForRoutes', () => {
     const history = new FareHistory({ supabase: fakeSupabase({ failReads: true }) });
 
     await expect(history.statsForRoutes(['TLV-BCN'])).resolves.toEqual({});
+  });
+});
+
+/*
+  One column, two prices. roundtrip_price is outbound + return for a round-trip search and
+  the lone outbound fare for a one-way search; only return_date tells them apart. Readers
+  used to pool both, so a one-way fare lowered the round-trip baseline and was then judged
+  against it as a bargain.
+*/
+describe('trip types in fare_observations', () => {
+  const spyQuery = () => {
+    const calls = [];
+    const query = {
+      not: (...args) => { calls.push(['not', ...args]); return query; },
+      is: (...args) => { calls.push(['is', ...args]); return query; }
+    };
+    return { query, calls };
+  };
+
+  test('tripTypeOf reads the trip type off the return date', () => {
+    expect(tripTypeOf('2026-09-18')).toBe(ROUND_TRIP);
+    expect(tripTypeOf('')).toBe(ONE_WAY);
+    expect(tripTypeOf(null)).toBe(ONE_WAY);
+    expect(tripTypeOf(undefined)).toBe(ONE_WAY);
+  });
+
+  test('forTripType narrows to rows with a return date for round trips, and by default', () => {
+    const explicit = spyQuery();
+    forTripType(explicit.query, ROUND_TRIP);
+    const byDefault = spyQuery();
+    forTripType(byDefault.query);
+
+    expect(explicit.calls).toEqual([['not', 'return_date', 'is', null]]);
+    expect(byDefault.calls).toEqual([['not', 'return_date', 'is', null]]);
+  });
+
+  test('forTripType narrows to rows without a return date for one-way', () => {
+    const { query, calls } = spyQuery();
+    forTripType(query, ONE_WAY);
+
+    expect(calls).toEqual([['is', 'return_date', null]]);
+  });
+
+  test('a one-way fare is still recorded, marked by its missing return date', async () => {
+    const supabase = fakeSupabase();
+    const history = new FareHistory({ supabase });
+
+    expect(await history.record(quote({ returnDate: '', roundtripPrice: 190 }))).toBe(true);
+    expect(supabase.inserted[0]).toMatchObject({ return_date: null, trip_nights: null, roundtrip_price: 190 });
+  });
+
+  test('discovery statistics read round trips only', async () => {
+    const supabase = fakeSupabase({ rows: [] });
+    const history = new FareHistory({ supabase });
+
+    await history.statsForRoutes(['TLV-BCN']);
+
+    expect(supabase.calls.filters).toEqual([['not', 'return_date', 'is', null]]);
   });
 });

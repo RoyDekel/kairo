@@ -11,6 +11,26 @@ vi.mock('../../../server/services/notifier.js', () => ({
 
 import { notify } from '../../../server/services/notifier.js';
 
+/*
+  from('fare_observations').select().eq(route).not('return_date', 'is', null).order().limit(1).
+  Built once so every test sees the same chain, and the trip-type filter the evaluator must
+  apply is recorded where a test can check it.
+*/
+const fareFilters = [];
+const fareObservations = (price) => {
+  const builder = {
+    select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    not: vi.fn((...args) => { fareFilters.push(['not', ...args]); return builder; }),
+    is: vi.fn((...args) => { fareFilters.push(['is', ...args]); return builder; }),
+    order: vi.fn(() => builder),
+    limit: vi.fn().mockResolvedValue({
+      data: [{ roundtrip_price: price, observed_at: new Date().toISOString() }]
+    })
+  };
+  return builder;
+};
+
 describe('AlertEvaluator — server-side alert matching', () => {
   let mockSupabase;
 
@@ -30,6 +50,7 @@ describe('AlertEvaluator — server-side alert matching', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    fareFilters.length = 0;
 
     mockSupabase = {
       from: vi.fn().mockReturnThis(),
@@ -82,17 +103,7 @@ describe('AlertEvaluator — server-side alert matching', () => {
         };
       }
       if (table === 'fare_observations') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue({
-                  data: [{ roundtrip_price: 350, observed_at: new Date().toISOString() }]
-                })
-              })
-            })
-          })
-        };
+        return fareObservations(350);
       }
       // For the update call after notification
       return {
@@ -115,6 +126,31 @@ describe('AlertEvaluator — server-side alert matching', () => {
     );
   });
 
+  /*
+    Targets are round-trip prices. If the newest observation for the route were a one-way
+    fare — about half a trip — it would read as a drop below nearly any target and fire a
+    false alert, so the evaluator only ever reads round-trip rows.
+  */
+  test('reads only round-trip observations', async () => {
+    mockSupabase.from = vi.fn().mockImplementation((table) => {
+      if (table === 'price_alerts') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: [makeAlert()], error: null })
+          }),
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ error: null })
+          })
+        };
+      }
+      return fareObservations(350);
+    });
+
+    await evaluateAlerts(mockSupabase);
+
+    expect(fareFilters).toEqual([['not', 'return_date', 'is', null]]);
+  });
+
   test('does NOT fire when fare is above target price', async () => {
     const alert = makeAlert({ target_price: 300 });
 
@@ -131,17 +167,7 @@ describe('AlertEvaluator — server-side alert matching', () => {
         };
       }
       if (table === 'fare_observations') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue({
-                  data: [{ roundtrip_price: 450, observed_at: new Date().toISOString() }]
-                })
-              })
-            })
-          })
-        };
+        return fareObservations(450);
       }
       return mockSupabase;
     });
@@ -173,17 +199,7 @@ describe('AlertEvaluator — server-side alert matching', () => {
         };
       }
       if (table === 'fare_observations') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue({
-                  data: [{ roundtrip_price: 300, observed_at: new Date().toISOString() }]
-                })
-              })
-            })
-          })
-        };
+        return fareObservations(300);
       }
       return mockSupabase;
     });
@@ -215,17 +231,7 @@ describe('AlertEvaluator — server-side alert matching', () => {
         };
       }
       if (table === 'fare_observations') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue({
-                  data: [{ roundtrip_price: 350, observed_at: new Date().toISOString() }]
-                })
-              })
-            })
-          })
-        };
+        return fareObservations(350);
       }
       // For the update call
       return {
@@ -263,17 +269,7 @@ describe('AlertEvaluator — server-side alert matching', () => {
         };
       }
       if (table === 'fare_observations') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue({
-                  data: [{ roundtrip_price: 350, observed_at: new Date().toISOString() }]
-                })
-              })
-            })
-          })
-        };
+        return fareObservations(350);
       }
       return mockSupabase;
     });

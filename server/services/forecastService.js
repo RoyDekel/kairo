@@ -1,5 +1,5 @@
 import { getServerSupabase } from './supabaseServer.js';
-import { FareHistory, percentileOf, medianOf } from './fareHistory.js';
+import { FareHistory, percentileOf, medianOf, forTripType, ROUND_TRIP } from './fareHistory.js';
 
 export const MIN_OBS_FOR_FORECAST = 30;
 export const MIN_OBS_FOR_STATS = 5;
@@ -156,7 +156,11 @@ export class ForecastService {
    * @param {string} destination
    * @param {number} currentPrice
    * @param {string} currency
-   * @param {{source?: 'live'|'batch'}} options
+   * @param {{source?: 'live'|'batch', tripType?: 'roundtrip'|'oneway'}} options
+   *   `tripType` picks which history the fare is judged against — see forTripType in
+   *   fareHistory.js. A one-way fare against round-trip history is half a trip measured
+   *   against whole ones. Defaults to round trip, which is all forecast_cache and the batch
+   *   ever hold.
    *   `source: 'batch'` marks a call from forecastBatch.js, the ONLY caller allowed to
    *   reach HF_ENDPOINT_URL while FORECAST_LIVE_HF_ENABLED=false. See the flag check below
    *   for why: HF Inference Endpoints bill per compute-hour the instance is running, not
@@ -169,7 +173,7 @@ export class ForecastService {
    * @returns {Promise<object>}
    */
   async forecastRoute(origin, destination, currentPrice, currency = 'USD', options = {}) {
-    const { source = 'live' } = options;
+    const { source = 'live', tripType = ROUND_TRIP } = options;
     const route = FareHistory.routeKey(origin, destination);
     const validCurrency = String(currency || 'USD').toUpperCase().trim();
 
@@ -191,12 +195,15 @@ export class ForecastService {
         model had no way to read it as anything but a price movement. Unset, the lock is
         off and behaviour is unchanged.
       */
-      let query = this.supabase
-        .from(this.table)
-        .select('roundtrip_price, observed_at, departure_date, provider')
-        .eq('route', route)
-        .eq('currency', validCurrency)
-        .gte('observed_at', ninetyDaysAgo);
+      let query = forTripType(
+        this.supabase
+          .from(this.table)
+          .select('roundtrip_price, observed_at, departure_date, provider')
+          .eq('route', route)
+          .eq('currency', validCurrency)
+          .gte('observed_at', ninetyDaysAgo),
+        tripType
+      );
 
       const providerLock = (process.env.FORECAST_PROVIDER || process.env.FLIGHT_PROVIDER || '').trim();
       // 'simulated' is skipped because fareHistory refuses to write those rows in the first

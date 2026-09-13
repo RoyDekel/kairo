@@ -49,6 +49,30 @@ export function medianOf(prices = []) {
   return sorted.length % 2 === 0 ? Math.round((sorted[mid - 1] + sorted[mid]) / 2) : Math.round(sorted[mid]);
 }
 
+/**
+ * fare_observations holds two different prices in one column.
+ *
+ * `roundtrip_price` is outbound + return for a round-trip search, and the lone outbound
+ * fare for a one-way search — a one-way row is the one with no `return_date`. Nothing used
+ * to tell them apart on the way out: every reader pooled both, so a one-way fare pulled the
+ * round-trip baseline down, and was then judged against that baseline as if it were a round
+ * trip, which reads as a bargain. Every read of the table goes through forTripType.
+ */
+export const ROUND_TRIP = 'roundtrip';
+export const ONE_WAY = 'oneway';
+
+/** The trip type a search or an observation describes, from whether it has a return date. */
+export function tripTypeOf(returnDate) {
+  return returnDate ? ROUND_TRIP : ONE_WAY;
+}
+
+/** Narrows a fare_observations query to one trip type. Round trip unless told otherwise. */
+export function forTripType(query, tripType = ROUND_TRIP) {
+  return tripType === ONE_WAY
+    ? query.is('return_date', null)
+    : query.not('return_date', 'is', null);
+}
+
 export class FareHistory {
   constructor({ supabase = null, table = 'fare_observations', windowDays = DEFAULT_WINDOW_DAYS, now = () => Date.now() } = {}) {
     this.supabase = supabase;
@@ -66,7 +90,10 @@ export class FareHistory {
   }
 
   /**
-   * Records one observed roundtrip fare.
+   * Records one observed fare: a round trip, or a one-way fare when there is no
+   * `returnDate`. One-way fares are kept, not dropped — they are the only way a one-way
+   * baseline ever exists — and are told apart on read by their null return_date (see
+   * forTripType).
    *
    * `provider` must be the real provider that quoted it. A simulated fare is rejected here
    * rather than at the call site, so a future caller cannot poison the baseline by
@@ -116,7 +143,8 @@ export class FareHistory {
    * Statistics for many routes in ONE query.
    *
    * The discovery page prices ~31 destinations at once; a per-route query would make the
-   * historical baseline cost more than the fares it describes.
+   * historical baseline cost more than the fares it describes. Discovery quotes round trips,
+   * so only round-trip rows are read.
    *
    * @returns {Promise<Record<string, {sampleSize: number, typicalPrice: number|null, prices: number[]}>>}
    */
@@ -128,13 +156,14 @@ export class FareHistory {
     const validCurrency = String(currency || 'USD').toUpperCase().trim();
 
     try {
-      const { data, error } = await this.supabase
+      const query = this.supabase
         .from(this.table)
         .select('route, roundtrip_price')
         .in('route', [...new Set(routeKeys)])
         .eq('currency', validCurrency)
-        .gte('observed_at', since)
-        .limit(MAX_ROWS);
+        .gte('observed_at', since);
+
+      const { data, error } = await forTripType(query, ROUND_TRIP).limit(MAX_ROWS);
 
       if (error) {
         console.warn(`[fareHistory] Read failed: ${error.message}`);

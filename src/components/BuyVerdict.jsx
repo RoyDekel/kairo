@@ -39,6 +39,9 @@ export default function BuyVerdict({ activeFlight, activeRoundtrip, selectedDate
     // which. Telling the user a route lacks history when the real problem is that one
     // direction had no flights would be its own made-up explanation.
     const incompleteTrip = insight.reason === 'incomplete_roundtrip';
+    // One-way fares are measured only against one-way history, which a route with plenty
+    // of round-trip history may not have yet.
+    const oneWay = insight.tripType === 'oneway';
 
     return (
       <div className="glass-panel verdict animate-fade-in" style={{ borderLeft: `4px solid var(--text-muted)` }}>
@@ -50,13 +53,15 @@ export default function BuyVerdict({ activeFlight, activeRoundtrip, selectedDate
 
           <div className="verdict-headline" style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Minus size={26} />
-            {incompleteTrip ? 'No verdict for this trip' : 'Insufficient history for this route'}
+            {incompleteTrip
+              ? 'No verdict for this trip'
+              : `Insufficient ${oneWay ? 'one-way ' : ''}history for this route`}
           </div>
 
           <p className="verdict-summary">
             {incompleteTrip ? insight.summary : (
               <>
-                We have observed this route only {insight.sampleSize || 0} times.
+                We have observed {oneWay ? 'one-way fares on ' : ''}this route only {insight.sampleSize || 0} times.
                 We require at least 5 observations before we can recommend a Buy/Wait verdict.
                 Keep searching to help us build a baseline!
               </>

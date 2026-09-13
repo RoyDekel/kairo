@@ -19,7 +19,7 @@ export function missingRoundtripDirection(returnDate, outbound = [], returnFligh
   return null;
 }
 
-export function computeEventDrivenInsights(flight, searchRequest = {}, events = [], { coverage = 'full', forecast = null, comparisonPrice = null, missingDirection = null } = {}) {
+export function computeEventDrivenInsights(flight, searchRequest = {}, events = [], { coverage = 'full', forecast = null, comparisonPrice = null, missingDirection = null, tripType = 'roundtrip' } = {}) {
   const currentPrice = flight?.price || 450;
   const comparisonPriceToUse = comparisonPrice !== null && comparisonPrice !== undefined ? comparisonPrice : currentPrice;
 
@@ -104,7 +104,12 @@ export function computeEventDrivenInsights(flight, searchRequest = {}, events = 
       actionHeadline: 'NO RECOMMENDATION',
       confidenceScore: null,
       confidenceStars: null,
-      summary: `We have only observed this route ${forecast.sampleSize} times. We need 5 observations to compute a reliable pricing recommendation.`,
+      // One-way history is kept separate from round-trip history (fareHistory.forTripType),
+      // so "this route" would contradict the round-trip record the route may well have.
+      summary: tripType === 'oneway'
+        ? `We have only observed one-way fares on this route ${forecast.sampleSize} times. We need 5 observations to compute a reliable pricing recommendation.`
+        : `We have only observed this route ${forecast.sampleSize} times. We need 5 observations to compute a reliable pricing recommendation.`,
+      tripType,
       topEvent,
       eventImpactScore,
       isHighImpactEvent,

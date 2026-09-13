@@ -1,37 +1,22 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ForecastService } from '../../../server/services/forecastService.js';
 
+/** PostgREST builder stand-in. `filters` records the trip-type narrowing forecastRoute applies. */
 function fakeSupabase({ rows = [], fail = false } = {}) {
-  return {
-    from() {
-      return {
-        select() {
-          return {
-            eq() {
-              return {
-                eq() {
-                  return {
-                    gte() {
-                      return {
-                        order() {
-                          return {
-                            async limit() {
-                              if (fail) return { data: null, error: { message: 'read failed' } };
-                              return { data: rows, error: null };
-                            }
-                          };
-                        }
-                      };
-                    }
-                  };
-                }
-              };
-            }
-          };
-        }
-      };
+  const filters = [];
+  const builder = {
+    select: () => builder,
+    eq: () => builder,
+    gte: () => builder,
+    not: (...args) => { filters.push(['not', ...args]); return builder; },
+    is: (...args) => { filters.push(['is', ...args]); return builder; },
+    order: () => builder,
+    async limit() {
+      if (fail) return { data: null, error: { message: 'read failed' } };
+      return { data: rows, error: null };
     }
   };
+  return { filters, from: () => builder };
 }
 
 describe('ForecastService', () => {
@@ -227,5 +212,25 @@ describe('ForecastService', () => {
       expect(global.fetch).toHaveBeenCalled();
       expect(batchResult.reason).toBe('huggingface_chronos_forecast');
     });
+  });
+});
+
+describe('ForecastService trip types', () => {
+  test('judges against round-trip history by default', async () => {
+    const supabase = fakeSupabase({ rows: [] });
+    await new ForecastService({ supabase }).forecastRoute('TLV', 'KRK', 400);
+
+    expect(supabase.filters).toEqual([['not', 'return_date', 'is', null]]);
+  });
+
+  test('judges a one-way fare against one-way history only', async () => {
+    const supabase = fakeSupabase({ rows: [] });
+    const result = await new ForecastService({ supabase }).forecastRoute('TLV', 'KRK', 190, 'USD', { tripType: 'oneway' });
+
+    expect(supabase.filters).toEqual([['is', 'return_date', null]]);
+    // No one-way rows yet: the honest answer is "not enough history", not a verdict.
+    expect(result.verdict).toBeNull();
+    expect(result.reason).toBe('insufficient_history');
+    expect(result.sampleSize).toBe(0);
   });
 });

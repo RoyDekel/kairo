@@ -45,6 +45,26 @@ describe('BuyVerdict with no verdict', () => {
     expect(screen.queryByText('History status')).not.toBeInTheDocument();
   });
 
+  test('names one-way history when a one-way fare has too little of it', () => {
+    render(
+      <BuyVerdict
+        activeFlight={flightWith({
+          currentPrice: 218,
+          recommendation: null,
+          verdict: null,
+          reason: 'insufficient_history',
+          tripType: 'oneway',
+          sampleSize: 0
+        })}
+        activeRoundtrip={null}
+        selectedDate="2026-09-14"
+      />
+    );
+
+    expect(screen.getByText('Insufficient one-way history for this route')).toBeInTheDocument();
+    expect(screen.getByText(/We have observed one-way fares on this route only 0 times/)).toBeInTheDocument();
+  });
+
   test('keeps the insufficient-history message for that reason', () => {
     render(
       <BuyVerdict
