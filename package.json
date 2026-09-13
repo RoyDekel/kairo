@@ -16,6 +16,7 @@
     "start": "node server.js",
     "test": "vitest --run",
     "test:watch": "vitest",
+    "test:clock-shift": "vitest --run --config vitest.clockshift.config.js",
     "test:e2e": "playwright test"
   },
   "dependencies": {
