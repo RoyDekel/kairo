@@ -87,6 +87,47 @@ describe('SerpApiProvider request timeout', () => {
   });
 });
 
+/**
+ * Every SerpApi flight used to carry a hardcoded "1 carry-on (8kg) + 1 checked bag (23kg)
+ * included." — false for every low-cost carrier, whose base fares include neither. Google
+ * Flights' response has no structured allowance, so the mapper must send null (rendered
+ * "Not reported" by FlightDetails), exactly as fliProvider already does.
+ */
+describe('SerpApiProvider baggage mapping', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const serpOffer = (flightNumber, airline) => ({
+    flights: [{
+      airline,
+      flight_number: flightNumber,
+      departure_airport: { id: 'TLV', time: '2026-10-15 06:10' },
+      arrival_airport: { id: 'FCO', time: '2026-10-15 09:15' },
+      airplane: 'Airbus A321neo',
+      travel_class: 'Economy'
+    }],
+    total_duration: 245,
+    price: 89
+  });
+
+  test.each([
+    ['W6 2327', 'Wizz Air'],
+    ['FR 7431', 'Ryanair'],
+    ['LY 381', 'El Al']
+  ])('reports no baggage allowance for %s (%s) rather than inventing one', async (flightNumber, airline) => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ best_flights: [serpOffer(flightNumber, airline)], other_flights: [] })
+    });
+
+    const [flight] = (await providerWithKey().searchAsync(request)).outbound;
+
+    expect(flight.airlineCode).toBe(flightNumber.split(' ')[0]);
+    expect(flight.baggage).toBeNull();
+  });
+});
+
 describe('SerpApiProvider error handling', () => {
   afterEach(() => {
     vi.restoreAllMocks();

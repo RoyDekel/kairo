@@ -55,10 +55,19 @@ const providerReturning = (results) =>
     currency: 'USD'
   });
 
+/*
+  Search dates are relative to today. The fli client rejects a travel date in the past, so a
+  hardcoded one turns every search in this file into "Travel date cannot be in the past" the
+  day after it passes. The leg fixtures above are response data and never meet the clock.
+*/
+const daysFromNow = (n) => new Date(Date.now() + n * 86400000).toISOString().split('T')[0];
+const departureDate = daysFromNow(60);
+const returnDate = daysFromNow(67);
+
 const request = {
   origin: 'TLV',
   destination: 'BCN',
-  departureDate: '2026-10-15',
+  departureDate,
   returnDate: '',
   passengers: { adults: 1, children: 0, infants: 0 },
   stops: '0',
@@ -326,7 +335,7 @@ describe('FliProvider — the stop limit is enforced on results, not just reques
     const provider = providerReturning(mixed);
 
     const results = await provider.searchAsync({
-      ...request, stops: '1', returnDate: '2026-10-22'
+      ...request, stops: '1', returnDate
     });
 
     expect(results.return.map((f) => f.stops)).toEqual(['Direct']);
@@ -387,7 +396,7 @@ describe('FliProvider — round trips', () => {
     const search = vi.fn().mockResolvedValue([offer({ price: 300 })]);
     const provider = new FliProvider({ search: { search }, currency: 'USD' });
 
-    const results = await provider.searchAsync({ ...request, returnDate: '2026-10-22' });
+    const results = await provider.searchAsync({ ...request, returnDate });
 
     expect(search).toHaveBeenCalledTimes(2);
     expect(results.outbound[0].price).toBe(300);

@@ -150,7 +150,11 @@ export class KiwiProvider extends FlightProvider {
         stops: stopsVal,
         planeType,
         terminal: terminalStr,
-        baggage: '1 carry-on (8kg) + 1 checked bag (23kg) included.',
+        // Unknown, so null (rendered "Not reported"). Tequila's `baglimit` is the carrier's
+        // size/weight ceiling, not what this fare includes — a Ryanair offer still lists a
+        // hold-bag weight limit though its base fare includes no hold bag — so formatting
+        // it as an allowance would repeat the same false "included" claim.
+        baggage: null,
         reliability,
         seatsRemaining: offer.seats || 5,
         direction,

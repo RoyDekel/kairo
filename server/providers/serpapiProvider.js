@@ -208,7 +208,11 @@ export class SerpApiProvider extends FlightProvider {
         layoverAirports,
         planeType,
         terminal: terminalStr,
-        baggage: '1 carry-on (8kg) + 1 checked bag (23kg) included.',
+        // Google Flights' response carries no structured baggage allowance. A fixed
+        // "carry-on + checked bag included" string was wrong for every low-cost carrier
+        // (Wizz, Ryanair include neither), so send null like fliProvider and let the UI
+        // say "Not reported".
+        baggage: null,
         reliability,
         seatsRemaining: 5,
         direction,

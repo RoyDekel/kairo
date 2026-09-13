@@ -15,6 +15,10 @@ import CustomDatePicker from '../CustomDatePicker.jsx';
   economy. See [KAI-001].
 */
 
+// The year dropdown only offers the current year and the four after it, so a hardcoded year
+// drops out of it on 1 January and every year assertion fails. Anchor the dates to today.
+const Y = new Date().getFullYear();
+
 const openCalendar = (labelText) => {
   fireEvent.click(screen.getByRole('button', { name: labelText }));
 };
@@ -41,19 +45,19 @@ function withProfiler(ui, commits) {
 describe('CustomDatePicker', () => {
   it('opens on the month the selected date falls in', () => {
     render(
-      <CustomDatePicker label="Departure" value="2026-09-14" onChange={vi.fn()} minDate="2026-01-01" />
+      <CustomDatePicker label="Departure" value={`${Y}-09-14`} onChange={vi.fn()} minDate={`${Y}-01-01`} />
     );
     openCalendar('Departure');
 
     expect(monthSelect()).toHaveValue('8'); // September, zero-indexed
-    expect(yearSelect()).toHaveValue('2026');
+    expect(yearSelect()).toHaveValue(String(Y));
   });
 
   it('snaps the visible month to a new value in a single committed render', () => {
     const commits = [];
     const { rerender } = render(
       withProfiler(
-        <CustomDatePicker label="Departure" value="2026-09-14" onChange={vi.fn()} minDate="2026-01-01" />,
+        <CustomDatePicker label="Departure" value={`${Y}-09-14`} onChange={vi.fn()} minDate={`${Y}-01-01`} />,
         commits
       )
     );
@@ -62,7 +66,7 @@ describe('CustomDatePicker', () => {
 
     rerender(
       withProfiler(
-        <CustomDatePicker label="Departure" value="2026-11-02" onChange={vi.fn()} minDate="2026-01-01" />,
+        <CustomDatePicker label="Departure" value={`${Y}-11-02`} onChange={vi.fn()} minDate={`${Y}-01-01`} />,
         commits
       )
     );
@@ -75,7 +79,7 @@ describe('CustomDatePicker', () => {
   it('lets the user page forward without changing the selected date', () => {
     const onChange = vi.fn();
     render(
-      <CustomDatePicker label="Departure" value="2026-09-14" onChange={onChange} minDate="2026-01-01" />
+      <CustomDatePicker label="Departure" value={`${Y}-09-14`} onChange={onChange} minDate={`${Y}-01-01`} />
     );
     openCalendar('Departure');
 
@@ -87,38 +91,38 @@ describe('CustomDatePicker', () => {
 
   it('rolls the year back when paging past January', () => {
     render(
-      <CustomDatePicker label="Departure" value="2027-01-10" onChange={vi.fn()} minDate="2026-01-01" />
+      <CustomDatePicker label="Departure" value={`${Y + 1}-01-10`} onChange={vi.fn()} minDate={`${Y}-01-01`} />
     );
     openCalendar('Departure');
 
     fireEvent.click(prevMonth());
 
     expect(monthSelect()).toHaveValue('11'); // December
-    expect(yearSelect()).toHaveValue('2026');
+    expect(yearSelect()).toHaveValue(String(Y));
   });
 
   it('rolls the year forward when paging past December', () => {
     render(
-      <CustomDatePicker label="Departure" value="2026-12-10" onChange={vi.fn()} minDate="2026-01-01" />
+      <CustomDatePicker label="Departure" value={`${Y}-12-10`} onChange={vi.fn()} minDate={`${Y}-01-01`} />
     );
     openCalendar('Departure');
 
     fireEvent.click(nextMonth());
 
     expect(monthSelect()).toHaveValue('0'); // January
-    expect(yearSelect()).toHaveValue('2027');
+    expect(yearSelect()).toHaveValue(String(Y + 1));
   });
 
   it('discards a browsed month once the selected date changes', () => {
     const { rerender } = render(
-      <CustomDatePicker label="Departure" value="2026-09-14" onChange={vi.fn()} minDate="2026-01-01" />
+      <CustomDatePicker label="Departure" value={`${Y}-09-14`} onChange={vi.fn()} minDate={`${Y}-01-01`} />
     );
     openCalendar('Departure');
     fireEvent.change(monthSelect(), { target: { value: '11' } }); // paged to December
     expect(monthSelect()).toHaveValue('11');
 
     rerender(
-      <CustomDatePicker label="Departure" value="2026-10-05" onChange={vi.fn()} minDate="2026-01-01" />
+      <CustomDatePicker label="Departure" value={`${Y}-10-05`} onChange={vi.fn()} minDate={`${Y}-01-01`} />
     );
 
     // The browse position belonged to the old date; the new one wins.
@@ -128,13 +132,13 @@ describe('CustomDatePicker', () => {
   it('reports the day the user clicks in the month they paged to', () => {
     const onChange = vi.fn();
     render(
-      <CustomDatePicker label="Departure" value="2026-09-14" onChange={onChange} minDate="2026-01-01" />
+      <CustomDatePicker label="Departure" value={`${Y}-09-14`} onChange={onChange} minDate={`${Y}-01-01`} />
     );
     openCalendar('Departure');
     fireEvent.change(monthSelect(), { target: { value: '10' } }); // November
 
     fireEvent.click(screen.getByRole('button', { name: '20' }));
 
-    expect(onChange).toHaveBeenCalledWith('2026-11-20');
+    expect(onChange).toHaveBeenCalledWith(`${Y}-11-20`);
   });
 });

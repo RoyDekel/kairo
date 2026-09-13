@@ -154,7 +154,14 @@ describe('TicketmasterProvider', () => {
     expect(insights.summary).not.toContain('due to event ticket pressure');
   });
 
+  /*
+    The departure date is relative for the same reason as the test above. It used to be a
+    hardcoded '2026-09-20', which silently crossed the 14-day BUY_NOW heuristic on
+    2026-09-06 and turned CI red on every branch. 30 days out sits between that heuristic
+    and the 40-day stable window, so WAIT here comes from the price, not the calendar.
+  */
   test('recommends WAIT when no event conflict and price is above low 90-day benchmark', () => {
+    const inAMonth = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
     const mockFlight = { id: 'FL-LHR-202', price: 650, destination: 'LHR' };
     const mockEvents = [
       {
@@ -168,10 +175,11 @@ describe('TicketmasterProvider', () => {
       }
     ];
 
-    const insights = computeEventDrivenInsights(mockFlight, { departureDate: '2026-09-20' }, mockEvents);
+    const insights = computeEventDrivenInsights(mockFlight, { departureDate: inAMonth }, mockEvents);
 
     expect(insights).toBeDefined();
     expect(insights.recommendation).toBe('WAIT');
+    expect(insights.riskLevel).toBe('Medium');
     expect(insights.isHighImpactEvent).toBe(false);
   });
 });
