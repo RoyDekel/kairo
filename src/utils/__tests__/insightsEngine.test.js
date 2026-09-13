@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, test, expect } from 'vitest';
-import { computeEventDrivenInsights } from '../../../server/services/insightsEngine.js';
+import { computeEventDrivenInsights, missingRoundtripDirection } from '../../../server/services/insightsEngine.js';
 
 /*
   THIS FILE IS THE TRUST GUARDRAIL (KAI-004).
@@ -291,5 +291,81 @@ describe('computeEventDrivenInsights — insufficient history short-circuits fir
     // The early-return object simply has no price-derived fields on it.
     expect(res.pricePercentile).toBeUndefined();
     expect(res.expectedSavings).toBeUndefined();
+  });
+});
+
+/*
+  A round trip with one direction missing.
+
+  server.js priced each flight as `this leg + the cheapest other leg`, and a missing leg
+  counted as $0. flight_search_cache holds 17 such searches (TLV->KRK sign-ins with no
+  outbound left that day): every return flight in them was judged, as a one-way fare,
+  against a history of round-trip fares.
+*/
+describe('missingRoundtripDirection', () => {
+  const some = [{ price: 200 }];
+
+  test('names the empty direction of a requested round trip', () => {
+    expect(missingRoundtripDirection('2026-09-14', [], some)).toBe('outbound');
+    expect(missingRoundtripDirection('2026-09-14', some, [])).toBe('return');
+    expect(missingRoundtripDirection('2026-09-14', undefined, some)).toBe('outbound');
+  });
+
+  test('reports outbound first when both directions are empty', () => {
+    expect(missingRoundtripDirection('2026-09-14', [], [])).toBe('outbound');
+  });
+
+  test('is null for a complete round trip', () => {
+    expect(missingRoundtripDirection('2026-09-14', some, some)).toBeNull();
+  });
+
+  // No return date means one-way: an empty return list is what was asked for.
+  test('is null for a one-way search', () => {
+    expect(missingRoundtripDirection('', some, [])).toBeNull();
+    expect(missingRoundtripDirection(undefined, some, [])).toBeNull();
+  });
+});
+
+describe('computeEventDrivenInsights — a one-sided round trip gets no verdict', () => {
+  test('the one-way-fare-against-round-trip-history case used to read as BUY_NOW', () => {
+    // The shape of the bug: a $218 lone return leg, compared against round-trip history.
+    const forecast = cachedForecast();
+    const before = computeEventDrivenInsights(flight, {}, noEvents, { forecast, comparisonPrice: 218 });
+    expect(before.recommendation).toBe('BUY_NOW');
+
+    const res = computeEventDrivenInsights(flight, {}, noEvents, {
+      forecast,
+      comparisonPrice: 218,
+      missingDirection: 'outbound'
+    });
+
+    expect(res.recommendation).toBeNull();
+    expect(res.verdict).toBeNull();
+    expect(res.reason).toBe('incomplete_roundtrip');
+    expect(res.missingDirection).toBe('outbound');
+    expect(res.actionHeadline).toBe('NO RECOMMENDATION');
+    expect(res.confidenceScore).toBeNull();
+    expect(res.priceHistory).toBeNull();
+    expect(res.summary).toContain('No outbound flights were found');
+    expect(res.pricePercentile).toBeUndefined();
+    expect(res.expectedSavings).toBeUndefined();
+  });
+
+  test('outranks insufficient history, and still works with no forecast at all', () => {
+    const insufficient = { verdict: null, reason: 'insufficient_history', sampleSize: 2 };
+
+    expect(computeEventDrivenInsights(flight, {}, noEvents, { forecast: insufficient, missingDirection: 'return' }).reason)
+      .toBe('incomplete_roundtrip');
+    expect(computeEventDrivenInsights(flight, {}, noEvents, { missingDirection: 'return' }).summary)
+      .toContain('No return flights were found');
+  });
+
+  test('an event is still carried as context', () => {
+    const event = { title: 'Unsound Festival', venue: 'ICE Kraków', eventImpactScore: 80, isSoldOut: false };
+
+    const res = computeEventDrivenInsights(flight, {}, [event], { missingDirection: 'outbound' });
+
+    expect(res.topEvent).toBe(event);
+    expect(res.recommendation).toBeNull();
   });
 });

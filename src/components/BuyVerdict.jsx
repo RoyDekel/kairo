@@ -35,6 +35,11 @@ export default function BuyVerdict({ activeFlight, activeRoundtrip, selectedDate
     : null;
 
   if (insight.recommendation === null || insight.verdict === null) {
+    // The server withholds a verdict for two different reasons, and the panel has to say
+    // which. Telling the user a route lacks history when the real problem is that one
+    // direction had no flights would be its own made-up explanation.
+    const incompleteTrip = insight.reason === 'incomplete_roundtrip';
+
     return (
       <div className="glass-panel verdict animate-fade-in" style={{ borderLeft: `4px solid var(--text-muted)` }}>
         <div className="verdict-main">
@@ -45,13 +50,17 @@ export default function BuyVerdict({ activeFlight, activeRoundtrip, selectedDate
 
           <div className="verdict-headline" style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Minus size={26} />
-            Insufficient history for this route
+            {incompleteTrip ? 'No verdict for this trip' : 'Insufficient history for this route'}
           </div>
 
           <p className="verdict-summary">
-            We have observed this route only {insight.sampleSize || 0} times. 
-            We require at least 5 observations before we can recommend a Buy/Wait verdict. 
-            Keep searching to help us build a baseline!
+            {incompleteTrip ? insight.summary : (
+              <>
+                We have observed this route only {insight.sampleSize || 0} times.
+                We require at least 5 observations before we can recommend a Buy/Wait verdict.
+                Keep searching to help us build a baseline!
+              </>
+            )}
           </p>
         </div>
 
@@ -72,13 +81,15 @@ export default function BuyVerdict({ activeFlight, activeRoundtrip, selectedDate
             </div>
           )}
 
-          <div className="verdict-stat">
-            <div className="verdict-stat-label">History status</div>
-            <div className="verdict-stat-value" style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-              {insight.sampleSize || 0} / 5
+          {!incompleteTrip && (
+            <div className="verdict-stat">
+              <div className="verdict-stat-label">History status</div>
+              <div className="verdict-stat-value" style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                {insight.sampleSize || 0} / 5
+              </div>
+              <div className="verdict-stat-note">observations collected</div>
             </div>
-            <div className="verdict-stat-note">observations collected</div>
-          </div>
+          )}
         </div>
       </div>
     );
