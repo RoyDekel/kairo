@@ -3,10 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Filter, Sparkles, ArrowRight, Check, Globe,
-  Users, ChevronDown, ShieldAlert, ArrowLeftRight
+  Users, ChevronDown, ShieldAlert, ArrowLeftRight, Luggage
 } from 'lucide-react';
 import { AIRLINES, getSkyscannerUrl } from '../utils/flightSimulator';
 import { formatStopsLabel } from '../utils/flightDisplay';
+import {
+  BAG_OPTIONS, DEFAULT_BAG_OPTION, estimateBagFee, compareFareWithBag,
+  cheapestFlightIdsWithBag, totalWithBags, bagPayingPassengers, describeBagEstimate
+} from '../utils/baggageCost';
 import CustomDatePicker from './CustomDatePicker';
 import AirportAutocomplete from './AirportAutocomplete';
 import { useAuth } from '../contexts/authContext';
@@ -196,6 +200,14 @@ export default function AlternativeFlights({
   const [sortKey, setSortKey] = useState('price'); // 'price', 'duration'
   const [filterCarrier, setFilterCarrier] = useState('ALL');
 
+  /*
+    The bag the traveller is flying with. A view option, not a search parameter: it
+    re-prices the results already on screen (see utils/baggageCost.js), so changing it
+    never triggers another /api/flights call. Kept across new searches for the same reason
+    — it describes the traveller, not the route.
+  */
+  const [bagOption, setBagOption] = useState(DEFAULT_BAG_OPTION);
+
   // Booking Flow Steps: 1 = Outbound Selection, 2 = Return Selection, 3 = Confirmation Bundle
   const [bookingStep, setBookingStep] = useState(1);
   const [selectedOutbound, setSelectedOutbound] = useState(null);
@@ -224,6 +236,7 @@ export default function AlternativeFlights({
     && p.searchParams === searchParams
     && p.filterCarrier === filterCarrier
     && p.sortKey === sortKey
+    && p.bagOption === bagOption
   );
 
   const currentPage = pageBelongsToCurrentResults(pageState) ? pageState.n : 1;
@@ -236,6 +249,7 @@ export default function AlternativeFlights({
       searchParams,
       filterCarrier,
       sortKey,
+      bagOption,
       n: typeof next === 'function' ? next(from) : next,
     };
   });
@@ -431,9 +445,11 @@ export default function AlternativeFlights({
     return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
   };
 
+  // "Cheapest" means cheapest to fly with the chosen bag. With the personal-item default
+  // the bag adds nothing and this is the plain fare order.
   const sortedFlights = [...filteredFlights].sort((a, b) => {
     if (sortKey === 'price') {
-      return a.price - b.price;
+      return compareFareWithBag(a, b, bagOption);
     } else if (sortKey === 'duration') {
       const aDur = a.durationVal != null ? a.durationVal : parseDurationToMinutes(a.duration);
       const bDur = b.durationVal != null ? b.durationVal : parseDurationToMinutes(b.duration);
@@ -446,9 +462,7 @@ export default function AlternativeFlights({
   const totalPages = Math.ceil(sortedFlights.length / ITEMS_PER_PAGE);
   const paginatedFlights = sortedFlights.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const cheapestPrice = activeFlightList.length > 0
-    ? Math.min(...activeFlightList.map(f => f.price))
-    : 0;
+  const cheapestFlightIds = cheapestFlightIdsWithBag(activeFlightList, bagOption);
 
   // Selection handlers
   const handleSelectOutbound = (flight) => {
@@ -483,6 +497,15 @@ export default function AlternativeFlights({
     // Navigate to Dashboard HUD
     setActiveTab('dashboard');
   };
+
+  // Bag estimate for the confirmation breakdown: every chosen leg, every paying passenger.
+  const bagPassengerCount = bagPayingPassengers(searchParams.passengers);
+  const confirmBagEstimates = [selectedOutbound, selectedReturn]
+    .filter(Boolean)
+    .map((flight) => estimateBagFee(flight, bagOption));
+  const confirmBagTotal = confirmBagEstimates.reduce((sum, e) => sum + e.fee, 0) * bagPassengerCount;
+  const confirmBagUnknown = confirmBagEstimates.some((e) => e.status === 'unknown');
+  const bagOptionLabel = BAG_OPTIONS.find((opt) => opt.value === bagOption)?.label || '';
 
   const skyscannerUrl = bookingStep === 1
     ? getSkyscannerUrl(searchParams.origin, searchParams.destination, searchParams.departureDate)
@@ -1183,6 +1206,27 @@ export default function AlternativeFlights({
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Luggage size={14} style={{ color: 'var(--text-secondary)' }} />
+                <span style={{ color: 'var(--text-secondary)' }}>Bags:</span>
+                <div role="group" aria-label="Baggage" style={{ display: 'flex', background: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px solid var(--border-glass)', padding: '2px' }}>
+                  {BAG_OPTIONS.map((opt) => {
+                    const isActive = bagOption === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => setBagOption(opt.value)}
+                        style={{ padding: '4px 10px', borderRadius: '4px', border: 'none', background: isActive ? 'var(--bg-secondary)' : 'transparent', color: isActive ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Filter size={14} style={{ color: 'var(--text-secondary)' }} />
                 <select
                   value={filterCarrier}
@@ -1196,6 +1240,12 @@ export default function AlternativeFlights({
                 </select>
               </div>
             </div>
+
+            {bagOption !== DEFAULT_BAG_OPTION && (
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '-10px' }}>
+                Bag costs are estimates from each airline&apos;s typical policy, not live quotes. Fares shown are the ticket price; &quot;Cheapest&quot; ranks by fare plus bag, with unknown bag costs listed last.
+              </div>
+            )}
 
             {/* LISTINGS CARD GRID */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1216,7 +1266,9 @@ export default function AlternativeFlights({
                 </div>
               ) : (
                 paginatedFlights.map((flight) => {
-                  const isCheapest = flight.price === cheapestPrice;
+                  const isCheapest = cheapestFlightIds.has(flight.id);
+                  const bagEstimate = estimateBagFee(flight, bagOption);
+                  const bagNote = describeBagEstimate(bagEstimate, bagOption);
                   // Unknown carrier codes fall back to a neutral plane glyph, not a
                   // specific airline's logo (matches Watchlist/FlightDetails).
                   const airline = AIRLINES[flight.airlineCode] || { name: 'Unknown', logo: '✈️', color: 'var(--primary)' };
@@ -1301,15 +1353,37 @@ export default function AlternativeFlights({
                       </div>
 
                       {/* Fare display */}
-                      <div style={{ textAlign: 'center', flex: '0 0 120px' }}>
+                      <div style={{ textAlign: 'center', flex: '0 0 140px' }}>
                         <div className="num" style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary)' }}>
                           ${flight.price}
                         </div>
                         <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
                           per adult
                         </div>
+                        {bagNote && (
+                          <div
+                            data-testid="bag-note"
+                            title={bagNote.detail}
+                            style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 600,
+                              marginTop: '2px',
+                              color: bagEstimate.status === 'included'
+                                ? 'var(--success)'
+                                : bagEstimate.status === 'unknown'
+                                ? 'var(--text-muted)'
+                                : 'var(--warning)'
+                            }}
+                          >
+                            {bagNote.text}
+                          </div>
+                        )}
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 600 }}>
-                          Total: <span className="num">${flight.passengerCosts.total}</span>
+                          {bagEstimate.fee > 0 ? (
+                            <>Total w/ bags: <span className="num">~${totalWithBags(flight, bagOption, searchParams.passengers)}</span></>
+                          ) : (
+                            <>Total: <span className="num">${flight.passengerCosts.total}</span></>
+                          )}
                         </div>
                       </div>
 
@@ -1521,6 +1595,18 @@ export default function AlternativeFlights({
                       </span>
                     </div>
                   )}
+
+                  {/* Bags (estimate) — not part of the fare, so not part of Total Fare */}
+                  {bagOption !== DEFAULT_BAG_OPTION && (
+                    <div data-testid="bag-breakdown" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>
+                        {bagOptionLabel} (<span className="num">{bagPassengerCount}</span> pax, est.)
+                      </span>
+                      <span className="num" style={{ color: confirmBagTotal > 0 ? 'var(--warning)' : 'var(--success)', fontWeight: 600 }}>
+                        {confirmBagTotal > 0 ? `~$${confirmBagTotal}` : confirmBagUnknown ? 'Unknown' : 'Included'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '10px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -1529,6 +1615,17 @@ export default function AlternativeFlights({
                     ${selectedOutbound.passengerCosts.total + (selectedReturn ? selectedReturn.passengerCosts.total : 0)}
                   </span>
                 </div>
+
+                {confirmBagTotal > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    <span>
+                      Est. total with bags{confirmBagUnknown ? ' (one leg unknown)' : ''}:
+                    </span>
+                    <span className="num" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                      ~${selectedOutbound.passengerCosts.total + (selectedReturn ? selectedReturn.passengerCosts.total : 0) + confirmBagTotal}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons Row */}
