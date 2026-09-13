@@ -16,10 +16,15 @@ const providerWithKey = (apiKey = 'test-key') => {
   return provider;
 };
 
+// Relative to today, as in fliProvider.test.js: a hardcoded search date becomes a past
+// travel date once it passes, and the offer below is kept on the same day as the request.
+const daysFromNow = (n) => new Date(Date.now() + n * 86400000).toISOString().split('T')[0];
+const departureDate = daysFromNow(60);
+
 const request = {
   origin: 'TLV',
   destination: 'BUD',
-  departureDate: '2026-10-15',
+  departureDate,
   returnDate: '',
   passengers: { adults: 1, children: 0, infants: 0 },
   stops: '0'
@@ -29,8 +34,8 @@ const kiwiOffer = (airline, extra = {}) => ({
   id: `${airline}-offer`,
   flyFrom: 'TLV',
   flyTo: 'BUD',
-  local_departure: '2026-10-15T06:10:00.000Z',
-  local_arrival: '2026-10-15T09:00:00.000Z',
+  local_departure: `${departureDate}T06:10:00.000Z`,
+  local_arrival: `${departureDate}T09:00:00.000Z`,
   duration: { departure: 10200 },
   price: 79,
   route: [{ airline, flight_no: 2327 }],
