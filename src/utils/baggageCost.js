@@ -53,6 +53,8 @@ export function estimateBagFee(flight, bagOption) {
   if (policy.included === true) return { status: 'included', fee: 0, range: null };
 
   const isLongHaul = Number.isFinite(flight.distance) && flight.distance >= LONG_HAUL_KM;
+  // longHaulFee: null — the carrier's published price only covers shorter routes.
+  if (isLongHaul && policy.longHaulFee === null) return { status: 'unknown', fee: 0, range: null };
   const range = (isLongHaul && policy.longHaulFee) || policy.fee;
   if (!Array.isArray(range)) return { status: 'unknown', fee: 0, range: null };
 
@@ -122,6 +124,8 @@ export function describeBagEstimate(estimate, bagOption) {
   if (!noun || !estimate || estimate.status === 'none') return null;
 
   const [min, max] = estimate.range || [];
+  // A carrier that publishes one flat price reads "$30", not "$30–$30".
+  const price = min === max ? `$${min}` : `$${min}–$${max}`;
   switch (estimate.status) {
     case 'included':
       return {
@@ -131,12 +135,12 @@ export function describeBagEstimate(estimate, bagOption) {
     case 'extra':
       return {
         text: `+~$${estimate.fee} ${noun} (est.)`,
-        detail: `Typical ${noun} fee $${min}–$${max} one way per passenger, bought online. Estimate — check with the airline.`
+        detail: `Typical ${noun} fee ${price} one way per passenger, bought online. Estimate — check with the airline.`
       };
     case 'fare-dependent':
       return {
         text: `+~$${estimate.fee} ${noun} (est.)`,
-        detail: `Usually not in this airline's lowest fare (Light / Basic); higher fare families include it. Typical fee $${min}–$${max} one way per passenger.`
+        detail: `Usually not in this airline's lowest fare (Light / Basic); higher fare families include it. Typical fee ${price} one way per passenger.`
       };
     default:
       return {
