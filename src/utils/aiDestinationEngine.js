@@ -5,8 +5,8 @@ import { scoreDestination, fareRankPercentiles, savingsAgainstTypical } from './
 import { detectTravelOccasion } from '../../shared/travelOccasion.js';
 import {
   DEFAULT_ORIGIN,
-  DEFAULT_DEPARTURE_DATE,
-  DEFAULT_RETURN_DATE
+  getDefaultDepartureDate,
+  getDefaultReturnDate
 } from './searchDefaults';
 
 /**
@@ -239,8 +239,9 @@ function pickCheapest(flights) {
  */
 export async function searchAIDestinations({
   origin = DEFAULT_ORIGIN,
-  departureDate = DEFAULT_DEPARTURE_DATE,
-  returnDate = DEFAULT_RETURN_DATE,
+  // Default parameters are evaluated per call, so these are fresh every search.
+  departureDate = getDefaultDepartureDate(),
+  returnDate = getDefaultReturnDate(),
   maxBudget = 1000,
   interests = [],
   accessToken = null

@@ -24,8 +24,8 @@ import { getApiBase, authHeaders, fetchWithTimeout } from './lib/apiBase';
 import {
   DEFAULT_ORIGIN,
   DEFAULT_DESTINATION,
-  DEFAULT_DEPARTURE_DATE,
-  DEFAULT_RETURN_DATE,
+  getDefaultDepartureDate,
+  getDefaultReturnDate,
   createDefaultPassengers,
   createDefaultSearchParams
 } from './utils/searchDefaults';
@@ -213,8 +213,11 @@ export default function App() {
 
   // 2. Active Roundtrip Bundle State
   const [activeRoundtrip, setActiveRoundtrip] = useState(() => {
-    const defaultOutbound = generateFlightsForRoute(DEFAULT_ORIGIN, DEFAULT_DESTINATION, DEFAULT_DEPARTURE_DATE, 'outbound', { adults: 1 })[0];
-    const defaultReturn = generateFlightsForRoute(DEFAULT_DESTINATION, DEFAULT_ORIGIN, DEFAULT_RETURN_DATE, 'return', { adults: 1 })[0];
+    const now = new Date();
+    const departureDate = getDefaultDepartureDate(now);
+    const returnDate = getDefaultReturnDate(now);
+    const defaultOutbound = generateFlightsForRoute(DEFAULT_ORIGIN, DEFAULT_DESTINATION, departureDate, 'outbound', { adults: 1 })[0];
+    const defaultReturn = generateFlightsForRoute(DEFAULT_DESTINATION, DEFAULT_ORIGIN, returnDate, 'return', { adults: 1 })[0];
 
     return {
       outbound: defaultOutbound,
@@ -222,8 +225,8 @@ export default function App() {
       passengers: createDefaultPassengers(),
       origin: DEFAULT_ORIGIN,
       destination: DEFAULT_DESTINATION,
-      departureDate: DEFAULT_DEPARTURE_DATE,
-      returnDate: DEFAULT_RETURN_DATE
+      departureDate,
+      returnDate
     };
   });
 
@@ -555,12 +558,17 @@ export default function App() {
     pingBackend();
 
     const fetchDefaultFlights = async () => {
+      // Computed per run: this effect re-fires on every sign-in, and a tab can stay open
+      // for days. Dates fixed at page load are how it came to search yesterday's flights.
+      const now = new Date();
+      const departureDate = getDefaultDepartureDate(now);
+      const returnDate = getDefaultReturnDate(now);
       try {
         const queryParams = new URLSearchParams({
           origin: DEFAULT_ORIGIN,
           destination: DEFAULT_DESTINATION,
-          departureDate: DEFAULT_DEPARTURE_DATE,
-          returnDate: DEFAULT_RETURN_DATE,
+          departureDate,
+          returnDate,
           adults: '1',
           children: '0',
           infants: '0',
@@ -580,8 +588,8 @@ export default function App() {
               passengers: createDefaultPassengers(),
               origin: DEFAULT_ORIGIN,
               destination: DEFAULT_DESTINATION,
-              departureDate: DEFAULT_DEPARTURE_DATE,
-              returnDate: DEFAULT_RETURN_DATE
+              departureDate,
+              returnDate
             });
           }
         }
