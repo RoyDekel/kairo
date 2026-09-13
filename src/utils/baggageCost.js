@@ -15,7 +15,7 @@ import { AIRLINE_BAGGAGE, LONG_HAUL_KM } from '../../shared/airlineBaggage.js';
 export const BAG_OPTIONS = [
   { value: 'personal', label: 'Personal item' },
   { value: 'carryon', label: 'Carry-on' },
-  { value: 'checked', label: 'Checked bag 23kg' }
+  { value: 'checked', label: 'Checked bag 20–23kg' }
 ];
 
 /** Personal item only: every fare includes it, so the default changes no price. */
@@ -50,16 +50,22 @@ export function estimateBagFee(flight, bagOption) {
   const policy = AIRLINE_BAGGAGE[code]?.[key];
   if (!policy) return { status: 'unknown', fee: 0, range: null };
 
-  if (policy.included === true) return { status: 'included', fee: 0, range: null };
-
   const isLongHaul = Number.isFinite(flight.distance) && flight.distance >= LONG_HAUL_KM;
+  // A carrier whose cheapest fare differs by route length overrides `included` on long-haul.
+  const included = isLongHaul && policy.longHaulIncluded !== undefined
+    ? policy.longHaulIncluded
+    : policy.included;
+
+  if (included === true) return { status: 'included', fee: 0, range: null };
+
   // longHaulFee: null — the carrier's published price only covers shorter routes.
   if (isLongHaul && policy.longHaulFee === null) return { status: 'unknown', fee: 0, range: null };
+  // fee: null — the carrier publishes no price for this bag.
   const range = (isLongHaul && policy.longHaulFee) || policy.fee;
   if (!Array.isArray(range)) return { status: 'unknown', fee: 0, range: null };
 
   return {
-    status: policy.included === 'fare' ? 'fare-dependent' : 'extra',
+    status: included === 'fare' ? 'fare-dependent' : 'extra',
     fee: Math.round((range[0] + range[1]) / 2),
     range
   };
@@ -145,7 +151,7 @@ export function describeBagEstimate(estimate, bagOption) {
     default:
       return {
         text: `${capitalize(noun)} fee unknown`,
-        detail: `No baggage policy on file for this airline, so the ${noun} is not added to the total.`
+        detail: `No published ${noun} price on file for this airline on this route, so it is not added to the total.`
       };
   }
 }

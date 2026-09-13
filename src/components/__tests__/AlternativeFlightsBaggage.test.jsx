@@ -121,7 +121,7 @@ describe('AlternativeFlights baggage selector', () => {
 
   it('shows an estimated party total when a bag fee applies', async () => {
     await renderList();
-    fireEvent.click(bagButton('Checked bag 23kg'));
+    fireEvent.click(bagButton('Checked bag 20–23kg'));
 
     expect(screen.getAllByText(/Total w\/ bags:/).length).toBeGreaterThan(0);
     expect(screen.getByText(/estimates from each airline/)).toBeInTheDocument();
@@ -129,14 +129,14 @@ describe('AlternativeFlights baggage selector', () => {
 
   it('carries the bag estimate into the confirmation breakdown', async () => {
     await renderList();
-    fireEvent.click(bagButton('Checked bag 23kg'));
+    fireEvent.click(bagButton('Checked bag 20–23kg'));
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Select Outbound' })[0]);
     await screen.findByText('Selected Outbound Leg');
     fireEvent.click(screen.getAllByRole('button', { name: 'Select Return' })[0]);
 
     const line = await screen.findByTestId('bag-breakdown');
-    expect(line).toHaveTextContent(/Checked bag 23kg \(1 pax, est\.\)/);
+    expect(line).toHaveTextContent(/Checked bag 20–23kg \(1 pax, est\.\)/);
     expect(line).toHaveTextContent(/~\$\d+/);
     expect(screen.getByText(/Est\. total with bags/)).toBeInTheDocument();
   });

@@ -103,6 +103,25 @@ describe('estimateBagFee', () => {
       .toEqual({ status: 'unknown', fee: 0, range: null });
   });
 
+  it('reports unknown for a bag the carrier sells but publishes no price for (fee: null)', () => {
+    // LOT: checked bag excluded on Saver, price only shown per itinerary.
+    expect(estimateBagFee(flight({ airlineCode: 'LO' }), 'checked'))
+      .toEqual({ status: 'unknown', fee: 0, range: null });
+  });
+
+  it('lets a long-haul inclusion override a short-haul fare dependency (Lufthansa Basic)', () => {
+    // Economy Basic (personal item only) is sold on short/medium-haul routes only.
+    expect(estimateBagFee(flight({ airlineCode: 'LH', distance: 1800 }), 'carryon').status).toBe('unknown');
+    expect(estimateBagFee(flight({ airlineCode: 'LH', distance: 9000 }), 'carryon').status).toBe('included');
+  });
+
+  it('applies a shared group policy to every carrier in the group', () => {
+    expect(AIRLINE_BAGGAGE.LX).toBe(AIRLINE_BAGGAGE.LH);
+    expect(AIRLINE_BAGGAGE.AF).toBe(AIRLINE_BAGGAGE.KL);
+    expect(estimateBagFee(flight({ airlineCode: 'AF', distance: 9000 }), 'checked').range)
+      .toEqual(AIRLINE_BAGGAGE.KL.checked.longHaulFee);
+  });
+
   it('prices Pegasus from its traveller-reported band', () => {
     const est = estimateBagFee(flight({ airlineCode: 'PC' }), 'checked');
     expect(est.status).toBe('extra');
@@ -212,13 +231,18 @@ describe('AIRLINE_BAGGAGE table', () => {
       for (const bag of ['carryOn', 'checked']) {
         const p = policy[bag];
         expect(p, `${code}.${bag}`).toBeDefined();
+        expect([true, false, 'fare'], `${code}.${bag}.included`).toContain(p.included);
+        if (p.longHaulIncluded !== undefined) {
+          expect([true, false, 'fare'], `${code}.${bag}.longHaulIncluded`).toContain(p.longHaulIncluded);
+        }
         if (p.included === true) continue;
         for (const range of [p.fee, p.longHaulFee].filter(Boolean)) {
           expect(range, `${code}.${bag}`).toHaveLength(2);
           expect(range[0], `${code}.${bag}`).toBeGreaterThan(0);
           expect(range[1], `${code}.${bag}`).toBeGreaterThanOrEqual(range[0]);
         }
-        expect(p.fee, `${code}.${bag} needs a short-haul fee`).toBeDefined();
+        // null is a deliberate "no published price"; undefined would be a forgotten field.
+        expect(p.fee, `${code}.${bag} needs a short-haul fee or an explicit null`).not.toBeUndefined();
       }
     }
   });
