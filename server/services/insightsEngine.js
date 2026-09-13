@@ -5,7 +5,21 @@ import { percentileOf } from './fareHistory.js';
  * Correlates flight fare analytics with Ticketmaster Event Intelligence & Days-to-Departure curves.
  */
 
-export function computeEventDrivenInsights(flight, searchRequest = {}, events = [], { coverage = 'full', forecast = null, comparisonPrice = null } = {}) {
+/**
+ * Which direction of a requested round trip came back with no flights, or null when there
+ * is nothing missing — including one-way searches, where an empty return list is the
+ * requested shape rather than a gap. Outbound is reported first when both are empty.
+ *
+ * @returns {'outbound'|'return'|null}
+ */
+export function missingRoundtripDirection(returnDate, outbound = [], returnFlights = []) {
+  if (!returnDate) return null;
+  if (!outbound?.length) return 'outbound';
+  if (!returnFlights?.length) return 'return';
+  return null;
+}
+
+export function computeEventDrivenInsights(flight, searchRequest = {}, events = [], { coverage = 'full', forecast = null, comparisonPrice = null, missingDirection = null } = {}) {
   const currentPrice = flight?.price || 450;
   const comparisonPriceToUse = comparisonPrice !== null && comparisonPrice !== undefined ? comparisonPrice : currentPrice;
 
@@ -46,6 +60,40 @@ export function computeEventDrivenInsights(flight, searchRequest = {}, events = 
   // isSoldOut, unlike the score, is a real field the ticketing API reports. It is the only
   // event signal allowed to reach the user-facing narrative, and even then only as a fact.
   const hasSoldOutEvent = Boolean(topEvent?.isSoldOut);
+
+  /*
+    A round trip with one direction missing has no round-trip fare to judge.
+
+    server.js prices each flight as `this leg + the cheapest other leg`, and a missing leg
+    counted as $0 there — so a lone return flight was compared, as a one-way fare, against
+    history made of round-trip fares, and came out looking like the cheapest trip in 90 days.
+    There is no honest verdict to give, so none is: the same empty-state shape as
+    insufficient history, with its own reason so the UI can say why.
+  */
+  if (missingDirection) {
+    return {
+      currentPrice,
+      daysToDeparture,
+      recommendation: null,
+      actionHeadline: 'NO RECOMMENDATION',
+      confidenceScore: null,
+      confidenceStars: null,
+      summary: `No ${missingDirection} flights were found for these dates, so there is no round-trip fare to compare with this route's history.`,
+      topEvent,
+      eventImpactScore,
+      isHighImpactEvent,
+      eventCoverage: coverage,
+      rationalePillars: [
+        topEvent ? `Event Surge: "${topEvent.title}" (${topEvent.eventImpactScore}% Impact)` : 'Ticketmaster live event analytics',
+        `Round-trip fare (no ${missingDirection} flights found)`
+      ],
+      priceHistory: null,
+      sampleSize: null,
+      verdict: null,
+      reason: 'incomplete_roundtrip',
+      missingDirection
+    };
+  }
 
   // Handle Insufficient History empty state early
   if (forecast && forecast.verdict === null) {

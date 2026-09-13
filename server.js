@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { FlightSearchService } from './server/services/flightSearchService.js';
 import { EventSearchService, EventStatus } from './server/services/eventSearchService.js';
 import { eventUsageMeter } from './server/services/eventUsageMeter.js';
-import { computeEventDrivenInsights } from './server/services/insightsEngine.js';
+import { computeEventDrivenInsights, missingRoundtripDirection } from './server/services/insightsEngine.js';
 import { quoteCache, cheapestFlight } from './server/services/quoteCache.js';
 import { flightSearchCache } from './server/services/flightSearchCache.js';
 import { fareHistory, FareHistory } from './server/services/fareHistory.js';
@@ -668,6 +668,11 @@ app.get('/api/flights', requireAuth, async (req, res) => {
     const cheapestReturnPrice = cheapestReturnRaw?.price || 0;
     const currentRoundtripPrice = cheapestOutboundPrice + cheapestReturnPrice;
 
+    // A round trip missing a direction has no round-trip fare: the `|| 0` above would make
+    // currentRoundtripPrice a one-way fare. Such a search gets no verdict, so the forecast —
+    // a history read and possibly a Chronos call, fed that one-way number — is skipped.
+    const missingDirection = missingRoundtripDirection(returnDate, results.outbound, results.return);
+
     /*
       Serve a precomputed verdict from forecast_cache when one is time-fresh, so this
       request does not pay for a ~1,000-row read, the daily-index
@@ -686,7 +691,7 @@ app.get('/api/flights', requireAuth, async (req, res) => {
       own live price. That is why the read no longer gates on price drift (KAI-004).
     */
     let forecast = null;
-    if (process.env.FORECAST_CACHE_READ_ENABLED === 'true') {
+    if (!missingDirection && process.env.FORECAST_CACHE_READ_ENABLED === 'true') {
       try {
         const route = FareHistory.routeKey(origin, destination);
         forecast = await forecastCache.get(route, FARE_CURRENCY, currentRoundtripPrice, {
@@ -701,7 +706,7 @@ app.get('/api/flights', requireAuth, async (req, res) => {
         forecast = null;
       }
     }
-    if (!forecast) {
+    if (!forecast && !missingDirection) {
       forecast = await forecastService.forecastRoute(origin, destination, currentRoundtripPrice, FARE_CURRENCY);
     }
 
@@ -715,7 +720,8 @@ app.get('/api/flights', requireAuth, async (req, res) => {
         insights: computeEventDrivenInsights(flight, request, events, {
           coverage: eventSearchService.hasCoverage ? 'full' : 'ticketed-only',
           forecast,
-          comparisonPrice: flightRoundtripPrice
+          comparisonPrice: flightRoundtripPrice,
+          missingDirection
         })
       };
     });
@@ -727,7 +733,8 @@ app.get('/api/flights', requireAuth, async (req, res) => {
         insights: computeEventDrivenInsights(flight, request, events, {
           coverage: eventSearchService.hasCoverage ? 'full' : 'ticketed-only',
           forecast,
-          comparisonPrice: flightRoundtripPrice
+          comparisonPrice: flightRoundtripPrice,
+          missingDirection
         })
       };
     });
